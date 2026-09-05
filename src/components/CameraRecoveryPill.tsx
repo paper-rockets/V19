@@ -106,7 +106,7 @@ export const CameraRecoveryPill: React.FC<CameraRecoveryPillProps> = ({ engine, 
         }`}
         title="Return camera to artwork"
       >
-        <Compass className="w-4 h-4 text-sky-500 animate-spin-slow" />
+        <Compass className="w-4 h-4 text-current animate-spin-slow opacity-80" />
         <span>Lost? Tap to return to artwork</span>
       </button>
     </div>

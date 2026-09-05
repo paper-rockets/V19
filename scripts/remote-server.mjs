@@ -88,9 +88,14 @@ async function startRemoteServer() {
   console.log('\x1b[90mConnecting to Cloudflare secure tunnel network for cellular access...\x1b[0m\n');
 
   const cloudflaredExe = findCloudflaredPath();
-  const tunnelProc = spawn(cloudflaredExe, ['tunnel', '--url', `http://localhost:${requestedPort}`]);
+  const tunnelProc = spawn(cloudflaredExe, ['tunnel', '--url', `http://localhost:${requestedPort}`], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
 
   let cellularUrl = null;
+
+  // Keep process alive indefinitely
+  const keepAliveTimer = setInterval(() => {}, 1000 * 60 * 60);
 
   tunnelProc.stderr.on('data', (chunk) => {
     const text = chunk.toString();
@@ -102,18 +107,25 @@ async function startRemoteServer() {
   });
 
   tunnelProc.on('error', (err) => {
-    console.warn('Could not launch cloudflared directly:', err.message);
+    console.warn('Could not launch cloudflared:', err.message);
     printServerLinks(computerUrl, localWifiUrl, null, requestedPort);
+  });
+
+  tunnelProc.on('exit', (code) => {
+    console.log(`Cloudflare tunnel exited with code ${code}`);
+    clearInterval(keepAliveTimer);
+    process.exit(code || 0);
   });
 
   setTimeout(() => {
     if (!cellularUrl) {
       printServerLinks(computerUrl, localWifiUrl, null, requestedPort);
     }
-  }, 10000);
+  }, 8000);
 
   const handleShutdown = async () => {
     console.log('\n\x1b[33m%s\x1b[0m', 'Shutting down remote cellular tunnel...');
+    clearInterval(keepAliveTimer);
     try {
       tunnelProc.kill();
     } catch (_) {}

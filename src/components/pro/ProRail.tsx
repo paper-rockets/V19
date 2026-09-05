@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { IcPointer, IcDraw, IcCreate, IcDeform, IcLayers, IcSun } from './StudioIcons';
+import { IcPointer, IcDraw, IcCreate, IcDeform, IcLayers } from './StudioIcons';
 import { ProMode, toggleSheet, useOpenSheet, closeSheet } from '../play/sheetStore';
 import { haptics } from '../../utils/haptics';
 import { ToolType, BrushSettings } from '../../types';
@@ -81,9 +81,9 @@ export const ProRail: React.FC<ProRailProps> = ({
     <nav
       ref={rootRef}
       aria-label="Studio modes"
-      className="fixed left-3 sm:left-5 top-1/2 -translate-y-1/2 z-40 select-none pointer-events-none"
+      className="fixed left-1.5 sm:left-2 top-1/2 -translate-y-1/2 z-40 select-none pointer-events-none"
     >
-      <div className={`pointer-events-auto flex flex-col items-center gap-2 sm:gap-2.5 py-1 ${light ? 'text-neutral-800' : 'text-white/85'}`}>
+      <div className={`pointer-events-auto flex flex-col items-center gap-2 py-1 ${light ? 'text-neutral-800' : 'text-white/85'}`}>
         {/* Studio Modes: Select, Draw, Create, Deform, Layers */}
         {MODES.map(({ id, label, icon: Icon }) => {
           const isActive = openSheet === id;
@@ -93,14 +93,17 @@ export const ProRail: React.FC<ProRailProps> = ({
               type="button"
               onClick={() => {
                 haptics.trigger('light');
+                if (id === 'draw' && setTool) {
+                  setTool('brush');
+                }
                 setPanel(null);
                 toggleSheet(id);
               }}
               className={`flex h-11 w-11 items-center justify-center rounded-xl transition-colors active:scale-95 border-0 bg-transparent ${
                 isActive
                   ? light
-                    ? 'text-sky-600'
-                    : 'text-sky-400'
+                    ? 'text-neutral-950 font-bold'
+                    : 'text-white font-bold'
                   : light
                     ? 'text-neutral-500 hover:text-neutral-900'
                     : 'text-neutral-400 hover:text-white'
@@ -129,7 +132,7 @@ export const ProRail: React.FC<ProRailProps> = ({
           <span
             className={`w-7 h-7 rounded-full border transition-all ${
               panel === 'color'
-                ? 'border-sky-500 ring-2 ring-sky-500/40 shadow-xs'
+                ? isLight ? 'border-neutral-900 ring-2 ring-neutral-900/40 shadow-xs' : 'border-white ring-2 ring-white/40 shadow-xs'
                 : isLight ? 'border-black/15' : 'border-white/20'
             }`}
             style={{ background: currentBrushSettings.color || '#38bdf8' }}
@@ -147,8 +150,8 @@ export const ProRail: React.FC<ProRailProps> = ({
           className={`w-11 h-11 rounded-xl flex items-center justify-center active:scale-95 transition-colors border-0 bg-transparent ${
             panel === 'size'
               ? isLight
-                ? 'text-sky-600'
-                : 'text-sky-400'
+                ? 'text-neutral-950 font-bold'
+                : 'text-white font-bold'
               : isLight
               ? 'text-neutral-500 hover:text-neutral-900'
               : 'text-neutral-400 hover:text-white'
@@ -158,13 +161,13 @@ export const ProRail: React.FC<ProRailProps> = ({
         >
           <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${
             panel === 'size'
-              ? isLight ? 'border-sky-600' : 'border-sky-400'
+              ? isLight ? 'border-neutral-900' : 'border-white'
               : isLight ? 'border-neutral-400' : 'border-white/40'
           }`}>
             <span
               className={`rounded-full transition-all ${
                 panel === 'size'
-                  ? isLight ? 'bg-sky-600' : 'bg-sky-400'
+                  ? isLight ? 'bg-neutral-900' : 'bg-white'
                   : isLight ? 'bg-neutral-900' : 'bg-white'
               }`}
               style={{
@@ -180,14 +183,17 @@ export const ProRail: React.FC<ProRailProps> = ({
           type="button"
           onClick={() => {
             haptics.trigger('light');
+            if (setTool) {
+              setTool('brush');
+            }
             closeSheet();
             setPanel(panel === 'brush' ? null : 'brush');
           }}
           className={`w-11 h-11 rounded-xl flex items-center justify-center active:scale-95 transition-colors border-0 bg-transparent ${
             panel === 'brush'
               ? isLight
-                ? 'text-sky-600'
-                : 'text-sky-400'
+                ? 'text-neutral-950 font-bold'
+                : 'text-white font-bold'
               : isLight
               ? 'text-neutral-500 hover:text-neutral-900'
               : 'text-neutral-400 hover:text-white'
@@ -198,28 +204,6 @@ export const ProRail: React.FC<ProRailProps> = ({
           <svg viewBox="0 0 24 24" className="w-5 h-5 stroke-current fill-none">
             <path d="M 4 14 Q 8 6, 12 12 T 20 10" strokeWidth={1.6} strokeLinecap="round" />
           </svg>
-        </button>
-
-        {/* Scene Illumination & Studio Lighting */}
-        <button
-          type="button"
-          onClick={() => {
-            haptics.trigger('medium');
-            setPanel(null);
-            onOpenIllumination?.();
-          }}
-          className={`flex h-11 w-11 items-center justify-center rounded-xl transition-colors active:scale-95 border-0 bg-transparent ${
-            isIlluminationOpen
-              ? 'text-amber-500'
-              : light
-                ? 'text-amber-600/70 hover:text-amber-700'
-                : 'text-amber-400/80 hover:text-amber-300'
-          }`}
-          aria-label="Scene Illumination & Studio Lighting"
-          aria-pressed={isIlluminationOpen}
-          title="Studio Illumination"
-        >
-          <IcSun className="h-[21px] w-[21px] shrink-0 text-current" strokeWidth={1.4} />
         </button>
       </div>
 
@@ -311,13 +295,13 @@ export const ProRail: React.FC<ProRailProps> = ({
                           onClick={() => setActiveTab(tab)}
                           className={`transition-colors relative pb-1 ${
                             isTabActive
-                              ? isLight ? 'text-sky-600 font-semibold' : 'text-sky-400 font-semibold'
+                              ? isLight ? 'text-neutral-950 font-bold' : 'text-white font-semibold'
                               : isLight ? 'text-neutral-500 hover:text-neutral-900' : 'text-white/40 hover:text-white/75'
                           }`}
                         >
                           {tab}
                           {isTabActive && (
-                            <span className="absolute -bottom-1.5 left-0 right-0 h-[2px] bg-sky-500 dark:bg-sky-400 rounded-full shadow-[0_0_6px_rgba(56,189,248,0.5)]" />
+                            <span className="absolute -bottom-1.5 left-0 right-0 h-[2px] bg-neutral-900 dark:bg-white rounded-full shadow-[0_0_6px_rgba(255,255,255,0.4)]" />
                           )}
                         </button>
                       );
@@ -345,7 +329,9 @@ export const ProRail: React.FC<ProRailProps> = ({
                         }}
                         className={`relative rounded-xl p-1.5 flex flex-col items-center justify-between transition-all active:scale-95 aspect-[4/5] border ${
                           isSelected
-                            ? 'border-sky-500 dark:border-sky-400/90 bg-sky-500/[0.12] shadow-[0_0_12px_rgba(56,189,248,0.25)] ring-1 ring-sky-400/70'
+                            ? isLight
+                              ? 'border-neutral-900 bg-black/[0.08] shadow-xs ring-1 ring-neutral-900/60'
+                              : 'border-white bg-white/[0.12] shadow-[0_0_12px_rgba(255,255,255,0.2)] ring-1 ring-white/70'
                             : isLight
                             ? 'border-black/10 bg-black/[0.03] hover:border-black/20 hover:bg-black/[0.06]'
                             : 'border-white/[0.06] bg-[#18191e] hover:border-white/20 hover:bg-[#1f2127]'
@@ -353,7 +339,7 @@ export const ProRail: React.FC<ProRailProps> = ({
                         title={preset.description}
                       >
                         {isSelected && (
-                          <Star className="w-2.5 h-2.5 text-sky-500 dark:text-sky-400 fill-sky-500 dark:fill-sky-400 absolute top-1.5 right-1.5" />
+                          <Star className="w-2.5 h-2.5 text-neutral-900 fill-neutral-900 dark:text-white dark:fill-white absolute top-1.5 right-1.5" />
                         )}
                         <div className="w-full flex-1 flex items-center justify-center p-0.5 overflow-hidden">
                           <img

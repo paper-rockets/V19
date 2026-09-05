@@ -796,7 +796,7 @@ export const LayerPanelComponent: React.FC<LayerPanelProps> = ({
               >
                 <span>{b.label}</span>
                 {layers.find((l) => l.id === openBlendMenuId)?.blendMode === b.id && (
-                  <Check className="w-3.5 h-3.5 text-sky-400" />
+                  <Check className="w-3.5 h-3.5 text-neutral-900 dark:text-white" />
                 )}
               </button>
             ))}

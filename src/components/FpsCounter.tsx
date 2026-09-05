@@ -108,23 +108,28 @@ const FpsCounterComponent: React.FC<FpsCounterProps> = ({
     <div
       style={{
         transform: uiScale !== 1.0 ? `scale(${uiScale})` : undefined,
-        transformOrigin: 'bottom left',
+        transformOrigin: 'bottom right',
       }}
-      className="fixed bottom-3 left-3 sm:bottom-4 sm:left-4 z-20 pointer-events-auto select-none"
+      className="fixed bottom-3 right-7 sm:bottom-4 sm:right-8 z-20 pointer-events-auto select-none"
     >
       <button
         type="button"
         onClick={handleToggle}
         title={showFull ? 'Click to collapse debug mode' : 'Click to show full input lag & FPS debug mode'}
-        className={`text-left rounded-xl font-mono text-[10px] transition-all shadow-md active:scale-95 border cursor-pointer ${
-          isLight
-            ? 'bg-white/95 border-neutral-200 text-neutral-800 shadow-neutral-300/60 hover:bg-neutral-50'
-            : 'bg-[#18191d]/95 border-neutral-800 text-neutral-200 shadow-black/80 hover:bg-[#202126]'
-        } ${showFull ? 'p-2.5 min-w-[130px]' : 'px-2 py-1'}`}
+        style={{
+          minWidth: 'unset',
+          minHeight: 'unset',
+          textShadow: isLight
+            ? '0 1px 2px rgba(255, 255, 255, 0.9), 0 0 3px rgba(255, 255, 255, 0.8)'
+            : '0 1px 2px rgba(0, 0, 0, 0.9), 0 0 3px rgba(0, 0, 0, 0.8)',
+        }}
+        className={`text-right font-mono text-[10px] transition-all bg-transparent border-none shadow-none p-1 cursor-pointer select-none active:opacity-70 ${
+          isLight ? 'text-neutral-800' : 'text-neutral-200'
+        } ${showFull ? 'p-2.5 min-w-[130px]' : 'px-1 py-0.5'}`}
       >
         {showFull ? (
-          <div className="flex flex-col gap-1 leading-tight">
-            <div className="flex items-center justify-between pb-1 mb-0.5 border-b border-neutral-200 dark:border-neutral-800/80">
+          <div className="flex flex-col gap-1 leading-tight text-right">
+            <div className="flex items-center justify-between pb-1 mb-0.5 border-b border-neutral-300/40 dark:border-neutral-700/40">
               <span className="text-[9px] font-semibold tracking-wider uppercase opacity-60">PRO DEBUG</span>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             </div>
@@ -142,7 +147,7 @@ const FpsCounterComponent: React.FC<FpsCounterProps> = ({
                 <span className="opacity-50 text-[9px]">fps</span>
               </div>
             </div>
-            <div className="flex items-baseline justify-between gap-3 text-sky-500 dark:text-sky-400">
+            <div className="flex items-baseline justify-between gap-3 text-neutral-900 dark:text-neutral-100">
               <span className="font-semibold opacity-90">lag</span>
               <div className="flex items-baseline gap-1">
                 <span className="font-bold tabular-nums">{lagMs ? lagMs.toFixed(0) : '--'}</span>
@@ -151,11 +156,11 @@ const FpsCounterComponent: React.FC<FpsCounterProps> = ({
             </div>
           </div>
         ) : (
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 opacity-80 hover:opacity-100 transition-opacity">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             <span className="font-bold tabular-nums">{fps} FPS</span>
-            <span className="opacity-30">·</span>
-            <span className="text-sky-500 dark:text-sky-400 tabular-nums">
+            <span className="opacity-35">·</span>
+            <span className="text-neutral-700 dark:text-neutral-300 tabular-nums">
               {lagMs ? `${lagMs.toFixed(0)}ms` : 'idle'}
             </span>
           </div>

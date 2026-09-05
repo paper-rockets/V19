@@ -9,6 +9,7 @@ export interface Option1TabbedNavigatorProps {
   engine?: StudioEngine | null;
   theme?: 'light' | 'dark';
   targetScope?: TransformTargetScope;
+  onSelectTargetScope?: (scope: TransformTargetScope) => void;
   isLocked?: boolean;
   onLockChange?: (locked: boolean) => void;
   onClose?: () => void;
@@ -23,7 +24,7 @@ interface AxisDef {
 }
 
 const AXES: AxisDef[] = [
-  { dir: [0, 1, 0], col: '#38bdf8', lbl: 'Y', viewName: 'top' },
+  { dir: [0, 1, 0], col: '#f4f4f5', lbl: 'Y', viewName: 'top' },
   { dir: [0, -1, 0], col: '#777a80', lbl: '-Y', viewName: 'bottom' },
   { dir: [-1, 0, 0], col: '#b8bac0', lbl: 'X', viewName: 'left' },
   { dir: [1, 0, 0], col: '#b8bac0', lbl: '-X', viewName: 'right' },
@@ -34,12 +35,30 @@ const AXES: AxisDef[] = [
 export const Option1TabbedNavigator: React.FC<Option1TabbedNavigatorProps> = ({
   engine,
   theme = 'dark',
-  targetScope = 'active_layer',
+  targetScope: propTargetScope = 'all',
+  onSelectTargetScope,
   isLocked = false,
   uiScale = 1.0,
 }) => {
   const isLight = theme === 'light';
   const [activeTab, setActiveTab] = useState<'camera' | 'surface'>('camera');
+  const [targetScope, setTargetScope] = useState<TransformTargetScope>(propTargetScope);
+
+  useEffect(() => {
+    if (propTargetScope) {
+      setTargetScope(propTargetScope);
+    }
+  }, [propTargetScope]);
+
+  const handleSelectScope = useCallback(
+    (scope: TransformTargetScope) => {
+      setTargetScope(scope);
+      if (onSelectTargetScope) {
+        onSelectTargetScope(scope);
+      }
+    },
+    [onSelectTargetScope]
+  );
   const [isExpanded, setIsExpanded] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem('paperrocket_nav_expanded');
@@ -572,7 +591,7 @@ export const Option1TabbedNavigator: React.FC<Option1TabbedNavigatorProps> = ({
           }
         }}
       >
-        <Compass className="w-3.5 h-3.5 text-sky-400 shrink-0 pointer-events-none" />
+        <Compass className="w-3.5 h-3.5 text-current shrink-0 pointer-events-none" />
         <Maximize2 className="w-2.5 h-2.5 opacity-60 shrink-0 pointer-events-none" />
       </div>
     );
@@ -684,6 +703,56 @@ export const Option1TabbedNavigator: React.FC<Option1TabbedNavigatorProps> = ({
         {/* Surface Tab View */}
         {activeTab === 'surface' && (
           <>
+            {/* Target Scope Selector: Pick Canvas, Painting, All, or Layer */}
+            <div className="nav-scope-container" style={{ marginBottom: 6 }}>
+              <div className="nav-scope-pill" aria-label="Target to transform">
+                <button
+                  type="button"
+                  className={`nav-scope-btn ${targetScope === 'all' ? 'active' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSelectScope('all');
+                  }}
+                  title="Move Everything (Canvas + Painting together)"
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  className={`nav-scope-btn ${targetScope === 'model' ? 'active' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSelectScope('model');
+                  }}
+                  title="Move Canvas Only (Painting stays in place)"
+                >
+                  Canvas
+                </button>
+                <button
+                  type="button"
+                  className={`nav-scope-btn ${targetScope === 'strokes' ? 'active' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSelectScope('strokes');
+                  }}
+                  title="Move Painting Only (Canvas stays in place)"
+                >
+                  Paint
+                </button>
+                <button
+                  type="button"
+                  className={`nav-scope-btn ${targetScope === 'active_layer' ? 'active' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSelectScope('active_layer');
+                  }}
+                  title="Move Active Layer Only"
+                >
+                  Layer
+                </button>
+              </div>
+            </div>
+
             <div className="deck-row">
               {/* 2D Move Pad */}
               <div

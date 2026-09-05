@@ -117,11 +117,11 @@ export const IcSettings = df(({ className, strokeWidth }) => (
 ));
 
 export const IcFullscreen = d(
-  'M4 14v6h6|M20 14v6h-6|M14 4h6v6|M4 4h6v6'
+  'M4 9V4h5|M15 4h5v5|M4 15v5h5|M15 20h5v-5'
 );
 
 export const IcExitFullscreen = d(
-  'M4 14h6v6|M20 14h-6v6|M14 4v6h6|M4 4v6h-6'
+  'M9 4v5H4|M15 4v5h5|M9 20v-5H4|M15 20v-5h5'
 );
 
 export const IcIllumination = IcSun;

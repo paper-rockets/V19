@@ -45,51 +45,100 @@ export const PlayTopStrip: React.FC<PlayTopStripProps> = ({
   const ink = theme === 'light' ? 'text-neutral-800' : 'text-white/90';
   const button = `pointer-events-auto min-w-[30px] w-8 h-8 sm:w-10 sm:h-10 sm:min-w-[40px] grid place-items-center rounded-lg sm:rounded-xl transition-colors hover:bg-current/[0.045] active:bg-current/[0.075] ${ink}`;
 
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const isCurrentlyFullscreen = (): boolean => {
+    if (typeof document === 'undefined') return false;
+    const doc = document as any;
+    return Boolean(
+      doc.fullscreenElement ||
+      doc.webkitFullscreenElement ||
+      doc.mozFullScreenElement ||
+      doc.msFullscreenElement
+    );
+  };
+
+  const [isFullscreen, setIsFullscreen] = useState(isCurrentlyFullscreen);
+  const [simulatedFs, setSimulatedFs] = useState(false);
+  const isFsActive = isFullscreen || simulatedFs;
 
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(Boolean(document.fullscreenElement));
+      const isFs = isCurrentlyFullscreen();
+      setIsFullscreen(isFs);
+      if (isFs) setSimulatedFs(false);
     };
 
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    const events = [
+      'fullscreenchange',
+      'webkitfullscreenchange',
+      'mozfullscreenchange',
+      'MSFullscreenChange',
+    ];
+    events.forEach((ev) => document.addEventListener(ev, handleFullscreenChange));
     return () => {
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
-      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      events.forEach((ev) => document.removeEventListener(ev, handleFullscreenChange));
     };
   }, []);
 
   const handleToggleFullscreen = useCallback(async () => {
-    try {
-      if (!document.fullscreenElement) {
-        if (document.documentElement.requestFullscreen) {
-          await document.documentElement.requestFullscreen();
-        } else if ((document.documentElement as any).webkitRequestFullscreen) {
-          await (document.documentElement as any).webkitRequestFullscreen();
+    const doc = document as any;
+    const docEl = (document.documentElement || document.body) as any;
+    const nativeFs = isCurrentlyFullscreen();
+
+    if (!nativeFs && !simulatedFs) {
+      let enteredNative = false;
+      try {
+        if (docEl.requestFullscreen) {
+          await docEl.requestFullscreen();
+          enteredNative = true;
+        } else if (docEl.webkitRequestFullscreen) {
+          await docEl.webkitRequestFullscreen();
+          enteredNative = true;
+        } else if (docEl.webkitRequestFullScreen) {
+          await docEl.webkitRequestFullScreen();
+          enteredNative = true;
+        } else if (docEl.mozRequestFullScreen) {
+          await docEl.mozRequestFullScreen();
+          enteredNative = true;
+        } else if (docEl.msRequestFullscreen) {
+          await docEl.msRequestFullscreen();
+          enteredNative = true;
         }
-      } else {
-        if (document.exitFullscreen) {
-          await document.exitFullscreen();
-        } else if ((document as any).webkitExitFullscreen) {
-          await (document as any).webkitExitFullscreen();
-        }
+      } catch (err) {
+        console.warn('Native fullscreen request failed, falling back to simulated:', err);
       }
-    } catch (err) {
-      console.warn('Fullscreen toggle request failed:', err);
+      if (!enteredNative) {
+        setSimulatedFs(true);
+      }
+    } else {
+      try {
+        if (doc.exitFullscreen) {
+          await doc.exitFullscreen();
+        } else if (doc.webkitExitFullscreen) {
+          await doc.webkitExitFullscreen();
+        } else if (doc.webkitCancelFullScreen) {
+          await doc.webkitCancelFullScreen();
+        } else if (doc.mozCancelFullScreen) {
+          await doc.mozCancelFullScreen();
+        } else if (doc.msExitFullscreen) {
+          await doc.msExitFullscreen();
+        }
+      } catch (err) {
+        console.warn('Native fullscreen exit failed:', err);
+      }
+      setSimulatedFs(false);
     }
-  }, []);
+  }, [simulatedFs]);
 
   return (
-    <header className="play-top-strip fixed inset-x-0 top-0 z-30 flex h-14 sm:h-16 items-center justify-between px-1.5 sm:px-5 pl-[max(0.375rem,env(safe-area-inset-left))] pr-[max(0.375rem,env(safe-area-inset-right))] pointer-events-none select-none">
+    <header className="play-top-strip fixed inset-x-0 top-0 z-30 flex h-14 sm:h-16 items-center justify-between px-2 sm:px-4 pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.375rem,env(safe-area-inset-right))] pointer-events-none select-none">
       <button
         type="button"
         onClick={onOpenToybox}
-        className={`${button} play-top-strip-left w-auto shrink-0 px-1.5 sm:px-2 gap-1 sm:gap-2 flex`}
+        className={`pointer-events-auto play-top-strip-left shrink-0 inline-flex items-center gap-1.5 sm:gap-2 h-8 sm:h-9 px-2 sm:px-2.5 rounded-lg sm:rounded-xl transition-colors hover:bg-current/[0.045] active:bg-current/[0.075] ${ink}`}
         aria-label="Open model library"
       >
-        <Box className="w-4 h-4 sm:w-[22px] sm:h-[22px] shrink-0" strokeWidth={1.35} />
-        <span className="text-[11px] sm:text-[13px] font-medium tracking-[0.01em] max-w-16 sm:max-w-36 truncate">
+        <Box className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" strokeWidth={1.35} />
+        <span className="text-[11px] sm:text-[13px] font-medium tracking-[0.01em] whitespace-nowrap">
           {projectName || 'Model'}
         </span>
       </button>
@@ -167,10 +216,10 @@ export const PlayTopStrip: React.FC<PlayTopStripProps> = ({
           type="button"
           onClick={handleToggleFullscreen}
           className={button}
-          aria-label={isFullscreen ? 'Exit Full Screen' : 'Full Screen'}
-          title={isFullscreen ? 'Exit Full Screen' : 'Full Screen'}
+          aria-label={isFsActive ? 'Exit Full Screen' : 'Full Screen'}
+          title={isFsActive ? 'Exit Full Screen' : 'Full Screen'}
         >
-          {isFullscreen ? (
+          {isFsActive ? (
             <Minimize className="w-[18px] h-[18px] sm:w-[21px] sm:h-[21px]" strokeWidth={1.35} />
           ) : (
             <Maximize className="w-[18px] h-[18px] sm:w-[21px] sm:h-[21px]" strokeWidth={1.35} />

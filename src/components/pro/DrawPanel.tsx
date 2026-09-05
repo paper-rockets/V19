@@ -180,8 +180,8 @@ export const DrawPanel: React.FC<DrawPanelProps> = ({
               className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded border ${
                 isConformal
                   ? isLight
-                    ? 'bg-sky-50 text-sky-700 border-sky-300'
-                    : 'bg-sky-500/20 text-sky-300 border-sky-400/40'
+                    ? 'bg-neutral-900 text-white border-neutral-700'
+                    : 'bg-white text-neutral-950 border-neutral-200'
                   : isLight
                   ? 'bg-amber-50 text-amber-700 border-amber-300'
                   : 'bg-amber-500/20 text-amber-300 border-amber-400/40'
@@ -216,8 +216,8 @@ export const DrawPanel: React.FC<DrawPanelProps> = ({
             className={`p-2.5 rounded-xl border text-left transition-all active:scale-95 cursor-pointer ${
               isConformal
                 ? isLight
-                  ? 'border-sky-500/40 bg-sky-50 text-sky-950 shadow-xs'
-                  : 'border-sky-400/40 bg-sky-500/15 text-sky-200 shadow-xs'
+                  ? 'border-neutral-900 bg-neutral-900/10 text-neutral-950 shadow-xs'
+                  : 'border-white bg-white/15 text-white shadow-xs'
                 : isLight
                 ? 'border-amber-500/40 bg-amber-50 text-amber-950 shadow-xs'
                 : 'border-amber-400/40 bg-amber-500/15 text-amber-200 shadow-xs'
@@ -349,7 +349,7 @@ export const DrawPanel: React.FC<DrawPanelProps> = ({
                   }}
                   className={`relative pb-0.5 transition-colors ${
                     isTabActive
-                      ? 'text-sky-400 font-bold'
+                      ? 'text-neutral-950 dark:text-white font-bold'
                       : isLight
                       ? 'text-neutral-500 hover:text-neutral-900'
                       : 'text-white/40 hover:text-white/80'
@@ -357,7 +357,7 @@ export const DrawPanel: React.FC<DrawPanelProps> = ({
                 >
                   {tab}
                   {isTabActive && (
-                    <span className="absolute -bottom-1.5 left-0 right-0 h-[2px] bg-sky-400 rounded-full shadow-[0_0_6px_rgba(56,189,248,0.6)]" />
+                    <span className="absolute -bottom-1.5 left-0 right-0 h-[2px] bg-neutral-900 dark:bg-white rounded-full shadow-[0_0_6px_rgba(255,255,255,0.4)]" />
                   )}
                 </button>
               );
@@ -379,16 +379,18 @@ export const DrawPanel: React.FC<DrawPanelProps> = ({
                 }}
                 className={`relative rounded-xl p-1.5 flex flex-col items-center justify-between transition-all active:scale-95 aspect-[4/5] border ${
                   isSelected
-                    ? 'border-sky-400/90 bg-sky-500/[0.12] shadow-[0_0_10px_rgba(56,189,248,0.25)] ring-1 ring-sky-400/70'
+                    ? isLight
+                      ? 'border-neutral-900 bg-black/[0.08] shadow-xs ring-1 ring-neutral-900/60'
+                      : 'border-white bg-white/[0.12] shadow-[0_0_10px_rgba(255,255,255,0.2)] ring-1 ring-white/70'
                     : isLight
                     ? 'border-black/10 bg-white hover:border-black/20 text-neutral-800'
                     : 'border-white/[0.06] bg-[#18191e] hover:border-white/20 hover:bg-[#1f2127] text-white/80'
                 }`}
                 title={preset.description}
               >
-                {/* Active Cyan Star Badge */}
+                {/* Active Star Badge */}
                 {isSelected && (
-                  <Star className="w-2.5 h-2.5 text-sky-400 fill-sky-400 absolute top-1 right-1" />
+                  <Star className="w-2.5 h-2.5 text-neutral-900 fill-neutral-900 dark:text-white dark:fill-white absolute top-1 right-1" />
                 )}
 
                 {/* Brush Icon */}
@@ -399,7 +401,9 @@ export const DrawPanel: React.FC<DrawPanelProps> = ({
                 {/* Label */}
                 <span
                   className={`text-[9.5px] truncate w-full text-center leading-tight pb-0.5 ${
-                    isSelected ? 'text-sky-400 font-bold' : 'opacity-80 font-medium'
+                    isSelected
+                      ? isLight ? 'text-neutral-950 font-bold' : 'text-white font-bold'
+                      : 'opacity-80 font-medium'
                   }`}
                 >
                   {preset.name}
@@ -424,7 +428,7 @@ export const DrawPanel: React.FC<DrawPanelProps> = ({
 
           <button
             type="button"
-            className="w-7 h-7 rounded-lg border border-sky-400/80 bg-sky-500/10 flex items-center justify-center text-sky-400 active:scale-95 transition-all shadow-[0_0_8px_rgba(56,189,248,0.2)]"
+            className="w-7 h-7 rounded-lg border border-black/15 dark:border-white/20 bg-black/5 dark:bg-white/5 flex items-center justify-center text-neutral-800 dark:text-white active:scale-95 transition-all shadow-xs"
             title="Stylus pressure tip"
           >
             <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 stroke-current fill-none">
@@ -440,7 +444,7 @@ export const DrawPanel: React.FC<DrawPanelProps> = ({
           <div className={subHeadingClass}>Brush Size & Intensity</div>
           <div className="flex items-center gap-1.5">
             <BrushShapeGlyph brushId={activeBrush.id} size={0.04} boxSize={18} />
-            <span className="text-[10.5px] font-semibold text-sky-400">{activeBrush.name}</span>
+            <span className="text-[10.5px] font-semibold text-neutral-950 dark:text-white">{activeBrush.name}</span>
             <span className="text-[9px] font-medium opacity-65 font-mono">
               ({isConformal ? 'Conformal' : 'Non-Conf'}, {isFlat ? 'Flat' : 'Not Flat'})
             </span>
@@ -471,7 +475,7 @@ export const DrawPanel: React.FC<DrawPanelProps> = ({
             value={brushSettings.opacity ?? 1.0}
             onChange={(e) => updateSetting('opacity', parseFloat(e.target.value))}
             className={`w-full h-1.5 rounded cursor-pointer ${
-              isLight ? 'accent-neutral-900 bg-neutral-200' : 'accent-sky-400 bg-neutral-800'
+              isLight ? 'accent-neutral-900 bg-neutral-200' : 'accent-white bg-neutral-800'
             }`}
           />
         </div>

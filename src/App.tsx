@@ -1374,19 +1374,6 @@ export function App() {
             }}
             isIlluminationOpen={isIlluminationOpen}
           />
-          {!isNarrowScreen && !isAnyModalActive && (
-            <PlayDock
-              tool={tool}
-              brushSettings={brushSettings}
-              setBrushSettings={setBrushSettings}
-              shapeSnapping={brushSettings.shapeSnapping ?? false}
-              onSelect={handlePlayToolSelect}
-              onOpenFullColor={() => setIsColorStudioOpen(true)}
-              engine={engine}
-              theme={theme}
-              hideToolRail={true}
-            />
-          )}
         </>
       )}
 
@@ -1436,6 +1423,7 @@ export function App() {
               engine={engine}
               theme={theme}
               targetScope={targetScope}
+              onSelectTargetScope={handleSelectTargetScope}
               isLocked={isGizmoLocked}
               onLockChange={setIsGizmoLocked}
               onClose={() => handleControllerChange('hidden')}
@@ -1446,6 +1434,7 @@ export function App() {
               engine={engine}
               theme={theme}
               targetScope={targetScope}
+              onSelectTargetScope={handleSelectTargetScope}
               isLocked={isGizmoLocked}
               onLockChange={setIsGizmoLocked}
               onClose={() => handleControllerChange('hidden')}
@@ -1844,7 +1833,7 @@ export function App() {
               ? 'bg-neutral-900 text-white border-neutral-800'
               : 'bg-[#18191d] text-white border-white/20'
           }`}>
-            <span className="w-2 h-2 rounded-full animate-ping bg-blue-400" />
+            <span className="w-2 h-2 rounded-full animate-ping bg-white" />
             <span>{snappedShapeNotice}</span>
           </div>
         </div>

@@ -608,7 +608,7 @@ export class StudioEngine {
     // 8. 3D Brush Cursor Decal Ring
     const cursorGeom = new THREE.RingGeometry(0.85, 1.0, 32);
     const cursorMat = new THREE.MeshBasicMaterial({
-      color: 0x38bdf8,
+      color: 0xffffff,
       side: THREE.DoubleSide,
       transparent: true,
       opacity: 0.85,
@@ -2752,12 +2752,15 @@ export class StudioEngine {
     // Snap base flush on ground grid (y = -1.2)
     planeMesh.position.set(position.x, -1.2 + height / 2, position.z);
     planeMesh.rotation.x = 0; // Vertical upright pane
+    planeMesh.userData.initialPosition = planeMesh.position.clone();
+    planeMesh.userData.initialRotation = planeMesh.rotation.clone();
+    planeMesh.userData.initialScale = planeMesh.scale.clone();
     planeMesh.castShadow = false;
     planeMesh.receiveShadow = true;
 
-    // Edge highlight border vignette (crisp sky outline, 50% opacity)
+    // Edge highlight border vignette (neutral crisp outline, 40% opacity)
     const edges = new THREE.EdgesGeometry(planeGeom);
-    const lineMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, linewidth: 2, transparent: true, opacity: 0.5 });
+    const lineMat = new THREE.LineBasicMaterial({ color: 0xa1a1aa, linewidth: 2, transparent: true, opacity: 0.4 });
     const wireframe = new THREE.LineSegments(edges, lineMat);
     wireframe.name = 'DrawingPlaneWireframe';
     planeMesh.add(wireframe);
@@ -3011,7 +3014,7 @@ export class StudioEngine {
     }
 
     if (!box.isEmpty()) {
-      const helper = new THREE.Box3Helper(box, new THREE.Color(0x38bdf8));
+      const helper = new THREE.Box3Helper(box, new THREE.Color(0xa1a1aa));
       (helper.material as THREE.LineBasicMaterial).depthTest = false;
       group.add(helper);
       this.selectionHighlightGroup = group;
@@ -3421,7 +3424,7 @@ export class StudioEngine {
     if (!this.guideHelperMesh) {
       const geom = new THREE.PlaneGeometry(3, 3, 10, 10);
       const mat = new THREE.MeshBasicMaterial({
-        color: 0x38bdf8,
+        color: 0xa1a1aa,
         wireframe: true,
         transparent: true,
         opacity: guide.opacity,
@@ -3478,8 +3481,15 @@ export class StudioEngine {
           if (!box.isEmpty()) hasContent = true;
         }
       } else if (this.targetMeshes.length > 0) {
-        box.setFromObject(this.modelRoot);
-        if (!box.isEmpty()) hasContent = true;
+        if (scope === 'model') {
+          for (const mesh of this.targetMeshes) {
+            box.expandByObject(mesh);
+            hasContent = true;
+          }
+        } else {
+          box.setFromObject(this.modelRoot);
+          if (!box.isEmpty()) hasContent = true;
+        }
       }
     }
 
@@ -3593,14 +3603,28 @@ export class StudioEngine {
           });
         }
       } else {
-        this.modelRoot.applyMatrix4(matrix);
-        this.modelRoot.updateMatrixWorld(true);
-        this.targetMeshes.forEach((mesh) => {
-          if (mesh.geometry) {
-            mesh.geometry.computeBoundingSphere();
-            mesh.geometry.computeBoundingBox();
-          }
-        });
+        const modelChildren = this.modelRoot.children.filter((c) => c !== this.strokeRoot);
+        if (modelChildren.length > 0) {
+          modelChildren.forEach((child) => {
+            child.applyMatrix4(matrix);
+            child.updateMatrixWorld(true);
+            child.traverse((c) => {
+              if (c instanceof THREE.Mesh && c.geometry) {
+                c.geometry.computeBoundingSphere();
+                c.geometry.computeBoundingBox();
+              }
+            });
+          });
+        } else {
+          this.targetMeshes.forEach((mesh) => {
+            mesh.applyMatrix4(matrix);
+            mesh.updateMatrixWorld(true);
+            if (mesh.geometry) {
+              mesh.geometry.computeBoundingSphere();
+              mesh.geometry.computeBoundingBox();
+            }
+          });
+        }
       }
     } else if (scope === 'all') {
       this.modelRoot.applyMatrix4(matrix);
@@ -3862,6 +3886,7 @@ export class StudioEngine {
       .multiply(toCenter);
 
     this.applyTransformMatrix(finalMat, scope);
+    this.markDirty();
   }
 
   /**
@@ -4233,6 +4258,26 @@ export class StudioEngine {
       this.modelRoot.rotation.set(0, 0, 0);
       this.modelRoot.scale.set(1, 1, 1);
       this.modelRoot.updateMatrixWorld(true);
+
+      const modelChildren = this.modelRoot.children.filter((c) => c !== this.strokeRoot);
+      modelChildren.forEach((child) => {
+        if (child.userData && child.userData.initialPosition) {
+          child.position.copy(child.userData.initialPosition);
+        } else {
+          child.position.set(0, 0, 0);
+        }
+        if (child.userData && child.userData.initialRotation) {
+          child.rotation.copy(child.userData.initialRotation);
+        } else {
+          child.rotation.set(0, 0, 0);
+        }
+        if (child.userData && child.userData.initialScale) {
+          child.scale.copy(child.userData.initialScale);
+        } else {
+          child.scale.set(1, 1, 1);
+        }
+        child.updateMatrixWorld(true);
+      });
     }
     if (scope === 'all' || scope === 'strokes' || scope === 'active_layer') {
       this.strokeRoot.position.set(0, 0, 0);
