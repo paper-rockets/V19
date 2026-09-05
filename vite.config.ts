@@ -62,6 +62,7 @@ export default defineConfig(({ mode }) => {
       port: 3000,
       strictPort: true,
       cors: true,
+      allowedHosts: true,
       fs: {
         allow: ['..', '.'],
       },
@@ -75,6 +76,7 @@ export default defineConfig(({ mode }) => {
       port: 3000,
       strictPort: true,
       cors: true,
+      allowedHosts: true,
     },
   };
 });

@@ -20,7 +20,8 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "test:robot": "node scripts/robot-tester.mjs",
-    "capture:all": "node scripts/robot-tester.mjs"
+    "capture:all": "node scripts/robot-tester.mjs",
+    "dev:remote": "node scripts/remote-server.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
