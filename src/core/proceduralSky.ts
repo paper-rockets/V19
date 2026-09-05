@@ -319,6 +319,7 @@ export class ProceduralSkyEngine {
   private skyMaterial: THREE.ShaderMaterial | null = null;
   private currentPreset: EnvironmentPreset;
   private time: number = 0;
+  private customOffBackground: THREE.Texture | THREE.Color | null = null;
 
   // Synced Three.js Lighting References
   public sunLight: THREE.DirectionalLight | null = null;
@@ -330,6 +331,13 @@ export class ProceduralSkyEngine {
     this.scene = scene;
     this.currentPreset = DEFAULT_PRESETS[0];
     this.init();
+  }
+
+  public setCustomOffBackground(bg: THREE.Texture | THREE.Color | null): void {
+    this.customOffBackground = bg;
+    if (this.currentPreset.id === 'off') {
+      this.scene.background = bg;
+    }
   }
 
   private init(): void {
@@ -451,7 +459,7 @@ export class ProceduralSkyEngine {
     const requestedId = (typeof presetOrId === 'string' ? presetOrId : presetOrId?.id || '').toLowerCase();
     if (requestedId === 'off') {
       if (this.skyMesh) this.skyMesh.visible = false;
-      this.scene.background = new THREE.Color(0xffffff);
+      // When sky dome is off, preserve the studio backdrop / scene background
       // Record the off state so getCurrentPreset() reflects reality; callers
       // (theme switching, background selection) test against it.
       this.currentPreset = { ...this.currentPreset, id: 'off' };

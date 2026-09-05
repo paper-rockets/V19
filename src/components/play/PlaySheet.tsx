@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { X } from 'lucide-react';
 import { SheetId, closeSheet, useOpenSheet } from './sheetStore';
+import { StudioCloseButton } from '../common/StudioCloseButton';
 
 /**
  * The one bottom-sheet primitive every Play popover uses.
@@ -68,7 +68,9 @@ export const PlaySheet: React.FC<PlaySheetProps> = ({ id, title, children, theme
       ref={sheetRef}
       role="dialog"
       aria-label={title}
-      className={`pr-surface paperrocket-play-sheet fixed left-0 right-0 bottom-0 sm:left-auto sm:right-5 sm:bottom-5 sm:w-[40vw] sm:min-w-[360px] sm:max-w-[520px] z-50 rounded-t-3xl sm:rounded-2xl border-t border-x sm:border shadow-2xl font-sans
+      data-sheet-id={id}
+      data-theme={theme}
+      className={`pr-surface paperrocket-play-sheet fixed left-0 right-0 bottom-0 sm:left-auto sm:right-5 sm:bottom-5 z-50 w-full sm:w-[380px] sm:max-w-[400px] rounded-t-3xl sm:rounded-2xl border-t border-x sm:border shadow-2xl font-sans
         motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-8 motion-safe:duration-250 motion-safe:ease-out
         ${isLight ? 'bg-white border-neutral-200 text-neutral-800' : 'bg-[#18191d] border-zinc-800 text-zinc-100'}`}
       style={{
@@ -78,18 +80,16 @@ export const PlaySheet: React.FC<PlaySheetProps> = ({ id, title, children, theme
       }}
     >
       {/* Grab handle */}
-      <div className="flex justify-center pt-2.5 pb-1">
+      <div className="paperrocket-sheet-grab flex justify-center pt-2.5 pb-1">
         <div className={`h-1.5 w-12 rounded-full ${isLight ? 'bg-neutral-300' : 'bg-zinc-700'}`} />
       </div>
 
-      <div className="px-5 pb-1 flex items-center justify-between min-h-[44px]">
+      <div className="paperrocket-sheet-header px-5 pb-1 flex items-center justify-between min-h-[44px]">
         <h2 className="text-sm font-extrabold tracking-tight">{title}</h2>
-        <button type="button" onClick={closeSheet} aria-label={`Close ${title}`} className={`w-11 h-11 rounded-xl grid place-items-center ${isLight ? 'text-neutral-500 hover:bg-black/5' : 'text-zinc-400 hover:bg-white/5'}`}>
-          <X className="w-4 h-4" />
-        </button>
+        <StudioCloseButton onClick={closeSheet} ariaLabel={`Close ${title}`} theme={theme} />
       </div>
 
-      <div className="px-5 pb-3 overflow-y-auto" style={{ maxHeight: tall ? 'calc(70vh - 68px)' : 'calc(38vh - 68px)' }}>
+      <div className="paperrocket-sheet-body px-5 pb-3 overflow-y-auto studio-scroll" style={{ maxHeight: tall ? 'calc(70vh - 68px)' : 'calc(38vh - 68px)' }}>
         {children}
       </div>
     </div>

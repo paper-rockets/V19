@@ -313,6 +313,13 @@ export const Toybox: React.FC<ToyboxProps> = ({
                 <div className="aspect-square rounded-xl bg-black/25 flex items-center justify-center overflow-hidden border border-white/5 relative">
                   {busyId === preset.id ? (
                     <Loader2 className="w-6 h-6 animate-spin text-neutral-400" />
+                  ) : preset.previewImage ? (
+                    <img
+                      src={preset.previewImage}
+                      alt={preset.name}
+                      className="w-full h-full object-contain p-1 group-hover:scale-105 transition-transform"
+                      loading="lazy"
+                    />
                   ) : (
                     <Box className="w-8 h-8 opacity-60" />
                   )}

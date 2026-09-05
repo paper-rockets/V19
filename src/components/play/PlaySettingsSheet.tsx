@@ -23,6 +23,7 @@ import {
   Check,
   ChevronRight,
   ChevronDown,
+  FolderArchive,
 } from 'lucide-react';
 import { PlaySheet } from './PlaySheet';
 import { closeSheet } from './sheetStore';
@@ -62,6 +63,7 @@ export interface PlaySettingsSheetProps {
   onOpenSkyEnvironment?: () => void;
   onOpenRenderSettings?: () => void;
   // Share & Export
+  onOpenSessions?: () => void;
   onOpenExport?: () => void;
   onOpenARViewer?: () => void;
   // Reference Images
@@ -101,7 +103,7 @@ const Row: React.FC<{
       <div className="text-sm font-bold leading-tight">{label}</div>
       {hint && <div className="text-xs text-neutral-400 leading-tight mt-0.5">{hint}</div>}
     </div>
-    <div className="shrink-0">{children}</div>
+    <div className="paperrocket-settings-control shrink-0">{children}</div>
   </div>
 );
 
@@ -164,6 +166,7 @@ export const PlaySettingsSheet: React.FC<PlaySettingsSheetProps> = ({
   onOpenIllumination,
   onOpenSkyEnvironment,
   onOpenRenderSettings,
+  onOpenSessions,
   onOpenExport,
   onOpenARViewer,
   onOpenClipboard,
@@ -196,7 +199,7 @@ export const PlaySettingsSheet: React.FC<PlaySettingsSheetProps> = ({
   };
 
   const pill = (active: boolean) =>
-    `flex-1 min-h-[44px] h-11 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+    `flex-1 min-h-[36px] h-9 px-2.5 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
       active
         ? isLight ? 'bg-neutral-900 text-white shadow-sm' : 'bg-white text-zinc-950 shadow-sm'
         : isLight
@@ -204,7 +207,7 @@ export const PlaySettingsSheet: React.FC<PlaySettingsSheetProps> = ({
           : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
     }`;
 
-  const actionBtn = `min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 border transition-all active:scale-98 cursor-pointer ${
+  const actionBtn = `min-h-[38px] px-3 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-2 border transition-all active:scale-98 cursor-pointer ${
     isLight
       ? 'bg-neutral-100 hover:bg-neutral-200 border-neutral-300 text-neutral-800'
       : 'bg-neutral-800 hover:bg-neutral-700 border-neutral-700 text-neutral-200'
@@ -217,7 +220,7 @@ export const PlaySettingsSheet: React.FC<PlaySettingsSheetProps> = ({
       <SectionHeader title="Studio" isLight={isLight} />
 
       <Row icon={isLight ? Sun : Moon} label="Studio Theme" hint="Viewport and interface contrast" isLight={isLight}>
-        <div className="flex gap-1.5 w-48">
+        <div className="flex gap-1 w-40">
           <button
             type="button"
             onClick={() => {
@@ -243,14 +246,14 @@ export const PlaySettingsSheet: React.FC<PlaySettingsSheetProps> = ({
 
       {onUiScaleChange && (
         <Row icon={Sliders} label="UI Scale" hint={`Interface size (${Math.round(uiScale * 100)}%)`} isLight={isLight}>
-          <div className="flex items-center gap-1.5">
+          <div className="paperrocket-stepper flex items-center gap-1">
             <button
               type="button"
               onClick={() => {
                 haptics.trigger('light');
                 onUiScaleChange(Math.max(0.7, uiScale - 0.1));
               }}
-              className={`min-h-[44px] min-w-[44px] px-3 rounded-xl border text-sm font-bold flex items-center justify-center transition-colors ${
+              className={`min-h-[36px] min-w-[36px] px-2 rounded-lg border text-sm font-bold flex items-center justify-center transition-colors ${
                 isLight ? 'bg-neutral-100 hover:bg-neutral-200 border-neutral-300 text-neutral-800' : 'bg-neutral-800 hover:bg-neutral-700 border-neutral-700 text-white'
               }`}
             >
@@ -262,7 +265,7 @@ export const PlaySettingsSheet: React.FC<PlaySettingsSheetProps> = ({
                 haptics.trigger('light');
                 onUiScaleChange(1.0);
               }}
-              className={`min-h-[44px] px-3 rounded-xl border text-xs font-mono font-bold flex items-center justify-center transition-colors ${
+              className={`min-h-[36px] px-2.5 rounded-lg border text-[11px] font-mono font-bold flex items-center justify-center transition-colors ${
                 isLight ? 'bg-neutral-100 hover:bg-neutral-200 border-neutral-300 text-neutral-700' : 'bg-neutral-800 hover:bg-neutral-700 border-neutral-700 text-neutral-300'
               }`}
             >
@@ -274,7 +277,7 @@ export const PlaySettingsSheet: React.FC<PlaySettingsSheetProps> = ({
                 haptics.trigger('light');
                 onUiScaleChange(Math.min(1.5, uiScale + 0.1));
               }}
-              className={`min-h-[44px] min-w-[44px] px-3 rounded-xl border text-sm font-bold flex items-center justify-center transition-colors ${
+              className={`min-h-[36px] min-w-[36px] px-2 rounded-lg border text-sm font-bold flex items-center justify-center transition-colors ${
                 isLight ? 'bg-neutral-100 hover:bg-neutral-200 border-neutral-300 text-neutral-800' : 'bg-neutral-800 hover:bg-neutral-700 border-neutral-700 text-white'
               }`}
             >
@@ -286,7 +289,7 @@ export const PlaySettingsSheet: React.FC<PlaySettingsSheetProps> = ({
 
       {onNavigatorStyleChange && (
         <Row icon={Compass} label="Navigator Tool" hint="Active 3D navigation interface" isLight={isLight}>
-          <div className="flex gap-1.5 w-64">
+          <div className="flex gap-1 w-44">
             <button
               type="button"
               onClick={() => {
@@ -296,7 +299,7 @@ export const PlaySettingsSheet: React.FC<PlaySettingsSheetProps> = ({
               className={pill(navigatorStyle === 'opt3')}
               title="Opt 3: Sphere Gimbal Navigator"
             >
-              Opt 3: Sphere
+              Sphere
             </button>
             <button
               type="button"
@@ -307,7 +310,7 @@ export const PlaySettingsSheet: React.FC<PlaySettingsSheetProps> = ({
               className={pill(navigatorStyle === 'opt1')}
               title="Opt 1: Tabbed Deck Navigator"
             >
-              Opt 1: Tabbed
+              Tabbed
             </button>
           </div>
         </Row>
@@ -315,7 +318,7 @@ export const PlaySettingsSheet: React.FC<PlaySettingsSheetProps> = ({
 
       {showMore && onSensitivityChange && (
         <Row icon={Compass} label="Navigator Sensitivity" hint={`Speed and responsiveness (${navigatorSensitivity.toFixed(2)}x)`} isLight={isLight}>
-          <div className="flex flex-col gap-1.5 w-48">
+          <div className="flex flex-col gap-1.5 w-40">
             <div className="flex items-center gap-1">
               {[0.25, 0.5, 1.0, 2.0].map((s) => (
                 <button
@@ -354,7 +357,7 @@ export const PlaySettingsSheet: React.FC<PlaySettingsSheetProps> = ({
 
       {showMore && onToggleProjection && (
         <Row icon={Box} label="Camera Projection" hint="3D perspective depth vs isometric flat view" isLight={isLight}>
-          <div className="flex gap-1.5 w-48">
+          <div className="flex gap-1 w-40">
             <button
               type="button"
               onClick={() => {
@@ -423,7 +426,7 @@ export const PlaySettingsSheet: React.FC<PlaySettingsSheetProps> = ({
           haptics.trigger('light');
           setShowMore((value) => !value);
         }}
-        className={`w-full min-h-[52px] flex items-center gap-3.5 border-b text-left transition-colors ${
+        className={`paperrocket-settings-more w-full min-h-[46px] flex items-center gap-2.5 border-b text-left transition-colors ${
           isLight ? 'border-neutral-200 hover:bg-black/[0.025]' : 'border-neutral-800 hover:bg-white/[0.025]'
         }`}
         aria-expanded={showMore}
@@ -468,7 +471,7 @@ export const PlaySettingsSheet: React.FC<PlaySettingsSheetProps> = ({
 
       {showMore && (
         <Row icon={Box} label="Model Appearance" hint="Keep imported textures or use neutral studio clay" isLight={isLight}>
-          <div className="flex gap-1.5 w-48">
+          <div className="flex gap-1 w-40">
             <button type="button" onClick={() => onSetModelDisplayMode('texture')} className={pill(modelDisplayMode === 'texture')}>Texture</button>
             <button type="button" onClick={() => onSetModelDisplayMode('clay')} className={pill(modelDisplayMode === 'clay')}>White Clay</button>
           </div>
@@ -477,6 +480,15 @@ export const PlaySettingsSheet: React.FC<PlaySettingsSheetProps> = ({
 
       {/* 3. SHARE & EXPORT */}
       {showMore && <SectionHeader title="Share & Export" isLight={isLight} />}
+
+      {showMore && onOpenSessions && (
+        <Row icon={FolderArchive} label="Project Sessions" hint="Save and switch between editable sessions with undo history" isLight={isLight}>
+          <button type="button" onClick={onOpenSessions} className={actionBtn}>
+            <FolderArchive className="w-4 h-4" />
+            <span>Manage Sessions</span>
+          </button>
+        </Row>
+      )}
 
       {showMore && onOpenExport && (
         <Row icon={Download} label="Export 3D Artwork" hint="Save model as GLB, OBJ, STL, or image capture" isLight={isLight}>

@@ -1,5 +1,5 @@
-﻿// src/utils/storagePermission.ts
-import { ProjectSaveData } from '../types';
+// src/utils/storagePermission.ts
+import { ProjectSaveData, SavedProjectSession } from '../types';
 
 export interface StorageEstimateInfo {
   usageBytes: number;
@@ -105,8 +105,9 @@ export async function getStorageEstimate(): Promise<StorageEstimateInfo> {
    ────────────────────────────────────────────────────────────────────────── */
 
 const DB_NAME = 'Remix3DAutosaveDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = 'project_autosave';
+const SESSIONS_STORE_NAME = 'saved_sessions';
 const AUTOSAVE_RECORD_KEY = 'latest_session';
 
 interface AutoSaveRecord {
@@ -134,6 +135,9 @@ function getAutosaveDB(): Promise<IDBDatabase> {
       const db = (event.target as IDBOpenDBRequest).result;
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains(SESSIONS_STORE_NAME)) {
+        db.createObjectStore(SESSIONS_STORE_NAME, { keyPath: 'id' });
       }
     };
 
@@ -247,3 +251,93 @@ export async function clearAutoSaveProject(): Promise<void> {
     console.warn('[Storage] Clear autosave failed:', err);
   }
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   USER PROJECT SESSIONS REPOSITORY (NAMED SESSIONS)
+   ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Saves a named project session into IndexedDB
+ */
+export async function saveProjectSession(session: SavedProjectSession): Promise<void> {
+  try {
+    const db = await getAutosaveDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([SESSIONS_STORE_NAME], 'readwrite');
+      const store = tx.objectStore(SESSIONS_STORE_NAME);
+      const req = store.put(session);
+
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  } catch (err) {
+    console.error('[Storage] Failed to save project session:', err);
+    throw err;
+  }
+}
+
+/**
+ * Loads all saved project sessions sorted by most recent
+ */
+export async function getAllProjectSessions(): Promise<SavedProjectSession[]> {
+  try {
+    const db = await getAutosaveDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([SESSIONS_STORE_NAME], 'readonly');
+      const store = tx.objectStore(SESSIONS_STORE_NAME);
+      const req = store.getAll();
+
+      req.onsuccess = () => {
+        const sessions = (req.result as SavedProjectSession[]) || [];
+        sessions.sort((a, b) => b.timestamp - a.timestamp);
+        resolve(sessions);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  } catch (err) {
+    console.warn('[Storage] Failed to get project sessions:', err);
+    return [];
+  }
+}
+
+/**
+ * Loads a single project session by ID
+ */
+export async function loadProjectSession(id: string): Promise<SavedProjectSession | null> {
+  try {
+    const db = await getAutosaveDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([SESSIONS_STORE_NAME], 'readonly');
+      const store = tx.objectStore(SESSIONS_STORE_NAME);
+      const req = store.get(id);
+
+      req.onsuccess = () => {
+        resolve((req.result as SavedProjectSession) || null);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  } catch (err) {
+    console.warn('[Storage] Failed to load project session:', err);
+    return null;
+  }
+}
+
+/**
+ * Deletes a project session by ID
+ */
+export async function deleteProjectSession(id: string): Promise<void> {
+  try {
+    const db = await getAutosaveDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([SESSIONS_STORE_NAME], 'readwrite');
+      const store = tx.objectStore(SESSIONS_STORE_NAME);
+      const req = store.delete(id);
+
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  } catch (err) {
+    console.warn('[Storage] Failed to delete project session:', err);
+  }
+}
+

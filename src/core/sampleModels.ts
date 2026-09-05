@@ -7,6 +7,7 @@ export interface PresetModelDefinition {
   category: 'Anime & Manga' | 'Characters & Figures' | 'Houses & Architecture' | 'Vehicles & Tech' | 'Animals & Creatures' | 'Shapes & Benchmarks';
   description: string;
   file?: string;
+  previewImage?: string;
   remoteUrl?: string;
   scale?: number;
   rotation?: { x: number; y: number; z: number };
@@ -122,6 +123,7 @@ export class SampleModelFactory {
     return rawPresets.map((p) => ({
       ...p,
       file: p.file ? resolveAssetUrl(p.file) : undefined,
+      previewImage: resolveAssetUrl(`models/previews/${p.id}.png`),
     }));
   }
 

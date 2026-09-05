@@ -21,6 +21,7 @@ import { SampleModelFactory, PresetModelDefinition } from '../../core/sampleMode
 import { Saved3DModel } from '../../types';
 import { haptics } from '../../utils/haptics';
 import { Model3DPreview, Model3DStats } from '../common/Model3DPreview';
+import { StudioCloseButton } from '../common/StudioCloseButton';
 
 interface PlayImporterProps {
   isOpen: boolean;
@@ -189,7 +190,12 @@ export const PlayImporter: React.FC<PlayImporterProps> = ({
           engine.scaleModelOrSurface(size);
         }
 
-        // Save custom model to ModelStorage for reuse
+        // Configure clean studio environment & surface brush
+        engine.setSkyPreset('off');
+        engine.setTheme(theme);
+        engine.setGrid(false);
+
+        // Save custom model to ModelStorage with Auto Preview for reuse
         try {
           const thumbnail = engine.captureSnapshot();
           const bytes = sourceBytes.current;
@@ -215,11 +221,6 @@ export const PlayImporter: React.FC<PlayImporterProps> = ({
         }
       }
 
-      // Configure clean studio environment & surface brush
-      engine.setSkyPreset('off');
-      engine.setTheme(theme);
-      engine.setGrid(false);
-
       haptics.trigger('success');
       onSaved(name.trim() || (activePreset ? activePreset.name : 'Model'));
       resetState();
@@ -239,7 +240,7 @@ export const PlayImporter: React.FC<PlayImporterProps> = ({
   return (
     <div className="paperrocket-modal-overlay fixed inset-0 z-[56] flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-200">
       <div
-        className={`pr-surface w-full max-w-2xl max-h-[92vh] flex flex-col rounded-3xl border shadow-2xl overflow-hidden ${panelBg}`}
+        className={`pr-surface w-full max-w-lg max-h-[85vh] flex flex-col rounded-2xl border shadow-2xl overflow-hidden ${panelBg}`}
       >
         {/* Header */}
         <div className={`shrink-0 flex items-center justify-between px-5 h-16 border-b ${
@@ -274,19 +275,14 @@ export const PlayImporter: React.FC<PlayImporterProps> = ({
             </div>
           </div>
 
-          <button
-            type="button"
+          <StudioCloseButton
             onClick={() => {
               resetState();
               onClose();
             }}
-            className={`w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-colors ${
-              isLight ? 'bg-neutral-100 hover:bg-neutral-200 text-neutral-700' : 'bg-zinc-800 hover:bg-zinc-700 text-neutral-300'
-            }`}
-            aria-label="Close"
-          >
-            <X className="w-4 h-4" />
-          </button>
+            theme={isLight ? 'light' : 'dark'}
+            ariaLabel="Close"
+          />
         </div>
 
         {error && (
@@ -296,7 +292,7 @@ export const PlayImporter: React.FC<PlayImporterProps> = ({
         )}
 
         {/* Content Body */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+        <div className="flex-1 overflow-y-auto studio-scroll p-5 space-y-5">
           {stage === 'saving' && (
             <div className="h-64 flex flex-col items-center justify-center gap-3">
               <Loader2 className="w-8 h-8 animate-spin text-neutral-500" />
@@ -352,7 +348,16 @@ export const PlayImporter: React.FC<PlayImporterProps> = ({
                       className={`p-3 rounded-2xl border text-left flex flex-col justify-between transition-all active:scale-95 cursor-pointer ${cardBg}`}
                     >
                       <div className="aspect-video rounded-xl bg-black/20 flex items-center justify-center mb-2 overflow-hidden border border-white/5">
-                        <Box className="w-6 h-6 opacity-60" />
+                        {preset.previewImage ? (
+                          <img
+                            src={preset.previewImage}
+                            alt={preset.name}
+                            className="w-full h-full object-contain p-1"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <Box className="w-6 h-6 opacity-60" />
+                        )}
                       </div>
                       <span className="text-xs font-bold leading-tight truncate w-full block">
                         {preset.name}

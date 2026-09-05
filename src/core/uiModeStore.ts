@@ -84,7 +84,7 @@ export function useUiMode(): UiMode {
 
 // --- First run ----------------------------------------------------------
 
-let hasOnboarded: boolean = readStored(ONBOARDED_KEY) === 'true';
+let hasOnboarded: boolean = readStored(ONBOARDED_KEY) !== 'false';
 const onboardedListeners = new Set<Listener>();
 
 export function getHasOnboarded(): boolean {

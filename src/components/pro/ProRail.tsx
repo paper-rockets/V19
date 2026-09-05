@@ -1,5 +1,5 @@
 import React from 'react';
-import { MousePointer, PenLine, Shapes, Wand2, Layers, Sun } from 'lucide-react';
+import { IcPointer, IcDraw, IcCreate, IcDeform, IcLayers, IcSun } from './StudioIcons';
 import { ProMode, toggleSheet, useOpenSheet } from '../play/sheetStore';
 import { haptics } from '../../utils/haptics';
 
@@ -16,11 +16,11 @@ interface ModeButton {
 }
 
 const MODES: ModeButton[] = [
-  { id: 'select', label: 'Select', icon: MousePointer },
-  { id: 'draw', label: 'Draw', icon: PenLine },
-  { id: 'create', label: 'Create', icon: Shapes },
-  { id: 'deform', label: 'Deform', icon: Wand2 },
-  { id: 'layers', label: 'Layers', icon: Layers },
+  { id: 'select', label: 'Select', icon: IcPointer },
+  { id: 'draw', label: 'Draw', icon: IcDraw },
+  { id: 'create', label: 'Create', icon: IcCreate },
+  { id: 'deform', label: 'Deform', icon: IcDeform },
+  { id: 'layers', label: 'Layers', icon: IcLayers },
 ];
 
 export const ProRail: React.FC<ProRailProps> = ({
@@ -83,7 +83,7 @@ export const ProRail: React.FC<ProRailProps> = ({
           aria-pressed={isIlluminationOpen}
           title="Studio Illumination"
         >
-          <Sun className="h-[23px] w-[23px] shrink-0 text-amber-400" strokeWidth={1.4} />
+          <IcSun className="h-[23px] w-[23px] shrink-0 text-amber-400" strokeWidth={1.4} />
         </button>
       </div>
     </nav>

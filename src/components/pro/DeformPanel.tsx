@@ -1,16 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
-  Move,
-  Shield,
-  Compass,
-  Scissors,
-  Camera,
-  Layers,
-  Sparkles,
-  Spline,
-  RotateCcw,
-  Check,
-} from 'lucide-react';
+  IcMove as Move,
+  IcArmature as Shield,
+  IcMirror as Compass,
+  IcSimplify as Scissors,
+  IcCamera as Camera,
+  IcSparkle as Sparkles,
+  IcBend as Spline,
+  IcMirrorSettings,
+  IcAlignView,
+  IcSimplifySettings,
+  IcQuickSimplify,
+} from './StudioIcons';
 import { StudioEngine } from '../../core/studioEngine';
 import { LiquifySettings, NumpadTarget, ToolType } from '../../types';
 import { LiquifyPanel } from '../LiquifyPanel';
@@ -57,6 +58,9 @@ export const DeformPanel: React.FC<DeformPanelProps> = ({
 }) => {
   const isLight = theme === 'light';
   const isPushPullActive = tool === 'liquify' || isLiquifyOpen;
+  const [mirrorAxis, setMirrorAxis] = useState<'x' | 'y' | 'z' | null>(null);
+  const [decimateTolerance, setDecimateTolerance] = useState<number>(0.006);
+  const [simplifyFeedback, setSimplifyFeedback] = useState<string | null>(null);
 
   const handleStartPushPull = () => {
     haptics.trigger('medium');
@@ -88,6 +92,18 @@ export const DeformPanel: React.FC<DeformPanelProps> = ({
     }
   };
 
+  const handleToggleAxis = (axis: 'x' | 'y' | 'z') => {
+    haptics.trigger('medium');
+    if (mirrorAxis === axis) {
+      setMirrorAxis(null);
+      engine?.toggleCustomMirrorPlane(false);
+    } else {
+      setMirrorAxis(axis);
+      const normal = axis === 'x' ? { x: 1, y: 0, z: 0 } : axis === 'y' ? { x: 0, y: 1, z: 0 } : { x: 0, y: 0, z: 1 };
+      engine?.setCustomMirrorPlane({ x: 0, y: 0, z: 0 }, normal, true);
+    }
+  };
+
   const handleAlignMirrorToView = () => {
     haptics.trigger('medium');
     if (!engine) return;
@@ -97,26 +113,35 @@ export const DeformPanel: React.FC<DeformPanelProps> = ({
     }
   };
 
-  const handleQuickSimplify = () => {
+  const handleRunSimplify = () => {
     haptics.trigger('medium');
     if (!engine) return;
-    engine.decimateActiveLayerCurves(0.006, true);
+    const stats = engine.decimateCurves(decimateTolerance, 'layer');
+    if (stats && stats.before > 0) {
+      const pct = Math.round(((stats.before - stats.after) / stats.before) * 100);
+      setSimplifyFeedback(`Reduced ${pct}%`);
+    } else {
+      setSimplifyFeedback('Done');
+    }
+    setTimeout(() => setSimplifyFeedback(null), 2500);
   };
 
+  const cardClass = isLight
+    ? 'p-3 rounded-2xl bg-neutral-100/50 border border-black/5 space-y-2.5'
+    : 'p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] space-y-2.5';
+
+  const subHeadingClass = `text-[11px] font-bold uppercase tracking-wider ${
+    isLight ? 'text-neutral-500' : 'text-neutral-400'
+  }`;
+
   return (
-    <div className="space-y-4 font-sans text-xs">
-      {/* 1. Push & Pull Tool */}
-      <div
-        className={`p-3 rounded-xl border space-y-2.5 transition-colors ${
-          isLight ? 'bg-neutral-50 border-neutral-200' : 'bg-[#141519] border-white/10'
-        }`}
-      >
+    <div className="space-y-4 font-sans text-xs select-none">
+      {/* 1. Push & Pull (Inflate/Deflate) */}
+      <div className={cardClass}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Move className={`w-4 h-4 ${isLight ? 'text-neutral-900' : 'text-neutral-200'}`} />
-            <span className={`font-bold ${isLight ? 'text-neutral-900' : 'text-white'}`}>
-              Push & Pull
-            </span>
+            <span className={subHeadingClass}>Push & Pull</span>
           </div>
           {isPushPullActive && (
             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-500 border border-amber-500/30">
@@ -124,10 +149,6 @@ export const DeformPanel: React.FC<DeformPanelProps> = ({
             </span>
           )}
         </div>
-
-        <p className={`text-[11px] leading-relaxed ${isLight ? 'text-neutral-600' : 'text-neutral-400'}`}>
-          Displace, pinch, inflate, or comb 3D curves directly with your stylus or finger.
-        </p>
 
         {isPushPullActive && liquifySettings ? (
           <div className="pt-1">
@@ -163,38 +184,98 @@ export const DeformPanel: React.FC<DeformPanelProps> = ({
         )}
       </div>
 
-      {/* 2. Guides */}
-      <div
-        className={`p-3 rounded-xl border space-y-2.5 transition-colors ${
-          isLight ? 'bg-neutral-50 border-neutral-200' : 'bg-[#141519] border-white/10'
-        }`}
-      >
-        <div className="flex items-center gap-2">
-          <Shield className={`w-4 h-4 ${isLight ? 'text-neutral-900' : 'text-neutral-200'}`} />
-          <span className={`font-bold ${isLight ? 'text-neutral-900' : 'text-white'}`}>
-            Guides
+      {/* 2. Symmetry / Mirror */}
+      <div className={cardClass}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Compass className={`w-4 h-4 ${isLight ? 'text-neutral-900' : 'text-neutral-200'}`} />
+            <span className={subHeadingClass}>Symmetry & Mirror</span>
+          </div>
+          <span className="font-mono text-[10px] opacity-70">
+            {mirrorAxis ? `${mirrorAxis.toUpperCase()}-Axis` : 'Off'}
           </span>
         </div>
 
-        <p className={`text-[11px] leading-relaxed ${isLight ? 'text-neutral-600' : 'text-neutral-400'}`}>
-          Reference armatures and curved surfaces your strokes snap onto automatically.
-        </p>
+        {/* X, Y, Z axis toggle buttons */}
+        <div className="grid grid-cols-3 gap-1.5">
+          {(['x', 'y', 'z'] as const).map((axis) => {
+            const isSelected = mirrorAxis === axis;
+            return (
+              <button
+                key={axis}
+                type="button"
+                onClick={() => handleToggleAxis(axis)}
+                className={`min-h-[40px] rounded-xl border font-bold text-xs transition-all active:scale-95 ${
+                  isSelected
+                    ? isLight
+                      ? 'bg-neutral-900 border-neutral-900 text-white shadow-xs'
+                      : 'bg-white border-white text-neutral-950 shadow-xs'
+                    : isLight
+                    ? 'bg-white border-black/10 text-neutral-700 hover:bg-neutral-200/50'
+                    : 'bg-black/30 border-white/10 text-neutral-300 hover:bg-white/5'
+                }`}
+              >
+                {axis.toUpperCase()}
+              </button>
+            );
+          })}
+        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+          <button
+            type="button"
+            onClick={handleAlignMirrorToView}
+            className={`min-h-[40px] px-2.5 py-1.5 rounded-xl border font-semibold flex items-center justify-center gap-1.5 transition-all text-xs ${
+              isLight
+                ? 'bg-white hover:bg-neutral-100 border-black/10 text-neutral-800'
+                : 'bg-black/30 hover:bg-white/10 border-white/10 text-neutral-200'
+            }`}
+            title="Align mirror plane to current camera view"
+          >
+            <IcAlignView className="w-4 h-4 shrink-0" />
+            <span>Align View</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              haptics.trigger('light');
+              onOpenCustomMirror();
+            }}
+            className={`min-h-[40px] px-2.5 py-1.5 rounded-xl border font-semibold flex items-center justify-center gap-1.5 transition-all text-xs ${
+              isLight
+                ? 'bg-white hover:bg-neutral-100 border-black/10 text-neutral-800'
+                : 'bg-black/30 hover:bg-white/10 border-white/10 text-neutral-200'
+            }`}
+          >
+            <IcMirrorSettings className="w-4 h-4 shrink-0" />
+            <span>Settings</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 3. Guides & Curves */}
+      <div className={cardClass}>
+        <div className="flex items-center gap-2">
+          <Shield className={`w-4 h-4 ${isLight ? 'text-neutral-900' : 'text-neutral-200'}`} />
+          <span className={subHeadingClass}>Guides & Curves</span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-1.5">
           <button
             type="button"
             onClick={() => {
               haptics.trigger('light');
               onOpenScaffolding();
             }}
-            className={`min-h-[44px] px-3 py-2 rounded-xl border font-semibold flex items-center justify-center gap-2 transition-all ${
+            className={`min-h-[44px] px-2.5 py-2 rounded-xl border font-semibold flex items-center justify-center gap-2 transition-all text-xs ${
               isLight
-                ? 'bg-white hover:bg-neutral-100 border-neutral-300 text-neutral-800'
-                : 'bg-neutral-900 hover:bg-neutral-800 border-neutral-700 text-neutral-200'
+                ? 'bg-white hover:bg-neutral-100 border-black/10 text-neutral-800'
+                : 'bg-black/30 hover:bg-white/10 border-white/10 text-neutral-200'
             }`}
           >
             <Shield className="w-4 h-4 shrink-0" />
-            <span>Armatures & Forms</span>
+            <span>Armatures</span>
           </button>
 
           <button
@@ -203,117 +284,77 @@ export const DeformPanel: React.FC<DeformPanelProps> = ({
               haptics.trigger('light');
               onOpenBentGuide();
             }}
-            className={`min-h-[44px] px-3 py-2 rounded-xl border font-semibold flex items-center justify-center gap-2 transition-all ${
+            className={`min-h-[44px] px-2.5 py-2 rounded-xl border font-semibold flex items-center justify-center gap-2 transition-all text-xs ${
               isLight
-                ? 'bg-white hover:bg-neutral-100 border-neutral-300 text-neutral-800'
-                : 'bg-neutral-900 hover:bg-neutral-800 border-neutral-700 text-neutral-200'
+                ? 'bg-white hover:bg-neutral-100 border-black/10 text-neutral-800'
+                : 'bg-black/30 hover:bg-white/10 border-white/10 text-neutral-200'
             }`}
           >
             <Spline className="w-4 h-4 shrink-0" />
-            <span>Bend Along a Path</span>
+            <span>Bend Path</span>
           </button>
         </div>
       </div>
 
-      {/* 3. Mirror */}
-      <div
-        className={`p-3 rounded-xl border space-y-2.5 transition-colors ${
-          isLight ? 'bg-neutral-50 border-neutral-200' : 'bg-[#141519] border-white/10'
-        }`}
-      >
-        <div className="flex items-center gap-2">
-          <Compass className={`w-4 h-4 ${isLight ? 'text-neutral-900' : 'text-neutral-200'}`} />
-          <span className={`font-bold ${isLight ? 'text-neutral-900' : 'text-white'}`}>
-            Mirror
+      {/* 4. Simplify & Decimate */}
+      <div className={cardClass}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Scissors className={`w-4 h-4 ${isLight ? 'text-neutral-900' : 'text-neutral-200'}`} />
+            <span className={subHeadingClass}>Simplify & Decimate</span>
+          </div>
+          <span className="font-mono text-[10px] font-bold">
+            {Math.round((decimateTolerance / 0.02) * 100)}%
           </span>
         </div>
 
-        <p className={`text-[11px] leading-relaxed ${isLight ? 'text-neutral-600' : 'text-neutral-400'}`}>
-          Symmetry plane reflecting brush strokes across 3D coordinates.
-        </p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              haptics.trigger('light');
-              onOpenCustomMirror();
-            }}
-            className={`min-h-[44px] px-3 py-2 rounded-xl border font-semibold flex items-center justify-center gap-2 transition-all ${
-              isLight
-                ? 'bg-white hover:bg-neutral-100 border-neutral-300 text-neutral-800'
-                : 'bg-neutral-900 hover:bg-neutral-800 border-neutral-700 text-neutral-200'
+        {/* Reduction slider */}
+        <div className="space-y-1">
+          <input
+            type="range"
+            min="0.001"
+            max="0.02"
+            step="0.001"
+            value={decimateTolerance}
+            onChange={(e) => setDecimateTolerance(parseFloat(e.target.value))}
+            className={`w-full h-1.5 rounded cursor-pointer ${
+              isLight ? 'accent-neutral-900 bg-neutral-200' : 'accent-white bg-neutral-800'
             }`}
-          >
-            <Compass className="w-4 h-4 shrink-0" />
-            <span>Mirror Settings</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleAlignMirrorToView}
-            className={`min-h-[44px] px-3 py-2 rounded-xl border font-semibold flex items-center justify-center gap-2 transition-all ${
-              isLight
-                ? 'bg-white hover:bg-neutral-100 border-neutral-300 text-neutral-800'
-                : 'bg-neutral-900 hover:bg-neutral-800 border-neutral-700 text-neutral-200'
-            }`}
-            title="Align mirror plane to current camera view"
-          >
-            <Camera className="w-4 h-4 shrink-0" />
-            <span>Align to View</span>
-          </button>
-        </div>
-      </div>
-
-      {/* 4. Simplify Lines */}
-      <div
-        className={`p-3 rounded-xl border space-y-2.5 transition-colors ${
-          isLight ? 'bg-neutral-50 border-neutral-200' : 'bg-[#141519] border-white/10'
-        }`}
-      >
-        <div className="flex items-center gap-2">
-          <Scissors className={`w-4 h-4 ${isLight ? 'text-neutral-900' : 'text-neutral-200'}`} />
-          <span className={`font-bold ${isLight ? 'text-neutral-900' : 'text-white'}`}>
-            Simplify Lines
-          </span>
+          />
         </div>
 
-        <p className={`text-[11px] leading-relaxed ${isLight ? 'text-neutral-600' : 'text-neutral-400'}`}>
-          Reduces point count along stroke curves to keep performance smooth.
-        </p>
+        <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+          <button
+            type="button"
+            onClick={handleRunSimplify}
+            className={`min-h-[40px] px-2.5 py-1.5 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all text-xs active:scale-95 shadow-xs ${
+              isLight
+                ? 'bg-neutral-900 hover:bg-neutral-800 text-white'
+                : 'bg-white hover:bg-neutral-100 text-neutral-950'
+            }`}
+          >
+            <IcQuickSimplify className="w-4 h-4 shrink-0" />
+            <span>{simplifyFeedback || 'Simplify Now'}</span>
+          </button>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <button
             type="button"
             onClick={() => {
               haptics.trigger('light');
               onOpenDecimate();
             }}
-            className={`min-h-[44px] px-3 py-2 rounded-xl border font-semibold flex items-center justify-center gap-2 transition-all ${
+            className={`min-h-[40px] px-2.5 py-1.5 rounded-xl border font-semibold flex items-center justify-center gap-1.5 transition-all text-xs ${
               isLight
-                ? 'bg-white hover:bg-neutral-100 border-neutral-300 text-neutral-800'
-                : 'bg-neutral-900 hover:bg-neutral-800 border-neutral-700 text-neutral-200'
+                ? 'bg-white hover:bg-neutral-100 border-black/10 text-neutral-800'
+                : 'bg-black/30 hover:bg-white/10 border-white/10 text-neutral-200'
             }`}
           >
-            <Scissors className="w-4 h-4 shrink-0" />
-            <span>Simplify Settings</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleQuickSimplify}
-            className={`min-h-[44px] px-3 py-2 rounded-xl border font-semibold flex items-center justify-center gap-2 transition-all ${
-              isLight
-                ? 'bg-white hover:bg-neutral-100 border-neutral-300 text-neutral-800'
-                : 'bg-neutral-900 hover:bg-neutral-800 border-neutral-700 text-neutral-200'
-            }`}
-            title="Lighten active layer curves by simplifying dense points"
-          >
-            <Sparkles className="w-4 h-4 shrink-0" />
-            <span>Quick Simplify</span>
+            <IcSimplifySettings className="w-4 h-4 shrink-0" />
+            <span>Settings</span>
           </button>
         </div>
       </div>
     </div>
   );
 };
+

@@ -1,5 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Box, Undo2, Redo2, Settings, Maximize, Minimize, Sun } from 'lucide-react';
+import {
+  IcScene as Box,
+  IcUndo as Undo2,
+  IcRedo as Redo2,
+  IcSettings as Settings,
+  IcFullscreen as Maximize,
+  IcExitFullscreen as Minimize,
+  IcSun as Sun,
+  IcSave as Save,
+  IcSessions as FolderArchive,
+} from '../pro/StudioIcons';
 import { toggleSheet } from './sheetStore';
 
 interface PlayTopStripProps {
@@ -13,6 +23,8 @@ interface PlayTopStripProps {
   uiMode?: 'play' | 'pro';
   onSwitchUiMode?: () => void;
   onOpenIllumination?: () => void;
+  onQuickSave?: () => void;
+  onOpenSessions?: () => void;
 }
 
 export const PlayTopStrip: React.FC<PlayTopStripProps> = ({
@@ -26,6 +38,8 @@ export const PlayTopStrip: React.FC<PlayTopStripProps> = ({
   uiMode = 'play',
   onSwitchUiMode,
   onOpenIllumination,
+  onQuickSave,
+  onOpenSessions,
 }) => {
   const ink = theme === 'light' ? 'text-neutral-800' : 'text-white/90';
   const button = `pointer-events-auto w-11 h-11 grid place-items-center rounded-xl transition-colors hover:bg-current/[0.045] active:bg-current/[0.075] ${ink}`;
@@ -97,6 +111,28 @@ export const PlayTopStrip: React.FC<PlayTopStripProps> = ({
         >
           <Redo2 className="w-[21px] h-[21px]" strokeWidth={1.35} />
         </button>
+        {onQuickSave && (
+          <button
+            type="button"
+            onClick={onQuickSave}
+            className={button}
+            aria-label="Quick Save Session (Ctrl+S)"
+            title="Quick Save Session (Ctrl+S)"
+          >
+            <Save className="w-[20px] h-[20px]" strokeWidth={1.35} />
+          </button>
+        )}
+        {onOpenSessions && (
+          <button
+            type="button"
+            onClick={onOpenSessions}
+            className={button}
+            aria-label="Project Sessions"
+            title="Project Sessions"
+          >
+            <FolderArchive className="w-[20px] h-[20px]" strokeWidth={1.35} />
+          </button>
+        )}
         {onOpenIllumination && (
           <button
             type="button"

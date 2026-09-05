@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { StudioEngine } from '../core/studioEngine';
-import { Download, Camera, Image, Box, X, Check, Loader2 } from 'lucide-react';
+import { Download, Camera, Image, Box, X, Check, Loader2, FolderHeart } from 'lucide-react';
+import { ModelStorage } from '../core/modelStorage';
+import { Saved3DModel } from '../types';
 
 import { TauriBridge } from '../core/tauriBridge';
 
@@ -102,6 +104,43 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         TauriBridge.triggerHaptic('success');
         setSuccess('Studio render snapshot captured!');
       }
+    } catch (e: any) {
+      console.error(e);
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const handleSaveToLibrary = async () => {
+    if (!engine) return;
+    setExporting('storage');
+    try {
+      const glbBlob = await engine.exportGLB();
+      const arrayBuffer = await glbBlob.arrayBuffer();
+      const snapshot = engine.captureSnapshot();
+
+      const savedModel: Saved3DModel = {
+        id: `model_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        name: `${activeModelName}_painted`,
+        originalName: activeModelName,
+        originalFormat: 'glb',
+        originalSize: arrayBuffer.byteLength,
+        compressedSize: arrayBuffer.byteLength,
+        savedDate: Date.now(),
+        thumbnail: snapshot,
+        blob: arrayBuffer,
+        triangleCount: 0,
+        vertexCount: 0,
+        meshCount: 1,
+        materialCount: 1,
+        dimensions: { x: 1, y: 1, z: 1 },
+        dracoCompressed: false,
+        isBaked: true,
+      };
+
+      await ModelStorage.saveModel(savedModel);
+      TauriBridge.triggerHaptic('success');
+      setSuccess('Model & Auto Preview saved to your library!');
     } catch (e: any) {
       console.error(e);
     } finally {
@@ -230,6 +269,39 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               </div>
             </div>
             {exporting === 'uv' ? (
+              <Loader2 className="w-5 h-5 animate-spin text-neutral-700 dark:text-zinc-300" />
+            ) : (
+              <Download className={`w-4 h-4 transition-colors ${isLight ? 'text-neutral-400 group-hover:text-neutral-900' : 'text-neutral-500 group-hover:text-neutral-200'}`} />
+            )}
+          </div>
+
+          {/* Save to In-App Library with Auto Preview */}
+          <div
+            onClick={handleSaveToLibrary}
+            className={`flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer group ${
+              isLight
+                ? 'bg-[#f4f0e9]/80 hover:bg-[#ede8e0] border-black/10'
+                : 'bg-neutral-950/50 hover:bg-neutral-800/60 border-neutral-800'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <div className={`p-2.5 rounded-xl transition-all ${
+                isLight ? 'bg-black/5 text-neutral-900 group-hover:bg-neutral-900 group-hover:text-white' : 'bg-white/10 text-white group-hover:bg-white group-hover:text-zinc-950'
+              }`}>
+                <FolderHeart className="w-5 h-5" />
+              </div>
+              <div className="flex flex-col text-left">
+                <span className={`text-sm font-semibold transition-colors ${
+                  isLight ? 'text-neutral-900 group-hover:text-neutral-900' : 'text-neutral-100 group-hover:text-white'
+                }`}>
+                  Save to In-App Library
+                </span>
+                <span className={`text-xs ${isLight ? 'text-neutral-500' : 'text-neutral-400'}`}>
+                  Auto-captures preview thumbnail and saves painted model into your library
+                </span>
+              </div>
+            </div>
+            {exporting === 'storage' ? (
               <Loader2 className="w-5 h-5 animate-spin text-neutral-700 dark:text-zinc-300" />
             ) : (
               <Download className={`w-4 h-4 transition-colors ${isLight ? 'text-neutral-400 group-hover:text-neutral-900' : 'text-neutral-500 group-hover:text-neutral-200'}`} />

@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Layer, LayerBlendMode } from '../types';
 import {
   Layers,
@@ -125,7 +126,9 @@ export const LayerPanelComponent: React.FC<LayerPanelProps> = ({
 }) => {
   const isLight = theme === 'light';
   const [openBlendMenuId, setOpenBlendMenuId] = useState<string | null>(null);
+  const [blendMenuPosition, setBlendMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const [openTagMenuId, setOpenTagMenuId] = useState<string | null>(null);
+  const [tagMenuPosition, setTagMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const [nameInputValue, setNameInputValue] = useState<string>('');
 
@@ -446,7 +449,7 @@ export const LayerPanelComponent: React.FC<LayerPanelProps> = ({
       </div>
 
       {/* Tree List */}
-      <div className={`${inline ? 'space-y-1.5 pr-1' : 'max-h-[380px] overflow-y-auto space-y-1.5 pr-1 scrollbar-thin scrollbar-thumb-neutral-700'}`}>
+      <div className={`${inline ? 'space-y-1.5 pr-1 studio-scroll' : 'max-h-[380px] overflow-y-auto space-y-1.5 pr-1 studio-scroll'}`}>
         {visibleHierarchyList.map((item, visibleIdx) => {
           const rawIdx = layers.findIndex((l) => l.id === item.id);
           const isActive = item.id === activeLayerId;
@@ -573,28 +576,22 @@ export const LayerPanelComponent: React.FC<LayerPanelProps> = ({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        setOpenTagMenuId(openTagMenuId === item.id ? null : item.id);
+                        if (openTagMenuId === item.id) {
+                          setOpenTagMenuId(null);
+                        } else {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setTagMenuPosition({
+                            top: rect.bottom + 4,
+                            left: Math.max(8, Math.min(window.innerWidth - 180, rect.right - 160)),
+                          });
+                          setOpenTagMenuId(item.id);
+                        }
                       }}
                       className={`p-1 rounded transition-colors ${isLight ? 'hover:bg-neutral-200 text-neutral-500' : 'hover:bg-neutral-800 text-neutral-400 hover:text-white'}`}
                       title="Color Tag"
                     >
                       <Tag className="w-3 h-3" />
                     </button>
-                    {openTagMenuId === item.id && (
-                      <div className={`absolute right-0 top-full mt-1 p-1 rounded-xl shadow-xl z-50 flex gap-1 border ${
-                        isLight ? 'bg-white border-black/10' : 'bg-neutral-950 border-neutral-700'
-                      }`}>
-                        {COLOR_TAGS.map((t) => (
-                          <button
-                            key={t.name}
-                            onClick={() => handleSetColorTag(item.id, t.color)}
-                            className="w-4 h-4 rounded-full border border-black/20 hover:scale-110 transition-transform"
-                            style={{ backgroundColor: t.color === 'transparent' ? (isLight ? '#e5e5e5' : '#262626') : t.color }}
-                            title={t.name}
-                          />
-                        ))}
-                      </div>
-                    )}
                   </div>
 
                   {/* Visibility Toggle */}
@@ -684,7 +681,18 @@ export const LayerPanelComponent: React.FC<LayerPanelProps> = ({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setOpenBlendMenuId(openBlendMenuId === item.id ? null : item.id);
+                          if (openBlendMenuId === item.id) {
+                            setOpenBlendMenuId(null);
+                          } else {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const popoverHeight = 220;
+                            const top = rect.top - popoverHeight > 10 ? rect.top - popoverHeight : rect.bottom + 4;
+                            setBlendMenuPosition({
+                              top,
+                              left: Math.max(8, Math.min(window.innerWidth - 210, rect.left)),
+                            });
+                            setOpenBlendMenuId(item.id);
+                          }
                         }}
                         className={`w-full py-1 px-2 rounded-lg border text-[11px] font-semibold flex items-center justify-between transition-colors ${
                           isLight
@@ -695,29 +703,6 @@ export const LayerPanelComponent: React.FC<LayerPanelProps> = ({
                         <span className="capitalize">{item.blendMode || 'normal'}</span>
                         <ChevronDown className="w-3 h-3 opacity-60" />
                       </button>
-
-                      {openBlendMenuId === item.id && (
-                        <div className={`absolute left-0 bottom-full mb-1 w-48 rounded-xl shadow-2xl p-1 z-50 space-y-0.5 border ${
-                          isLight
-                            ? 'bg-white border-black/10 text-neutral-800'
-                            : 'bg-[#141519] border-neutral-700 text-neutral-200'
-                        }`}>
-                          {BLEND_MODES.map((b) => (
-                            <button
-                              key={b.id}
-                              onClick={() => handleSetBlendMode(item.id, b.id)}
-                              className={`w-full px-2 py-1 rounded-lg text-left text-xs flex items-center justify-between transition-colors ${
-                                item.blendMode === b.id
-                                  ? isLight ? 'bg-neutral-100 dark:bg-white/10 text-neutral-900 dark:text-white font-bold' : 'bg-neutral-900 dark:bg-white/30 text-neutral-800 dark:text-zinc-300 font-bold'
-                                  : isLight ? 'hover:bg-neutral-100 text-neutral-700' : 'hover:bg-neutral-800 text-neutral-300'
-                              }`}
-                            >
-                              <span>{b.label}</span>
-                              {item.blendMode === b.id && <Check className="w-3 h-3 text-neutral-700 dark:text-zinc-300" />}
-                            </button>
-                          ))}
-                        </div>
-                      )}
                     </div>
 
                     {/* If group, button to add layer inside this group */}
@@ -745,6 +730,80 @@ export const LayerPanelComponent: React.FC<LayerPanelProps> = ({
           );
         })}
       </div>
+
+      {/* Portalled Menus to avoid clipping inside overflow-y-auto */}
+      {openTagMenuId && tagMenuPosition && typeof document !== 'undefined' && createPortal(
+        <>
+          <div
+            className="fixed inset-0 z-[9998]"
+            onClick={() => setOpenTagMenuId(null)}
+          />
+          <div
+            style={{ top: tagMenuPosition.top, left: tagMenuPosition.left }}
+            className={`fixed p-1.5 rounded-xl shadow-2xl z-[9999] flex gap-1.5 border animate-in fade-in zoom-in-95 duration-100 ${
+              isLight ? 'bg-white border-black/10 shadow-lg' : 'bg-neutral-950 border-neutral-700 shadow-2xl'
+            }`}
+          >
+            {COLOR_TAGS.map((t) => (
+              <button
+                key={t.name}
+                type="button"
+                onClick={() => {
+                  handleSetColorTag(openTagMenuId, t.color);
+                  setOpenTagMenuId(null);
+                }}
+                className="w-4 h-4 rounded-full border border-black/20 hover:scale-110 transition-transform"
+                style={{ backgroundColor: t.color === 'transparent' ? (isLight ? '#e5e5e5' : '#262626') : t.color }}
+                title={t.name}
+              />
+            ))}
+          </div>
+        </>,
+        document.body
+      )}
+
+      {openBlendMenuId && blendMenuPosition && typeof document !== 'undefined' && createPortal(
+        <>
+          <div
+            className="fixed inset-0 z-[9998]"
+            onClick={() => setOpenBlendMenuId(null)}
+          />
+          <div
+            style={{ top: blendMenuPosition.top, left: blendMenuPosition.left }}
+            className={`fixed w-48 rounded-xl shadow-2xl p-1 z-[9999] space-y-0.5 border animate-in fade-in zoom-in-95 duration-100 ${
+              isLight
+                ? 'bg-white border-black/10 text-neutral-800 shadow-xl'
+                : 'bg-[#141519] border-neutral-700 text-neutral-200 shadow-2xl'
+            }`}
+          >
+            {BLEND_MODES.map((b) => (
+              <button
+                key={b.id}
+                type="button"
+                onClick={() => {
+                  handleSetBlendMode(openBlendMenuId, b.id);
+                  setOpenBlendMenuId(null);
+                }}
+                className={`w-full px-2 py-1.5 rounded-lg text-left text-xs flex items-center justify-between transition-colors ${
+                  layers.find((l) => l.id === openBlendMenuId)?.blendMode === b.id
+                    ? isLight
+                      ? 'bg-neutral-100 text-neutral-900 font-bold'
+                      : 'bg-white/15 text-white font-bold'
+                    : isLight
+                    ? 'hover:bg-neutral-100 text-neutral-700'
+                    : 'hover:bg-white/10 text-neutral-300'
+                }`}
+              >
+                <span>{b.label}</span>
+                {layers.find((l) => l.id === openBlendMenuId)?.blendMode === b.id && (
+                  <Check className="w-3.5 h-3.5 text-sky-400" />
+                )}
+              </button>
+            ))}
+          </div>
+        </>,
+        document.body
+      )}
     </div>
   );
 };

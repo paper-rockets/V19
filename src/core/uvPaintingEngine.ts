@@ -551,6 +551,41 @@ export class UVPaintingEngine {
     return activeEntry.canvas.toDataURL('image/png');
   }
 
+  public exportAllCanvases(): Record<string, string> {
+    const result: Record<string, string> = {};
+    this.layerCanvases.forEach((entry, layerId) => {
+      try {
+        result[layerId] = entry.canvas.toDataURL('image/png');
+      } catch (err) {
+        console.warn(`Failed to export canvas for layer ${layerId}:`, err);
+      }
+    });
+    return result;
+  }
+
+  public async importCanvases(canvases: Record<string, string>): Promise<void> {
+    if (!canvases) return;
+    const entries = Object.entries(canvases);
+    for (const [layerId, dataUrl] of entries) {
+      if (!dataUrl) continue;
+      const entry = this.getOrCreateLayerEntry(layerId);
+      await new Promise<void>((resolve) => {
+        const img = new window.Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          entry.ctx.clearRect(0, 0, this.width, this.height);
+          entry.ctx.drawImage(img, 0, 0, this.width, this.height);
+          entry.texture.needsUpdate = true;
+          this.saveLayerState(layerId);
+          resolve();
+        };
+        img.onerror = () => resolve();
+        img.src = dataUrl;
+      });
+    }
+    this.compositeLayers();
+  }
+
   public dispose(): void {
     this.gpuCompositor.dispose();
     this.layerCanvases.forEach((entry) => entry.texture.dispose());

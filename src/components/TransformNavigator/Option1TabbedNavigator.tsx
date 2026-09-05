@@ -40,7 +40,13 @@ export const Option1TabbedNavigator: React.FC<Option1TabbedNavigatorProps> = ({
 }) => {
   const isLight = theme === 'light';
   const [activeTab, setActiveTab] = useState<'camera' | 'surface'>('camera');
-  const [isExpanded, setIsExpanded] = useState<boolean>(true);
+  const [isExpanded, setIsExpanded] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('paperrocket_nav_expanded');
+      if (saved !== null) return saved === 'true';
+    } catch (_) {}
+    return false;
+  });
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
@@ -51,8 +57,8 @@ export const Option1TabbedNavigator: React.FC<Option1TabbedNavigatorProps> = ({
     const defaultHeight = 300;
     const screenW = typeof window !== 'undefined' ? window.innerWidth : 1200;
     const screenH = typeof window !== 'undefined' ? window.innerHeight : 800;
-    const defaultX = 16;
-    const defaultY = Math.max(16, screenH - defaultHeight - 84);
+    const defaultX = 18;
+    const defaultY = Math.round(screenH / 2 + 215);
 
     try {
       const saved = localStorage.getItem('paperrocket_opt1_coords');
@@ -125,6 +131,98 @@ export const Option1TabbedNavigator: React.FC<Option1TabbedNavigatorProps> = ({
     window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerup', handlePointerUp);
   }, [position.x, position.y]);
+
+  const puckDragRef = useRef<{
+    startX: number;
+    startY: number;
+    posX: number;
+    posY: number;
+    hasDragged: boolean;
+  }>({
+    startX: 0,
+    startY: 0,
+    posX: 0,
+    posY: 0,
+    hasDragged: false,
+  });
+
+  const [isPuckDragging, setIsPuckDragging] = useState(false);
+
+  const expandCard = useCallback(() => {
+    setPosition((curr) => {
+      const screenW = typeof window !== 'undefined' ? window.innerWidth : 1200;
+      const screenH = typeof window !== 'undefined' ? window.innerHeight : 800;
+      const maxX = Math.max(10, screenW - 232);
+      const maxY = Math.max(10, screenH - 280);
+      return {
+        x: Math.min(maxX, Math.max(10, curr.x)),
+        y: Math.min(maxY, Math.max(10, curr.y)),
+      };
+    });
+    try {
+      localStorage.setItem('paperrocket_nav_expanded', 'true');
+    } catch (_) {}
+    setIsExpanded(true);
+  }, []);
+
+  const handlePuckPointerDown = useCallback((e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+
+    puckDragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      posX: position.x,
+      posY: position.y,
+      hasDragged: false,
+    };
+
+    const targetEl = e.currentTarget as HTMLElement;
+    try {
+      targetEl.setPointerCapture(e.pointerId);
+    } catch (_) {}
+
+    const handlePointerMove = (moveEv: PointerEvent) => {
+      const dx = moveEv.clientX - puckDragRef.current.startX;
+      const dy = moveEv.clientY - puckDragRef.current.startY;
+      if (!puckDragRef.current.hasDragged && Math.hypot(dx, dy) > 3) {
+        puckDragRef.current.hasDragged = true;
+        setIsPuckDragging(true);
+      }
+      if (puckDragRef.current.hasDragged) {
+        const screenW = window.innerWidth;
+        const screenH = window.innerHeight;
+        const maxX = Math.max(10, screenW - 48);
+        const maxY = Math.max(10, screenH - 30);
+        const newX = Math.min(maxX, Math.max(10, puckDragRef.current.posX + dx));
+        const newY = Math.min(maxY, Math.max(10, puckDragRef.current.posY + dy));
+        setPosition({ x: newX, y: newY });
+      }
+    };
+
+    const handlePointerUp = (upEv: PointerEvent) => {
+      try {
+        targetEl.releasePointerCapture(upEv.pointerId);
+      } catch (_) {}
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      setIsPuckDragging(false);
+
+      if (puckDragRef.current.hasDragged) {
+        setPosition((curr) => {
+          try {
+            localStorage.setItem('paperrocket_opt1_coords', JSON.stringify(curr));
+          } catch (_) {}
+          return curr;
+        });
+      } else {
+        expandCard();
+      }
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+  }, [position.x, position.y, expandCard]);
 
   // Auto-clamp when viewport resizes
   useEffect(() => {
@@ -451,25 +549,32 @@ export const Option1TabbedNavigator: React.FC<Option1TabbedNavigatorProps> = ({
     } catch (_) {}
   };
 
-  // Mini Collapsed Puck
+  // Mini Collapsed Puck - Micro Floating Pill
   if (!isExpanded) {
     return (
-      <button
-        type="button"
-        className={`nav-mini-puck ${isLight ? 'card-theme-light' : 'card-theme-dark'} cursor-grab active:cursor-grabbing`}
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label="Expand 3D Navigator"
+        title="3D Navigator (Drag to move, click to expand)"
+        className={`nav-mini-puck ${isLight ? 'card-theme-light' : 'card-theme-dark'} ${isPuckDragging ? 'is-dragging' : ''}`}
         style={{
           left: `${position.x}px`,
           top: `${position.y}px`,
           transform: `scale(${uiScale})`,
           transformOrigin: 'top left',
         }}
-        onClick={() => setIsExpanded(true)}
-        title="Expand 3D Navigator"
+        onPointerDown={handlePuckPointerDown}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            expandCard();
+          }
+        }}
       >
-        <Compass className="w-4 h-4 text-sky-400" />
-        <span>Tabbed Deck</span>
-        <Maximize2 className="w-3.5 h-3.5 opacity-60 ml-1" />
-      </button>
+        <Compass className="w-3.5 h-3.5 text-sky-400 shrink-0 pointer-events-none" />
+        <Maximize2 className="w-2.5 h-2.5 opacity-60 shrink-0 pointer-events-none" />
+      </div>
     );
   }
 
@@ -530,7 +635,12 @@ export const Option1TabbedNavigator: React.FC<Option1TabbedNavigatorProps> = ({
         {/* Minimize Button */}
         <button
           className="nav-tool-btn"
-          onClick={() => setIsExpanded(false)}
+          onClick={() => {
+            try {
+              localStorage.setItem('paperrocket_nav_expanded', 'false');
+            } catch (_) {}
+            setIsExpanded(false);
+          }}
           title="Minimize Navigator"
         >
           <Minus className="w-3.5 h-3.5" />

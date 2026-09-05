@@ -26,7 +26,7 @@ import {
   rgbToHsv,
 } from '../core/colorMath';
 import { normalizeHexColor } from '../core/materialCache';
-import { ALL_MATERIAL_PRESETS } from '../presets/materialPresets';
+import { ALL_MATERIAL_PRESETS, PRESET_CATEGORIES } from '../presets/materialPresets';
 import { BrushSettings } from '../types';
 
 interface ColorStudioModalProps {
@@ -112,6 +112,32 @@ export const ColorStudioModal: React.FC<ColorStudioModalProps> = ({
     return named.length === QUICK_SHADER_NAMES.length ? named : ALL_MATERIAL_PRESETS.slice(0, 6);
   }, []);
   const [selectedPresetId, setSelectedPresetId] = useState(() => quickPresets[0]?.id ?? '');
+  const [shaderCategory, setShaderCategory] = useState<string>('All');
+  const [shaderSearch, setShaderSearch] = useState<string>('');
+  const [shaderRoughness, setShaderRoughness] = useState<number>(0.5);
+  const [shaderMetalness, setShaderMetalness] = useState<number>(0.1);
+  const [shaderRimPower, setShaderRimPower] = useState<number>(0.8);
+
+  const filteredPresets = useMemo(() => {
+    return (ALL_MATERIAL_PRESETS as any[]).filter((preset: any) => {
+      const matchCategory = shaderCategory === 'All' || preset.category === shaderCategory;
+      const matchSearch = !shaderSearch.trim() || preset.name?.toLowerCase().includes(shaderSearch.toLowerCase());
+      return matchCategory && matchSearch;
+    });
+  }, [shaderCategory, shaderSearch]);
+
+  const handleUniformChange = (type: 'roughness' | 'metalness' | 'rim', value: number) => {
+    if (type === 'roughness') {
+      setShaderRoughness(value);
+      onApplyBrushSettings?.({ roughness: value });
+    } else if (type === 'metalness') {
+      setShaderMetalness(value);
+      onApplyBrushSettings?.({ metalness: value });
+    } else if (type === 'rim') {
+      setShaderRimPower(value);
+      onApplyBrushSettings?.({ emissiveIntensity: value });
+    }
+  };
 
   useEffect(() => {
     const validHex = normalizeHexColor(currentColor, '#38bdf8');
@@ -350,11 +376,11 @@ export const ColorStudioModal: React.FC<ColorStudioModalProps> = ({
         data-theme={theme}
         aria-label="Color studio"
         onPointerDown={(event) => event.stopPropagation()}
-        className={`paperrocket-color-studio fixed bottom-3 left-3 sm:bottom-16 sm:left-[clamp(76px,8vw,136px)] flex max-h-[calc(100vh-24px)] w-[calc(100vw-24px)] max-w-[360px] flex-col overflow-hidden rounded-[18px] border select-none ${shell}`}
+        className={`paperrocket-color-studio fixed bottom-3 left-3 sm:bottom-16 sm:left-[clamp(76px,8vw,136px)] flex max-h-[calc(100dvh-24px)] w-[calc(100vw-24px)] max-w-[580px] flex-col overflow-hidden rounded-[16px] border select-none ${shell}`}
       >
-        <header className={`flex min-h-16 items-center justify-between border-b px-3 ${divider}`}>
+        <header className={`flex min-h-14 items-center justify-between border-b px-3 ${divider}`}>
           <div className="flex min-w-0 items-center gap-2.5">
-            <span className="h-11 w-11 shrink-0 rounded-xl border border-white/20" style={{ backgroundColor: currentColor }} />
+            <span className="h-9 w-9 shrink-0 rounded-lg border border-white/20" style={{ backgroundColor: currentColor }} />
             <div className="min-w-0">
               <h2 className="truncate text-sm font-semibold">{activeTitle}</h2>
               <input
@@ -378,19 +404,19 @@ export const ColorStudioModal: React.FC<ColorStudioModalProps> = ({
           </div>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 scrollbar-thin">
-          {activeTab === 'wheel' && <div className="space-y-3">
-            <div className="flex justify-center"><canvas ref={wheelCanvasRef} style={{ width: WHEEL_SIZE, height: WHEEL_SIZE }} onPointerDown={handleWheelPointerDown} onPointerMove={handleWheelPointerMove} onPointerUp={handleWheelPointerUp} onPointerCancel={handleWheelPointerUp} className="touch-none cursor-crosshair" /></div>
-            <div className="space-y-3">
+        <div className="min-h-0 flex-1 overflow-y-auto studio-scroll px-3 py-3">
+          {activeTab === 'wheel' && <div className="grid gap-3 sm:grid-cols-[190px_minmax(0,1fr)] sm:items-start">
+            <div className="flex justify-center sm:pt-1"><canvas ref={wheelCanvasRef} style={{ width: WHEEL_SIZE, height: WHEEL_SIZE }} onPointerDown={handleWheelPointerDown} onPointerMove={handleWheelPointerMove} onPointerUp={handleWheelPointerUp} onPointerCancel={handleWheelPointerUp} className="touch-none cursor-crosshair" /></div>
+            <div className="space-y-3 min-w-0">
               {slider('Saturation', `${Math.round(hsv.s * 100)}%`, <input type="range" min="0" max="100" value={Math.round(hsv.s * 100)} onChange={(event) => applyHsv({ ...hsv, s: Number(event.target.value) / 100 })} className="h-2 w-full cursor-pointer accent-sky-400" />)}
               {slider('Lightness', `${Math.round(hsv.v * 100)}%`, <input type="range" min="0" max="100" value={Math.round(hsv.v * 100)} onChange={(event) => applyHsv({ ...hsv, v: Number(event.target.value) / 100 })} className="h-2 w-full cursor-pointer accent-sky-400" />)}
+              <div>
+                <div className={`mb-1.5 text-[10px] font-semibold uppercase tracking-[.14em] ${quietText}`}>Recent</div>
+                <div className="grid grid-cols-6 gap-1.5">{recentColors.map((color) => <button key={color} type="button" onClick={() => applyColor(color)} aria-label={`Use ${color}`} className={`aspect-square min-h-0 w-full rounded-lg border ${color.toLowerCase() === currentColor.toLowerCase() ? 'border-sky-400 ring-2 ring-sky-400/35' : isLight ? 'border-black/15' : 'border-white/15'}`} style={{ backgroundColor: color }} />)}</div>
+              </div>
+              <button type="button" onClick={() => setShowPalettes((shown) => !shown)} className={`flex h-10 w-full items-center justify-between border-t text-xs ${divider} ${ghostButton}`}><span className="flex items-center gap-2"><Layers className="h-4 w-4" /> Palettes</span><ChevronDown className={`h-4 w-4 ${showPalettes ? 'rotate-180' : ''}`} /></button>
             </div>
-            <div>
-              <div className={`mb-1.5 text-[10px] font-semibold uppercase tracking-[.14em] ${quietText}`}>Recent</div>
-              <div className="flex items-center justify-between">{recentColors.map((color) => <button key={color} type="button" onClick={() => applyColor(color)} aria-label={`Use ${color}`} className={`h-11 w-11 rounded-full border ${color.toLowerCase() === currentColor.toLowerCase() ? 'border-sky-400 ring-2 ring-sky-400/35' : isLight ? 'border-black/15' : 'border-white/15'}`} style={{ backgroundColor: color }} />)}</div>
-            </div>
-            <button type="button" onClick={() => setShowPalettes((shown) => !shown)} className={`flex h-11 w-full items-center justify-between border-t text-xs ${divider} ${ghostButton}`}><span className="flex items-center gap-2"><Layers className="h-4 w-4" /> More palettes</span><ChevronDown className={`h-4 w-4 ${showPalettes ? 'rotate-180' : ''}`} /></button>
-            {showPalettes && <div className="space-y-2 pb-1">
+            {showPalettes && <div className="space-y-2 pb-1 sm:col-span-2">
               <select value={paletteName} onChange={(event) => setPaletteName(event.target.value as keyof typeof CURATED_PALETTES)} className={`h-11 w-full rounded-xl border px-3 text-xs outline-none ${field}`}>{Object.keys(CURATED_PALETTES).map((name) => <option key={name}>{name}</option>)}</select>
               <div className="grid grid-cols-7 gap-1.5">{CURATED_PALETTES[paletteName].map((color) => <button key={color} type="button" onClick={() => applyColor(color)} className="h-10 rounded-lg border border-white/15" style={{ backgroundColor: color }} aria-label={`Use ${color}`} />)}</div>
             </div>}
@@ -413,12 +439,165 @@ export const ColorStudioModal: React.FC<ColorStudioModalProps> = ({
             <select value={harmonyMode} onChange={(event) => setHarmonyMode(event.target.value as HarmonyMode)} className={`h-11 w-full rounded-xl border px-3 text-xs outline-none ${field}`} aria-label="Harmony mode"><option value="complementary">Complementary</option><option value="analogous">Analogous</option><option value="triadic">Triadic</option><option value="tetradic">Tetradic</option><option value="splitComplementary">Split complementary</option><option value="monochromaticRamp">Monochromatic ramp</option><option value="tonalChromaRamp">Tonal chroma ramp</option></select>
           </div>}
 
-          {activeTab === 'shaders' && <div className="space-y-3 py-1">
-            <div className="grid grid-cols-3 gap-x-3 gap-y-4">{quickPresets.map((preset, index) => <button key={preset.id} type="button" onClick={() => applyPreset(preset)} className={`flex min-h-[84px] flex-col items-center justify-center gap-1 rounded-xl border ${selectedPresetId === preset.id ? 'border-sky-400 bg-sky-400/10 text-sky-300' : `border-transparent ${ghostButton}`}`} title={preset.name}><span className={`block h-12 w-12 overflow-hidden rounded-full border ${selectedPresetId === preset.id ? 'border-sky-400 ring-2 ring-sky-400/25' : 'border-white/15'}`}><img src={preset.url} alt="" className="h-full w-full object-cover" /></span><span className="text-[10px] font-medium">{QUICK_SHADER_LABELS[index] ?? preset.name}</span></button>)}</div>
-            <div className={`grid grid-cols-2 gap-1 rounded-xl border p-1 ${divider}`}>{(['brush', 'model'] as const).map((target) => <button key={target} type="button" onClick={() => setShaderTarget(target)} disabled={target === 'model' && !onApplyToModel} className={`h-11 rounded-lg text-xs font-semibold capitalize ${shaderTarget === target ? 'bg-sky-400/15 text-sky-400' : ghostButton} disabled:opacity-30`}>{target}</button>)}</div>
-            <button type="button" onClick={() => setShowAllShaders((shown) => !shown)} className={`flex h-11 w-full items-center justify-between border-t text-xs ${divider} ${ghostButton}`}><span>More shaders</span><ChevronDown className={`h-4 w-4 ${showAllShaders ? 'rotate-180' : ''}`} /></button>
-            {showAllShaders && <select value={selectedPresetId} onChange={(event) => applyPreset(ALL_MATERIAL_PRESETS.find((preset) => preset.id === event.target.value))} className={`h-11 w-full rounded-xl border px-3 text-xs outline-none ${field}`} aria-label="All shaders">{ALL_MATERIAL_PRESETS.map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}</select>}
-          </div>}
+          {activeTab === 'shaders' && (
+            <div className="space-y-3 py-1">
+              <div className="grid grid-cols-3 gap-x-3 gap-y-4">
+                {quickPresets.map((preset, index) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => applyPreset(preset)}
+                    className={`flex min-h-[84px] flex-col items-center justify-center gap-1 rounded-xl border transition-colors ${
+                      selectedPresetId === preset.id ? 'border-sky-400 bg-sky-400/10 text-sky-300' : `border-transparent ${ghostButton}`
+                    }`}
+                    title={preset.name}
+                  >
+                    <span
+                      className={`block h-12 w-12 overflow-hidden rounded-full border shadow-sm ${
+                        selectedPresetId === preset.id ? 'border-sky-400 ring-2 ring-sky-400/25' : 'border-white/15'
+                      }`}
+                    >
+                      <img src={preset.url} alt="" className="h-full w-full object-cover" />
+                    </span>
+                    <span className="text-[10px] font-medium">{QUICK_SHADER_LABELS[index] ?? preset.name}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className={`grid grid-cols-2 gap-1 rounded-xl border p-1 ${divider}`}>
+                {(['brush', 'model'] as const).map((target) => (
+                  <button
+                    key={target}
+                    type="button"
+                    onClick={() => setShaderTarget(target)}
+                    disabled={target === 'model' && !onApplyToModel}
+                    className={`h-11 rounded-lg text-xs font-semibold capitalize ${
+                      shaderTarget === target ? 'bg-sky-400/15 text-sky-400' : ghostButton
+                    } disabled:opacity-30`}
+                  >
+                    {target}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowAllShaders((shown) => !shown)}
+                className={`flex h-11 w-full items-center justify-between border-t text-xs ${divider} ${ghostButton}`}
+              >
+                <span>{showAllShaders ? 'Hide shader gallery' : 'Visual shader gallery & controls'}</span>
+                <ChevronDown className={`h-4 w-4 transition-transform ${showAllShaders ? 'rotate-180' : ''}`} />
+              </button>
+
+              {showAllShaders && (
+                <div className="space-y-3 pt-1">
+                  {/* Category & Search filter */}
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={shaderCategory}
+                      onChange={(e) => setShaderCategory(e.target.value)}
+                      className={`h-10 flex-1 rounded-xl border px-3 text-xs outline-none ${field}`}
+                      aria-label="Shader category"
+                    >
+                      {PRESET_CATEGORIES.map((cat: string) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      placeholder="Search…"
+                      value={shaderSearch}
+                      onChange={(e) => setShaderSearch(e.target.value)}
+                      className={`h-10 w-28 rounded-xl border px-3 text-xs outline-none ${field}`}
+                      aria-label="Search shaders"
+                    />
+                  </div>
+
+                  {/* Visual Thumbnail Grid */}
+                  <div className={`grid grid-cols-3 gap-2 max-h-[220px] overflow-y-auto studio-scroll p-1.5 rounded-xl border ${divider}`}>
+                    {filteredPresets.map((preset: any) => {
+                      const isSelected = selectedPresetId === preset.id;
+                      return (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => applyPreset(preset)}
+                          className={`flex flex-col items-center gap-1.5 p-2 rounded-xl border transition-all cursor-pointer text-left ${
+                            isSelected
+                              ? 'border-sky-400 bg-sky-400/15 text-sky-300 ring-2 ring-sky-400/30 font-bold'
+                              : `border-transparent hover:border-white/20 hover:bg-white/5 ${ghostButton}`
+                          }`}
+                          title={preset.name}
+                        >
+                          <span
+                            className={`block h-12 w-12 shrink-0 overflow-hidden rounded-full border shadow-sm ${
+                              isSelected ? 'border-sky-400 ring-2 ring-sky-400/40' : 'border-white/20'
+                            }`}
+                          >
+                            <img
+                              src={preset.url}
+                              alt=""
+                              className="h-full w-full object-cover"
+                              loading="lazy"
+                            />
+                          </span>
+                          <span className="text-[10px] font-medium text-center line-clamp-1 w-full leading-tight">
+                            {preset.name}
+                          </span>
+                        </button>
+                      );
+                    })}
+                    {filteredPresets.length === 0 && (
+                      <div className="col-span-full py-8 text-center text-xs text-neutral-400">
+                        No shaders found matching your criteria.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Shader Uniform Controls */}
+                  <div className={`p-3 rounded-xl border space-y-2.5 ${isLight ? 'bg-black/[0.02] border-black/10' : 'bg-white/[0.02] border-white/10'}`}>
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
+                      Shader Uniforms
+                    </div>
+                    <div className="space-y-2.5">
+                      {slider('Roughness', `${Math.round(shaderRoughness * 100)}%`, (
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={Math.round(shaderRoughness * 100)}
+                          onChange={(e) => handleUniformChange('roughness', Number(e.target.value) / 100)}
+                          className="h-2 w-full cursor-pointer accent-sky-400"
+                        />
+                      ))}
+                      {slider('Metalness', `${Math.round(shaderMetalness * 100)}%`, (
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={Math.round(shaderMetalness * 100)}
+                          onChange={(e) => handleUniformChange('metalness', Number(e.target.value) / 100)}
+                          className="h-2 w-full cursor-pointer accent-sky-400"
+                        />
+                      ))}
+                      {slider('Glow / Rim Power', `${shaderRimPower.toFixed(2)}`, (
+                        <input
+                          type="range"
+                          min="0"
+                          max="200"
+                          value={Math.round(shaderRimPower * 100)}
+                          onChange={(e) => handleUniformChange('rim', Number(e.target.value) / 100)}
+                          className="h-2 w-full cursor-pointer accent-sky-400"
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {activeTab === 'gradients' && <div className="space-y-4 py-1">
             <div className="flex items-center justify-between"><span className={`text-xs ${quietText}`}>Target color</span><label className={`flex h-11 items-center gap-2 rounded-xl border px-2 ${field}`}><input type="color" value={secondaryColor} onChange={(event) => setSecondaryColor(event.target.value)} className="h-8 w-8 cursor-pointer border-0 bg-transparent" aria-label="Gradient target color" /><span className="font-mono text-[10px]">{secondaryColor.toUpperCase()}</span></label></div>

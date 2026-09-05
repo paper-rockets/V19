@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Remix 3D — Moodboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="draw-toolbar" class="draw-toolbar hidden" data-html2canvas-ignore="true">
+        <div class="color-picker-group">
+            <button class="color-swatch active" data-color="#38bdf8" style="background-color: #38bdf8;" title="Cyan / Sky Accent"></button>
+            <button class="color-swatch" data-color="#facc15" style="background-color: #facc15;" title="Yellow Marker"></button>
+            <button class="color-swatch" data-color="#f87171" style="background-color: #f87171;" title="Coral Red"></button>
+            <button class="color-swatch" data-color="#4ade80" style="background-color: #4ade80;" title="Mint Green"></button>
+            <button class="color-swatch" data-color="#f4f4f5" style="background-color: #f4f4f5;" title="White Ink"></button>
+            <button id="btn-eraser" class="tool-btn" type="button" title="Eraser Mode">Eraser</button>
+        </div>
+        <div class="divider"></div>
+        <div class="size-picker-group">
+            <button class="size-btn" data-size="2" type="button" title="Fine (2px)">Fine</button>
+            <button class="size-btn active" data-size="4" type="button" title="Mid (4px)">Mid</button>
+            <button class="size-btn" data-size="8" type="button" title="Broad (8px)">Broad</button>
+        </div>
+        <div class="divider"></div>
+        <button id="btn-undo-draw" class="tool-btn" type="button" title="Undo last stroke">Undo</button>
+        <button id="btn-clear-draw" class="tool-btn btn-danger-soft" type="button" title="Clear all drawn notes">Clear Ink</button>
+    </div>
+
+    <div id="ui-controls" data-html2canvas-ignore="true">
+        <a id="btn-back-studio" href="/" class="btn-secondary" title="Return to 3D Studio">Studio</a>
+        <button id="btn-theme-toggle" class="btn-secondary" type="button" title="Toggle Light / Dark Theme">Theme: Dark</button>
+        <button id="btn-toggle-draw" type="button" class="btn-toggle-draw" title="Draw freehand notes and sketches">Draw Notes</button>
+        <button id="btn-add-text" type="button">Add Text</button>
+        <button id="btn-export" type="button">Export PNG</button>
+        <button id="btn-clear" class="btn-danger" type="button">Clear</button>
+        <div class="hint" id="status-hint">Paste image (Ctrl+V) · Drag to move · Alt+Click two items to connect</div>
+    </div>
+    <!-- Text Input Modal -->
+    <div id="text-modal" class="modal hidden" data-html2canvas-ignore="true">
+        <div class="modal-content">
+            <h3>Add Description</h3>
+            <textarea id="text-input" placeholder="Type your notes or description here..."></textarea>
+            <div class="modal-actions">
+                <button id="btn-modal-cancel" class="btn-danger" type="button">Cancel</button>
+                <button id="btn-modal-add" type="button">Add to Board</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="board">
+        <canvas id="drawing-canvas"></canvas>
+        <svg id="connections"></svg>
+    </div>
+    
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

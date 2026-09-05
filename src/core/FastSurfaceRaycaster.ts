@@ -39,6 +39,27 @@ if (!('computeBoundsTree' in THREE.BufferGeometry.prototype)) {
 }
 
 /**
+ * Options controlling surface raycast execution.
+ */
+export interface RaycastIntersectOptions {
+  seamBridging?: boolean;
+  doubleSided?: boolean;
+  barycentricNormals?: boolean;
+}
+
+/**
+ * Micro-jitter offsets used for seam and gap bridging.
+ */
+const SEAM_JITTER: readonly [number, number][] = [
+  [0.0018, 0],
+  [-0.0018, 0],
+  [0, 0.0018],
+  [0, -0.0018],
+  [0.00126, 0.00126],
+  [-0.00126, -0.00126],
+];
+
+/**
  * Result data structure returned when a surface hit occurs.
  * Reused internally to guarantee 0 heap allocations in hot loops.
  */
@@ -178,13 +199,13 @@ export class FastSurfaceRaycaster {
     if (geometry.computeBoundsTree) {
       geometry.computeBoundsTree({
         strategy: SAH,
-        maxLeafTris: 5,
+        targetLeafSize: 5,
         indirect: true,
       });
     } else {
       geometry.boundsTree = new MeshBVH(geometry, {
         strategy: SAH,
-        maxLeafTris: 5,
+        targetLeafSize: 5,
         indirect: true,
       });
     }
@@ -216,20 +237,27 @@ export class FastSurfaceRaycaster {
   }
 
   /**
-   * Performs an ultra-fast surface hit test against the provided target meshes.
-   * Evaluates rays directly in mesh local space using boundsTree.raycastFirst(...)
-   * with multi-mesh dynamic distance pruning and inlined Cramer's Rule math.
-   *
-   * @param screenX Pointer X in NDC [-1, 1] or viewport pixel coordinates.
-   * @param screenY Pointer Y in NDC [-1, 1] or viewport pixel coordinates.
-   * @param targets Array of target meshes to test for ray intersections.
-   * @returns Reused SurfaceHitResult reference or null if no hit occurs.
+   * Traverses a composite 3D object or model hierarchy and builds BVH trees on all child meshes.
+   * @param object Target object or hierarchy to update.
    */
-  public intersect(screenX: number, screenY: number, targets: THREE.Mesh[]): SurfaceHitResult | null {
-    if (targets.length === 0) {
-      return null;
-    }
+  public updateObjectBVH(object: THREE.Object3D): void {
+    object.traverse((child) => {
+      if (child instanceof THREE.Mesh && child.geometry) {
+        this.updateMeshBVH(child);
+      }
+    });
+  }
 
+  /**
+   * Evaluates a single ray against the target meshes at the specified coordinates.
+   */
+  private _evaluateAt(
+    screenX: number,
+    screenY: number,
+    targets: THREE.Mesh[],
+    doubleSided: boolean,
+    interpolateBarycentric: boolean
+  ): boolean {
     // Convert pixel coordinates to NDC if values fall outside standard [-1, 1] device range
     if (Math.abs(screenX) <= 1.0 && Math.abs(screenY) <= 1.0) {
       this._scratchCoords.set(screenX, screenY);
@@ -265,7 +293,8 @@ export class FastSurfaceRaycaster {
 
       // Direct evaluation in mesh local space using boundsTree.raycastFirst
       if (geometry.boundsTree) {
-        const localHit = geometry.boundsTree.raycastFirst(this._scratchLocalRay, mesh.material);
+        const matOrSide = doubleSided ? THREE.DoubleSide : mesh.material;
+        const localHit = geometry.boundsTree.raycastFirst(this._scratchLocalRay, matOrSide, 0, minDistance);
 
         if (localHit) {
           // Transform hit point back to world space to compute true world distance
@@ -323,11 +352,11 @@ export class FastSurfaceRaycaster {
     this._raycaster.far = Infinity;
 
     if (!closestMesh) {
-      return null;
+      return false;
     }
 
     // Inlined Cramer's Rule math for exact barycentric normal and UV interpolation
-    this._calculateInterpolatedData(closestMesh);
+    this._calculateInterpolatedData(closestMesh, interpolateBarycentric);
 
     // Populate persistent result object
     this._result.point.copy(this._cachedLocalPoint).applyMatrix4(closestMesh.matrixWorld);
@@ -336,14 +365,54 @@ export class FastSurfaceRaycaster {
     this._result.mesh = closestMesh;
     this._result.faceIndex = this._cachedFaceIndex;
 
-    return this._result;
+    return true;
+  }
+
+  /**
+   * Performs an ultra-fast surface hit test against the provided target meshes.
+   * Evaluates rays directly in mesh local space using boundsTree.raycastFirst(...)
+   * with multi-mesh dynamic distance pruning, seam bridging fallback, and inlined Cramer's Rule math.
+   *
+   * @param screenX Pointer X in NDC [-1, 1] or viewport pixel coordinates.
+   * @param screenY Pointer Y in NDC [-1, 1] or viewport pixel coordinates.
+   * @param targets Array of target meshes to test for ray intersections.
+   * @param options Optional flags for seam bridging, double-sided polygons, and barycentric normals.
+   * @returns Reused SurfaceHitResult reference or null if no hit occurs.
+   */
+  public intersect(
+    screenX: number,
+    screenY: number,
+    targets: THREE.Mesh[],
+    options?: RaycastIntersectOptions
+  ): SurfaceHitResult | null {
+    if (targets.length === 0) {
+      return null;
+    }
+
+    const doubleSided = options?.doubleSided ?? false;
+    const barycentric = options?.barycentricNormals !== false;
+
+    if (this._evaluateAt(screenX, screenY, targets, doubleSided, barycentric)) {
+      return this._result;
+    }
+
+    if (options?.seamBridging) {
+      for (let i = 0; i < SEAM_JITTER.length; i++) {
+        const [ox, oy] = SEAM_JITTER[i];
+        if (this._evaluateAt(screenX + ox, screenY + oy, targets, doubleSided, barycentric)) {
+          return this._result;
+        }
+      }
+    }
+
+    return null;
   }
 
   /**
    * Computes accurate smooth normal and UV using inlined Cramer's Rule math
    * across triangle vertices. Allocates 0 bytes on the heap.
    */
-  private _calculateInterpolatedData(mesh: THREE.Mesh): void {
+  private _calculateInterpolatedData(mesh: THREE.Mesh, interpolateBarycentric: boolean = true): void {
     const geometry = mesh.geometry;
     const posAttr = geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
     const normAttr = geometry.getAttribute('normal') as THREE.BufferAttribute | undefined;
@@ -412,7 +481,7 @@ export class FastSurfaceRaycaster {
     }
 
     // Normal interpolation
-    if (normAttr) {
+    if (interpolateBarycentric && normAttr) {
       this._normA.fromBufferAttribute(normAttr, iA);
       this._normB.fromBufferAttribute(normAttr, iB);
       this._normC.fromBufferAttribute(normAttr, iC);

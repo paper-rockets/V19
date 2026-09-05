@@ -1,21 +1,22 @@
 import React, { useState } from 'react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import {
-  MousePointer2,
-  CircleDashed,
-  Crosshair,
-  RotateCcw,
-  ArrowDownToLine,
-  Copy,
-  Trash2,
-  Lock,
-  Unlock,
-  Eye,
-  EyeOff,
-  Sparkles,
-  RefreshCw,
-  Check,
-  Compass,
-} from 'lucide-react';
+  IcPointer as MousePointer2,
+  IcLasso as CircleDashed,
+  IcOrigin as Crosshair,
+  IcReset as RotateCcw,
+  IcSnapGround as ArrowDownToLine,
+  IcCopy as Copy,
+  IcDelete as Trash2,
+  IcLock as Lock,
+  IcUnlock as Unlock,
+  IcEye as Eye,
+  IcEyeOff as EyeOff,
+  IcSparkle as Sparkles,
+  IcRefresh as RefreshCw,
+  IcCheck as Check,
+  IcCompass as Compass,
+} from './StudioIcons';
 import { StudioEngine } from '../../core/studioEngine';
 import {
   ToolType,
@@ -60,6 +61,8 @@ export const SelectPanel: React.FC<SelectPanelProps> = ({
 }) => {
   const [selectionMode, setSelectionMode] = useState<'pointer' | 'lasso'>('pointer');
   const [softSelection, setSoftSelection] = useState<boolean>(false);
+  const [showTransformDetails, setShowTransformDetails] = useState<boolean>(false);
+  const [showAdvancedSnapping, setShowAdvancedSnapping] = useState<boolean>(false);
   const [recalcFeedback, setRecalcFeedback] = useState<string | null>(null);
 
   // Track relative transform values for display & numeric input
@@ -167,8 +170,8 @@ export const SelectPanel: React.FC<SelectPanelProps> = ({
   };
 
   const cardClass = isLight
-    ? 'p-3 rounded-2xl bg-neutral-100/70 border border-black/5 space-y-2.5'
-    : 'p-3 rounded-2xl bg-white/[0.04] border border-white/10 space-y-2.5';
+    ? 'p-3 rounded-2xl bg-neutral-100/50 border border-black/5 space-y-2.5'
+    : 'p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] space-y-2.5';
 
   const subHeadingClass = `text-[11px] font-bold uppercase tracking-wider ${
     isLight ? 'text-neutral-500' : 'text-neutral-400'
@@ -216,10 +219,10 @@ export const SelectPanel: React.FC<SelectPanelProps> = ({
         </div>
       </div>
 
-      {/* 2. TRANSFORM & PIVOT: Position / Rotation / Scale numeric values */}
+      {/* 2. TARGET SCOPE */}
       <div className={cardClass}>
         <div className="flex items-center justify-between">
-          <div className={subHeadingClass}>Transform & Pivot</div>
+          <div className={subHeadingClass}>Target Scope</div>
           <button
             type="button"
             onClick={handleResetTransform}
@@ -235,237 +238,37 @@ export const SelectPanel: React.FC<SelectPanelProps> = ({
           </button>
         </div>
 
-        {/* Pivot Scope Selection */}
-        <div className="space-y-1">
-          <label className={`text-[10.5px] font-medium ${isLight ? 'text-neutral-600' : 'text-neutral-400'}`}>
-            Pivot Target Scope
-          </label>
-          <div className="grid grid-cols-2 gap-1.5">
-            {[
-              { id: 'active_layer' as const, label: 'Active Layer' },
-              { id: 'model' as const, label: 'Model' },
-              { id: 'strokes' as const, label: 'All Curves' },
-              { id: 'all' as const, label: 'All Objects' },
-            ].map((scope) => (
-              <button
-                key={scope.id}
-                type="button"
-                onClick={() => {
-                  haptics.trigger('light');
-                  onSelectTargetScope(scope.id);
-                }}
-                className={`min-h-[44px] px-2.5 py-1.5 rounded-xl border text-center font-medium transition-all text-xs ${
-                  targetScope === scope.id
-                    ? isLight
-                      ? 'bg-neutral-900 border-neutral-900 text-white font-bold shadow-xs'
-                      : 'bg-white border-white text-neutral-950 font-bold shadow-xs'
-                    : isLight
-                    ? 'bg-white border-black/10 text-neutral-700 hover:bg-neutral-200/40'
-                    : 'bg-black/30 border-white/10 text-neutral-300 hover:bg-white/5'
-                }`}
-              >
-                {scope.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Position Row */}
-        <div className="space-y-1 pt-1">
-          <div className="flex justify-between items-center text-[11px] font-medium">
-            <span className={isLight ? 'text-neutral-700' : 'text-neutral-300'}>Position (m)</span>
-            <span className="text-[10px] opacity-60">Tap to edit</span>
-          </div>
-          <div className="grid grid-cols-3 gap-1.5">
-            {[
-              { axis: 'posX' as const, label: 'X', val: transformValues.posX },
-              { axis: 'posY' as const, label: 'Y', val: transformValues.posY },
-              { axis: 'posZ' as const, label: 'Z', val: transformValues.posZ },
-            ].map(({ axis, label, val }) => (
-              <button
-                key={axis}
-                type="button"
-                onClick={() => handleOpenNumpadValue(axis, `Position ${label}`, 'm', -100, 100, 0.1)}
-                className={`min-h-[44px] px-2 py-1.5 rounded-xl border flex items-center justify-between font-mono text-xs transition-colors ${
-                  isLight
-                    ? 'bg-white border-black/10 hover:border-black/30 text-neutral-900'
-                    : 'bg-black/30 border-white/10 hover:border-white/30 text-white'
-                }`}
-              >
-                <span className="font-sans text-[10px] font-bold opacity-60">{label}</span>
-                <span>{val.toFixed(2)}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Rotation Row */}
-        <div className="space-y-1 pt-1">
-          <div className="flex justify-between items-center text-[11px] font-medium">
-            <span className={isLight ? 'text-neutral-700' : 'text-neutral-300'}>Rotation (°)</span>
-            <span className="text-[10px] opacity-60">Tap to edit</span>
-          </div>
-          <div className="grid grid-cols-3 gap-1.5">
-            {[
-              { axis: 'rotX' as const, label: 'X', val: transformValues.rotX },
-              { axis: 'rotY' as const, label: 'Y', val: transformValues.rotY },
-              { axis: 'rotZ' as const, label: 'Z', val: transformValues.rotZ },
-            ].map(({ axis, label, val }) => (
-              <button
-                key={axis}
-                type="button"
-                onClick={() => handleOpenNumpadValue(axis, `Rotation ${label}`, '°', -360, 360, 15)}
-                className={`min-h-[44px] px-2 py-1.5 rounded-xl border flex items-center justify-between font-mono text-xs transition-colors ${
-                  isLight
-                    ? 'bg-white border-black/10 hover:border-black/30 text-neutral-900'
-                    : 'bg-black/30 border-white/10 hover:border-white/30 text-white'
-                }`}
-              >
-                <span className="font-sans text-[10px] font-bold opacity-60">{label}</span>
-                <span>{Math.round(val)}°</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Scale Row */}
-        <div className="space-y-1 pt-1">
-          <div className="flex justify-between items-center text-[11px] font-medium">
-            <span className={isLight ? 'text-neutral-700' : 'text-neutral-300'}>Uniform Scale</span>
-            <span className="text-[10px] opacity-60">Tap to edit</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => handleOpenNumpadValue('scale', 'Uniform Scale', '×', 0.05, 20, 0.1)}
-            className={`w-full min-h-[44px] px-3 py-1.5 rounded-xl border flex items-center justify-between font-mono text-xs transition-colors ${
-              isLight
-                ? 'bg-white border-black/10 hover:border-black/30 text-neutral-900'
-                : 'bg-black/30 border-white/10 hover:border-white/30 text-white'
-            }`}
-          >
-            <span className="font-sans text-[10px] font-bold opacity-60">Scale Factor</span>
-            <span>{transformValues.scale.toFixed(2)}×</span>
-          </button>
+        <div className="grid grid-cols-2 gap-1.5">
+          {[
+            { id: 'active_layer' as const, label: 'Active Layer' },
+            { id: 'model' as const, label: 'Model' },
+            { id: 'strokes' as const, label: 'All Curves' },
+            { id: 'all' as const, label: 'All Objects' },
+          ].map((scope) => (
+            <button
+              key={scope.id}
+              type="button"
+              onClick={() => {
+                haptics.trigger('light');
+                onSelectTargetScope(scope.id);
+              }}
+              className={`min-h-[44px] px-2.5 py-1.5 rounded-xl border text-center font-medium transition-all text-xs ${
+                targetScope === scope.id
+                  ? isLight
+                    ? 'bg-neutral-900 border-neutral-900 text-white font-bold shadow-xs'
+                    : 'bg-white border-white text-neutral-950 font-bold shadow-xs'
+                  : isLight
+                  ? 'bg-white border-black/10 text-neutral-700 hover:bg-neutral-200/40'
+                  : 'bg-black/30 border-white/10 text-neutral-300 hover:bg-white/5'
+              }`}
+            >
+              {scope.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* 3. SNAPPING: RaycastSettings surface parameters */}
-      <div className={cardClass}>
-        <div className={subHeadingClass}>Snapping & Alignment</div>
-
-        {/* Sampling Density */}
-        <div className="space-y-1">
-          <div className="flex justify-between items-center text-[11px]">
-            <span className="font-semibold text-current">Alignment Detail</span>
-            <span className="font-mono text-[10px] opacity-70">
-              {brushSettings.raycastSampleDensity === 'ultra'
-                ? 'Ultra (48 steps)'
-                : brushSettings.raycastSampleDensity === 'standard'
-                ? 'Standard (16 steps)'
-                : 'High (32 steps)'}
-            </span>
-          </div>
-          <div className="grid grid-cols-3 gap-1.5">
-            {[
-              { id: 'standard' as const, label: 'Standard' },
-              { id: 'high' as const, label: 'High' },
-              { id: 'ultra' as const, label: 'Ultra' },
-            ].map((lvl) => {
-              const isSel = (brushSettings.raycastSampleDensity || 'high') === lvl.id;
-              return (
-                <button
-                  key={lvl.id}
-                  type="button"
-                  onClick={() => {
-                    haptics.trigger('light');
-                    updateBrushSetting('raycastSampleDensity', lvl.id);
-                  }}
-                  className={`min-h-[44px] py-1.5 px-2 rounded-xl border text-center font-medium transition-all text-xs ${
-                    isSel
-                      ? isLight
-                        ? 'bg-neutral-900 border-neutral-900 text-white font-bold shadow-xs'
-                        : 'bg-white border-white text-neutral-950 font-bold shadow-xs'
-                      : isLight
-                      ? 'bg-white border-black/10 text-neutral-700 hover:bg-neutral-200/50'
-                      : 'bg-black/30 border-white/10 text-neutral-300 hover:bg-white/5'
-                  }`}
-                >
-                  {lvl.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Surface Offset Slider */}
-        <div className="space-y-1 pt-1">
-          <div className="flex justify-between items-center text-[11px]">
-            <span className="font-medium text-current">Surface Offset (Elevation)</span>
-            <span className="font-mono text-[10px] font-semibold">
-              {((brushSettings.surfaceOffset ?? 0.0015) * 1000).toFixed(1)} mm
-            </span>
-          </div>
-          <input
-            type="range"
-            min="0.001"
-            max="0.010"
-            step="0.0005"
-            value={brushSettings.surfaceOffset ?? 0.0015}
-            onChange={(e) => updateBrushSetting('surfaceOffset', parseFloat(e.target.value))}
-            className={`w-full h-1.5 rounded cursor-pointer ${
-              isLight ? 'accent-neutral-900 bg-neutral-200' : 'accent-white bg-neutral-800'
-            }`}
-          />
-        </div>
-
-        {/* Toggles */}
-        <div className="space-y-2 pt-1 border-t border-black/5 dark:border-white/5">
-          <label className="flex items-center justify-between min-h-[44px] cursor-pointer">
-            <span className="text-[11px] font-medium">Gap & Seam Bridging</span>
-            <input
-              type="checkbox"
-              checked={brushSettings.raycastSeamBridging !== false}
-              onChange={(e) => updateBrushSetting('raycastSeamBridging', e.target.checked)}
-              className="w-4 h-4 rounded accent-neutral-900 dark:accent-white cursor-pointer"
-            />
-          </label>
-
-          <label className="flex items-center justify-between min-h-[44px] cursor-pointer">
-            <span className="text-[11px] font-medium">Double-Sided Surfaces</span>
-            <input
-              type="checkbox"
-              checked={brushSettings.doubleSidedRaycast !== false}
-              onChange={(e) => updateBrushSetting('doubleSidedRaycast', e.target.checked)}
-              className="w-4 h-4 rounded accent-neutral-900 dark:accent-white cursor-pointer"
-            />
-          </label>
-        </div>
-
-        {/* Smooth Normals Action */}
-        <button
-          type="button"
-          onClick={handleManualRecalculate}
-          className={`w-full min-h-[44px] px-3 py-2 rounded-xl border flex items-center justify-center gap-2 font-semibold text-xs transition-all active:scale-98 ${
-            isLight
-              ? 'bg-white border-black/10 hover:bg-neutral-200/50 text-neutral-800'
-              : 'bg-black/30 border-white/10 hover:bg-white/10 text-neutral-200'
-          }`}
-        >
-          {recalcFeedback ? (
-            <>
-              <Check className="w-4 h-4 text-emerald-500" />
-              <span>{recalcFeedback}</span>
-            </>
-          ) : (
-            <>
-              <RefreshCw className="w-4 h-4" />
-              <span>Smooth Surface Normals Now</span>
-            </>
-          )}
-        </button>
-      </div>
-
-      {/* 4. OPTIONS & ACTIONS: Gizmo, Soft selection, Lock, Snap ground, Clone, Delete */}
+      {/* 3. OPTIONS & ACTIONS */}
       <div className={cardClass}>
         <div className={subHeadingClass}>Options & Actions</div>
 
@@ -596,6 +399,243 @@ export const SelectPanel: React.FC<SelectPanelProps> = ({
             <span>Delete</span>
           </button>
         </div>
+      </div>
+
+      {/* 4. TRANSFORM DETAILS (Expandable Accordion) */}
+      <div className={cardClass}>
+        <button
+          type="button"
+          onClick={() => {
+            haptics.trigger('light');
+            setShowTransformDetails((prev) => !prev);
+          }}
+          className="w-full flex items-center justify-between min-h-[36px] text-left"
+        >
+          <div className={subHeadingClass}>Transform Details</div>
+          <div className="flex items-center gap-1.5 opacity-70">
+            <span className="text-[10px] font-mono">
+              {showTransformDetails ? 'Hide' : 'X / Y / Z'}
+            </span>
+            {showTransformDetails ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+          </div>
+        </button>
+
+        {showTransformDetails && (
+          <div className="space-y-2.5 pt-1 border-t border-black/5 dark:border-white/5">
+            {/* Position Row */}
+            <div className="space-y-1">
+              <div className="flex justify-between items-center text-[11px] font-medium">
+                <span className={isLight ? 'text-neutral-700' : 'text-neutral-300'}>Position (m)</span>
+                <span className="text-[10px] opacity-60">Tap to edit</span>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                {[
+                  { axis: 'posX' as const, label: 'X', val: transformValues.posX },
+                  { axis: 'posY' as const, label: 'Y', val: transformValues.posY },
+                  { axis: 'posZ' as const, label: 'Z', val: transformValues.posZ },
+                ].map(({ axis, label, val }) => (
+                  <button
+                    key={axis}
+                    type="button"
+                    onClick={() => handleOpenNumpadValue(axis, `Position ${label}`, 'm', -100, 100, 0.1)}
+                    className={`min-h-[44px] px-2 py-1.5 rounded-xl border flex items-center justify-between font-mono text-xs transition-colors ${
+                      isLight
+                        ? 'bg-white border-black/10 hover:border-black/30 text-neutral-900'
+                        : 'bg-black/30 border-white/10 hover:border-white/30 text-white'
+                    }`}
+                  >
+                    <span className="font-sans text-[10px] font-bold opacity-60">{label}</span>
+                    <span>{val.toFixed(2)}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Rotation Row */}
+            <div className="space-y-1 pt-1">
+              <div className="flex justify-between items-center text-[11px] font-medium">
+                <span className={isLight ? 'text-neutral-700' : 'text-neutral-300'}>Rotation (°)</span>
+                <span className="text-[10px] opacity-60">Tap to edit</span>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                {[
+                  { axis: 'rotX' as const, label: 'X', val: transformValues.rotX },
+                  { axis: 'rotY' as const, label: 'Y', val: transformValues.rotY },
+                  { axis: 'rotZ' as const, label: 'Z', val: transformValues.rotZ },
+                ].map(({ axis, label, val }) => (
+                  <button
+                    key={axis}
+                    type="button"
+                    onClick={() => handleOpenNumpadValue(axis, `Rotation ${label}`, '°', -360, 360, 15)}
+                    className={`min-h-[44px] px-2 py-1.5 rounded-xl border flex items-center justify-between font-mono text-xs transition-colors ${
+                      isLight
+                        ? 'bg-white border-black/10 hover:border-black/30 text-neutral-900'
+                        : 'bg-black/30 border-white/10 hover:border-white/30 text-white'
+                    }`}
+                  >
+                    <span className="font-sans text-[10px] font-bold opacity-60">{label}</span>
+                    <span>{Math.round(val)}°</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Scale Row */}
+            <div className="space-y-1 pt-1">
+              <div className="flex justify-between items-center text-[11px] font-medium">
+                <span className={isLight ? 'text-neutral-700' : 'text-neutral-300'}>Uniform Scale</span>
+                <span className="text-[10px] opacity-60">Tap to edit</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleOpenNumpadValue('scale', 'Uniform Scale', '×', 0.05, 20, 0.1)}
+                className={`w-full min-h-[44px] px-3 py-1.5 rounded-xl border flex items-center justify-between font-mono text-xs transition-colors ${
+                  isLight
+                    ? 'bg-white border-black/10 hover:border-black/30 text-neutral-900'
+                    : 'bg-black/30 border-white/10 hover:border-white/30 text-white'
+                }`}
+              >
+                <span className="font-sans text-[10px] font-bold opacity-60">Scale Factor</span>
+                <span>{transformValues.scale.toFixed(2)}×</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 5. ADVANCED SNAPPING (Expandable Accordion) */}
+      <div className={cardClass}>
+        <button
+          type="button"
+          onClick={() => {
+            haptics.trigger('light');
+            setShowAdvancedSnapping((prev) => !prev);
+          }}
+          className="w-full flex items-center justify-between min-h-[36px] text-left"
+        >
+          <div className={subHeadingClass}>Advanced Snapping</div>
+          <div className="flex items-center gap-1.5 opacity-70">
+            <span className="text-[10px] font-mono">
+              {showAdvancedSnapping ? 'Hide' : 'Surface / Normals'}
+            </span>
+            {showAdvancedSnapping ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+          </div>
+        </button>
+
+        {showAdvancedSnapping && (
+          <div className="space-y-2.5 pt-1 border-t border-black/5 dark:border-white/5">
+            {/* Sampling Density */}
+            <div className="space-y-1">
+              <div className="flex justify-between items-center text-[11px]">
+                <span className="font-semibold text-current">Alignment Detail</span>
+                <span className="font-mono text-[10px] opacity-70">
+                  {brushSettings.raycastSampleDensity === 'ultra'
+                    ? 'Ultra (48 steps)'
+                    : brushSettings.raycastSampleDensity === 'standard'
+                    ? 'Standard (16 steps)'
+                    : 'High (32 steps)'}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                {[
+                  { id: 'standard' as const, label: 'Standard' },
+                  { id: 'high' as const, label: 'High' },
+                  { id: 'ultra' as const, label: 'Ultra' },
+                ].map((lvl) => {
+                  const isSel = (brushSettings.raycastSampleDensity || 'high') === lvl.id;
+                  return (
+                    <button
+                      key={lvl.id}
+                      type="button"
+                      onClick={() => {
+                        haptics.trigger('light');
+                        updateBrushSetting('raycastSampleDensity', lvl.id);
+                      }}
+                      className={`min-h-[44px] py-1.5 px-2 rounded-xl border text-center font-medium transition-all text-xs ${
+                        isSel
+                          ? isLight
+                            ? 'bg-neutral-900 border-neutral-900 text-white font-bold shadow-xs'
+                            : 'bg-white border-white text-neutral-950 font-bold shadow-xs'
+                          : isLight
+                          ? 'bg-white border-black/10 text-neutral-700 hover:bg-neutral-200/50'
+                          : 'bg-black/30 border-white/10 text-neutral-300 hover:bg-white/5'
+                      }`}
+                    >
+                      {lvl.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Surface Offset Slider */}
+            <div className="space-y-1 pt-1">
+              <div className="flex justify-between items-center text-[11px]">
+                <span className="font-medium text-current">Surface Offset (Elevation)</span>
+                <span className="font-mono text-[10px] font-semibold">
+                  {((brushSettings.surfaceOffset ?? 0.0015) * 1000).toFixed(1)} mm
+                </span>
+              </div>
+              <input
+                type="range"
+                min="0.001"
+                max="0.010"
+                step="0.0005"
+                value={brushSettings.surfaceOffset ?? 0.0015}
+                onChange={(e) => updateBrushSetting('surfaceOffset', parseFloat(e.target.value))}
+                className={`w-full h-1.5 rounded cursor-pointer ${
+                  isLight ? 'accent-neutral-900 bg-neutral-200' : 'accent-white bg-neutral-800'
+                }`}
+              />
+            </div>
+
+            {/* Toggles */}
+            <div className="space-y-2 pt-1 border-t border-black/5 dark:border-white/5">
+              <label className="flex items-center justify-between min-h-[44px] cursor-pointer">
+                <span className="text-[11px] font-medium">Gap & Seam Bridging</span>
+                <input
+                  type="checkbox"
+                  checked={brushSettings.raycastSeamBridging !== false}
+                  onChange={(e) => updateBrushSetting('raycastSeamBridging', e.target.checked)}
+                  className="w-4 h-4 rounded accent-neutral-900 dark:accent-white cursor-pointer"
+                />
+              </label>
+
+              <label className="flex items-center justify-between min-h-[44px] cursor-pointer">
+                <span className="text-[11px] font-medium">Double-Sided Surfaces</span>
+                <input
+                  type="checkbox"
+                  checked={brushSettings.doubleSidedRaycast !== false}
+                  onChange={(e) => updateBrushSetting('doubleSidedRaycast', e.target.checked)}
+                  className="w-4 h-4 rounded accent-neutral-900 dark:accent-white cursor-pointer"
+                />
+              </label>
+            </div>
+
+            {/* Smooth Normals Action */}
+            <button
+              type="button"
+              onClick={handleManualRecalculate}
+              className={`w-full min-h-[44px] px-3 py-2 rounded-xl border flex items-center justify-center gap-2 font-semibold text-xs transition-all active:scale-98 ${
+                isLight
+                  ? 'bg-white border-black/10 hover:bg-neutral-200/50 text-neutral-800'
+                  : 'bg-black/30 border-white/10 hover:bg-white/10 text-neutral-200'
+              }`}
+            >
+              {recalcFeedback ? (
+                <>
+                  <Check className="w-4 h-4 text-emerald-500" />
+                  <span>{recalcFeedback}</span>
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4" />
+                  <span>Smooth Surface Normals Now</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

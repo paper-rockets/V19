@@ -33,7 +33,7 @@ import { DeferredPanel } from './components/DeferredPanel';
 import { publishCameraPose, publishFps } from './core/telemetryStore';
 import { useUiMode, useHasOnboarded, setUiMode } from './core/uiModeStore';
 import { ProShell } from './components/pro/ProShell';
-import { useOpenSheet, openSheetId } from './components/play/sheetStore';
+import { useOpenSheet, openSheetId, closeSheet } from './components/play/sheetStore';
 import { PlayTopStrip } from './components/play/PlayTopStrip';
 import { PlayDock, PlayToolId, playToolSettings } from './components/play/PlayDock';
 import { FirstRunOverlay } from './components/play/FirstRunOverlay';
@@ -53,9 +53,14 @@ import {
   loadAutoSaveProject,
   hasAutoSaveProject,
   clearAutoSaveProject,
+  saveProjectSession,
   StorageEstimateInfo,
   AutoSaveMetaInfo,
 } from './utils/storagePermission';
+
+const ProjectSessionModal = lazy(() =>
+  import('./components/ProjectSessionModal').then((m) => ({ default: m.ProjectSessionModal }))
+);
 
 /**
  * Deferred UI.
@@ -123,6 +128,7 @@ import {
   ReferenceImageItem,
   LoadedModelInfo,
   TransformTargetScope,
+  SavedProjectSession,
 } from './types';
 
 const DEFAULT_BRUSH_SETTINGS: BrushSettings = {
@@ -191,7 +197,7 @@ export function App() {
       const saved = localStorage.getItem('mody_theme');
       if (saved === 'dark' || saved === 'light') return saved;
     } catch (_) {}
-    return 'dark';
+    return 'light';
   });
 
   useEffect(() => {
@@ -356,6 +362,7 @@ export function App() {
   const [isConverterOpen, setIsConverterOpen] = useState<boolean>(false);
   const [droppedFilesForConverter, setDroppedFilesForConverter] = useState<FileList | File[] | null>(null);
   const [isExportOpen, setIsExportOpen] = useState<boolean>(false);
+  const [isSessionModalOpen, setIsSessionModalOpen] = useState<boolean>(false);
   const [isRaycastSettingsOpen, setIsRaycastSettingsOpen] = useState<boolean>(false);
   const [isIlluminationOpen, setIsIlluminationOpen] = useState<boolean>(false);
   const [isSkyEnvironmentOpen, setIsSkyEnvironmentOpen] = useState<boolean>(false);
@@ -785,24 +792,24 @@ export function App() {
   // Full Project State Save (.remix3d JSON file)
   const handleSaveProject = useCallback(async () => {
     if (!engine) return;
-    const projectData = engine.exportProjectData('Remix 3D Project', layers);
+    const projectData = engine.exportProjectData(activeModelName || 'Remix 3D Project', layers);
     const jsonStr = JSON.stringify(projectData, null, 2);
     const filename = `${(projectData.name || 'Remix3D_Project').replace(/\s+/g, '_')}_${Date.now()}.remix3d`;
     await TauriBridge.saveModelFile(filename, jsonStr, [
       { name: 'Remix 3D Project', extensions: ['remix3d', 'json'] },
     ]);
     TauriBridge.triggerHaptic('success');
-  }, [engine, layers]);
+  }, [engine, layers, activeModelName]);
 
   // Full Project State Load (.remix3d JSON file)
   const handleLoadProject = useCallback((file: File) => {
     if (!engine) return;
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const content = e.target?.result as string;
         const projectData: ProjectSaveData = JSON.parse(content);
-        engine.importProjectData(projectData);
+        await engine.importProjectData(projectData);
         if (projectData.layers && projectData.layers.length > 0) {
           setLayers(projectData.layers);
           setActiveLayerId(projectData.layers[0].id);
@@ -816,6 +823,9 @@ export function App() {
         if (projectData.showWireframe !== undefined) {
           setShowWireframe(projectData.showWireframe);
         }
+        if (projectData.name) {
+          setActiveModelName(projectData.name);
+        }
         haptics.trigger('success');
       } catch (err) {
         console.error('Failed to parse .remix3d project file:', err);
@@ -824,6 +834,74 @@ export function App() {
     };
     reader.readAsText(file);
   }, [engine]);
+
+  // Save named project session to local IndexedDB storage
+  const handleSaveNamedSession = useCallback(async (name: string) => {
+    if (!engine) return;
+    const projectData = engine.exportProjectData(name, layers);
+    let thumbnail: string | undefined;
+    try {
+      thumbnail = engine.captureSnapshot();
+    } catch (_) {}
+    const session: SavedProjectSession = {
+      id: `session_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      name: name || activeModelName || 'Untitled Session',
+      timestamp: Date.now(),
+      thumbnail,
+      strokeCount: projectData.strokes?.length || 0,
+      layerCount: layers.length,
+      activeModelName,
+      projectData,
+    };
+    await saveProjectSession(session);
+    haptics.trigger('success');
+  }, [engine, layers, activeModelName]);
+
+  // 1-Tap Quick Save (Ctrl+S / Top Bar Quick Save button)
+  const handleQuickSave = useCallback(async () => {
+    if (!engine) return;
+    const name = activeModelName ? `${activeModelName} Session` : 'Quick Session';
+    await handleSaveNamedSession(name);
+    setSnappedShapeNotice('Session saved with full undo history!');
+    setTimeout(() => {
+      setSnappedShapeNotice((cur) => (cur === 'Session saved with full undo history!' ? null : cur));
+    }, 2200);
+  }, [engine, activeModelName, handleSaveNamedSession]);
+
+  // Load named project session from local IndexedDB storage
+  const handleLoadNamedSession = useCallback(async (session: SavedProjectSession) => {
+    if (!engine || !session?.projectData) return;
+    await engine.importProjectData(session.projectData);
+    if (session.projectData.layers && session.projectData.layers.length > 0) {
+      setLayers(session.projectData.layers);
+      setActiveLayerId(session.projectData.layers[0].id);
+    }
+    if (session.projectData.lightingPreset) {
+      setLightingPreset(session.projectData.lightingPreset);
+    }
+    if (session.projectData.showGrid !== undefined) {
+      setShowGrid(session.projectData.showGrid);
+    }
+    if (session.projectData.showWireframe !== undefined) {
+      setShowWireframe(session.projectData.showWireframe);
+    }
+    if (session.name) {
+      setActiveModelName(session.name);
+    }
+    haptics.trigger('success');
+  }, [engine]);
+
+  // Global Ctrl+S / Cmd+S Quick Save shortcut
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        void handleQuickSave();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleQuickSave]);
 
   // Sync grid toggle
   const handleToggleGrid = () => {
@@ -1063,6 +1141,8 @@ export function App() {
         theme={theme}
         uiMode={uiMode}
         onOpenIllumination={() => setIsIlluminationOpen(true)}
+        onQuickSave={handleQuickSave}
+        onOpenSessions={() => setIsSessionModalOpen(true)}
         onSwitchUiMode={() => {
           haptics.trigger('mode-switch');
           setUiMode('play');
@@ -1087,17 +1167,6 @@ export function App() {
           />
           <ShapesSheet brushSettings={brushSettings} setBrushSettings={setBrushSettings} theme={theme} />
           {showPlayStats && <PlayStats theme={theme} />}
-          <PlayImporter
-            isOpen={isPlayImporterOpen}
-            engine={engine}
-            onClose={() => setIsPlayImporterOpen(false)}
-            onSaved={(n) => setActiveModelName(n)}
-            onOpenFineTuning={() => {
-              setDroppedFilesForConverter(null);
-              setIsConverterOpen(true);
-            }}
-            theme={theme}
-          />
           <FirstRunOverlay onOpenToybox={() => setIsToyboxOpen(true)} theme={theme} />
           <Toybox
             isOpen={isToyboxOpen}
@@ -1111,73 +1180,130 @@ export function App() {
         </>
       )}
 
+      {/* Shared 3D Model Importer (usable in both Play and Pro modes) */}
+      <PlayImporter
+        isOpen={isPlayImporterOpen}
+        engine={engine}
+        onClose={() => setIsPlayImporterOpen(false)}
+        onSaved={(n) => setActiveModelName(n)}
+        onOpenFineTuning={() => {
+          setDroppedFilesForConverter(null);
+          setIsConverterOpen(true);
+        }}
+        theme={theme}
+      />
+
       {/* ================= PRO MODE (the full studio) ================= */}
       {/* Five-Mode Surface Shell */}
       {uiMode === 'pro' && (
-        <ProShell
-          theme={theme}
-          engine={engine}
-          tool={tool}
-          setTool={setTool}
-          brushSettings={brushSettings}
-          setBrushSettings={setBrushSettings}
-          isGizmoActive={gizmoMode !== 'Hidden'}
-          onToggleGizmo={() => setGizmoMode(gizmoMode === 'Hidden' ? 'Standard' : 'Hidden')}
-          isGizmoLocked={isGizmoLocked}
-          onToggleLock={() => setIsGizmoLocked((prev) => !prev)}
-          onOpenNumpad={(t) => setNumpadTarget(t)}
-          targetScope={targetScope}
-          onSelectTargetScope={handleSelectTargetScope}
-          onGizmoReset={handleGizmoReset}
-          onOpenColorStudio={() => setIsColorStudioOpen(true)}
-          activeModelName={activeModelName}
-          modelDisplayMode={modelDisplayMode}
-          onSetModelDisplayMode={(mode) => {
-            setModelDisplayMode(mode);
-            engine?.setModelDisplayMode(mode);
-          }}
-          onOpenModelLibrary={() => setIsModelsOpen(true)}
-          onOpenImporter={() => setIsPlayImporterOpen(true)}
-          liquifySettings={liquifySettings}
-          setLiquifySettings={setLiquifySettings}
-          isLiquifyOpen={isLiquifyOpen}
-          onOpenLiquify={() => {
-            setTool('liquify');
-            setIsLiquifyOpen(true);
-            engine?.startLiquifySession();
-          }}
-          isCompareActive={isCompareActive}
-          onToggleCompare={(active) => {
-            setIsCompareActive(active);
-            engine?.toggleLiquifyCompare(active);
-          }}
-          onApplyLiquify={() => {
-            engine?.commitLiquify();
-            setIsLiquifyOpen(false);
-            setTool('brush');
-          }}
-          onCancelLiquify={() => {
-            engine?.cancelLiquify();
-            setIsLiquifyOpen(false);
-            setTool('brush');
-          }}
-          onOpenScaffolding={() => setIsScaffoldingOpen(true)}
-          onOpenBentGuide={() => setIsBentGuideOpen(true)}
-          onOpenCustomMirror={() => setIsCustomMirrorOpen(true)}
-          onOpenDecimate={() => setIsDecimateOpen(true)}
-          layers={layers}
-          setLayers={setLayers}
-          activeLayerId={activeLayerId}
-          setActiveLayerId={setActiveLayerId}
-          onClearLayerStrokes={handleClearLayerStrokes}
-          onMergeLayerDown={handleMergeLayerDown}
-          onOpenIllumination={() => setIsIlluminationOpen(true)}
-          isIlluminationOpen={isIlluminationOpen}
-        />
+        <>
+          <ProShell
+            theme={theme}
+            engine={engine}
+            tool={tool}
+            setTool={setTool}
+            brushSettings={brushSettings}
+            setBrushSettings={setBrushSettings}
+            isGizmoActive={gizmoMode !== 'Hidden'}
+            onToggleGizmo={() => setGizmoMode(gizmoMode === 'Hidden' ? 'Standard' : 'Hidden')}
+            isGizmoLocked={isGizmoLocked}
+            onToggleLock={() => setIsGizmoLocked((prev) => !prev)}
+            onOpenNumpad={(t) => setNumpadTarget(t)}
+            targetScope={targetScope}
+            onSelectTargetScope={handleSelectTargetScope}
+            onGizmoReset={handleGizmoReset}
+            onOpenColorStudio={() => {
+              closeSheet();
+              setIsColorStudioOpen(true);
+            }}
+            activeModelName={activeModelName}
+            modelDisplayMode={modelDisplayMode}
+            onSetModelDisplayMode={(mode) => {
+              setModelDisplayMode(mode);
+              engine?.setModelDisplayMode(mode);
+            }}
+            onOpenModelLibrary={() => {
+              closeSheet();
+              setIsModelsOpen(true);
+            }}
+            onOpenImporter={() => {
+              closeSheet();
+              setIsPlayImporterOpen(true);
+            }}
+            liquifySettings={liquifySettings}
+            setLiquifySettings={setLiquifySettings}
+            isLiquifyOpen={isLiquifyOpen}
+            onOpenLiquify={() => {
+              setTool('liquify');
+              setIsLiquifyOpen(true);
+              engine?.startLiquifySession();
+            }}
+            isCompareActive={isCompareActive}
+            onToggleCompare={(active) => {
+              setIsCompareActive(active);
+              engine?.toggleLiquifyCompare(active);
+            }}
+            onApplyLiquify={() => {
+              engine?.commitLiquify();
+              setIsLiquifyOpen(false);
+              setTool('brush');
+            }}
+            onCancelLiquify={() => {
+              engine?.cancelLiquify();
+              setIsLiquifyOpen(false);
+              setTool('brush');
+            }}
+            onOpenScaffolding={() => {
+              closeSheet();
+              setIsScaffoldingOpen(true);
+            }}
+            onOpenBentGuide={() => {
+              closeSheet();
+              setIsBentGuideOpen(true);
+            }}
+            onOpenCustomMirror={() => {
+              closeSheet();
+              setIsCustomMirrorOpen(true);
+            }}
+            onOpenDecimate={() => {
+              closeSheet();
+              setIsDecimateOpen(true);
+            }}
+            layers={layers}
+            setLayers={setLayers}
+            activeLayerId={activeLayerId}
+            setActiveLayerId={setActiveLayerId}
+            onClearLayerStrokes={handleClearLayerStrokes}
+            onMergeLayerDown={handleMergeLayerDown}
+            onOpenIllumination={() => {
+              closeSheet();
+              setIsIlluminationOpen(true);
+            }}
+            isIlluminationOpen={isIlluminationOpen}
+          />
+          <PlayDock
+            tool={tool}
+            brushSettings={brushSettings}
+            setBrushSettings={setBrushSettings}
+            shapeSnapping={brushSettings.shapeSnapping ?? false}
+            onSelect={handlePlayToolSelect}
+            onOpenFullColor={() => setIsColorStudioOpen(true)}
+            engine={engine}
+            theme={theme}
+            hideToolRail={true}
+          />
+        </>
       )}
 
-      {/* Frame-Per-Second Counter. Pro only — Play mode shows no telemetry. */}
-      {uiMode === 'pro' && <FpsCounter uiScale={uiScale} />}
+      {/* FPS & Input Lag Diagnostics Counter (Pro Mode) */}
+      {uiMode === 'pro' && (
+        <FpsCounter
+          uiScale={uiScale}
+          theme={theme}
+          fullDebug={showPlayStats}
+          onToggleFullDebug={() => setShowPlayStats((prev) => !prev)}
+        />
+      )}
 
       {/* Floating Restore Buttons when Controllers are Hidden */}
       {uiMode === 'pro' && activeController === 'hidden' && (
@@ -1422,6 +1548,22 @@ export function App() {
         </Suspense>
       )}
 
+      {/* Project Session Management Modal (Non-Destructive & Undo Preserved) */}
+      {isSessionModalOpen && (
+        <Suspense fallback={null}>
+          <ProjectSessionModal
+            isOpen={isSessionModalOpen}
+            onClose={() => setIsSessionModalOpen(false)}
+            onSaveSession={handleSaveNamedSession}
+            onLoadSession={handleLoadNamedSession}
+            onExportFile={handleSaveProject}
+            onImportFile={handleLoadProject}
+            theme={theme}
+            activeProjectName={activeModelName}
+          />
+        </Suspense>
+      )}
+
       {/* 3D Surface Raycasting & Snapping Parameters Modal */}
       {isRaycastSettingsOpen && (
         <Suspense fallback={null}>
@@ -1662,6 +1804,7 @@ export function App() {
         onOpenIllumination={() => setIsIlluminationOpen(true)}
         onOpenSkyEnvironment={() => setIsSkyEnvironmentOpen(true)}
         onOpenRenderSettings={() => setIsRenderSettingsOpen(true)}
+        onOpenSessions={() => setIsSessionModalOpen(true)}
         onOpenExport={() => setIsExportOpen(true)}
         onOpenARViewer={() => setIsARViewerOpen(true)}
         onOpenClipboard={() => setIsClipboardOpen(true)}

@@ -1,21 +1,20 @@
 import React, { useState } from 'react';
+import { ChevronDown, ChevronRight, Square } from 'lucide-react';
 import {
-  Box,
-  Circle,
-  Cylinder,
-  Orbit,
-  Disc3,
-  Cone,
-  Triangle,
-  Disc,
-  FolderOpen,
-  Upload,
-  Palette,
-  Sparkles,
-  Layers,
-  Crosshair,
-  Sliders,
-} from 'lucide-react';
+  IcCube as Box,
+  IcSphere as Circle,
+  IcCylinder as Cylinder,
+  IcTorus as Orbit,
+  IcCapsule as Disc3,
+  IcCone as Cone,
+  IcPyramid as Triangle,
+  IcDisk as Disc,
+  IcModelLibrary as FolderOpen,
+  IcImport as Upload,
+  IcPalette as Palette,
+  IcSparkle as Sparkles,
+  IcOrigin as Crosshair,
+} from './StudioIcons';
 import { StudioEngine } from '../../core/studioEngine';
 import { SampleModelFactory } from '../../core/sampleModels';
 import { ModelDisplayMode } from '../../types';
@@ -42,11 +41,11 @@ const PRIMITIVES: PrimitiveDef[] = [
   { id: 'cube', name: 'Cube', icon: Box, factory: SampleModelFactory.createCube },
   { id: 'sphere', name: 'Sphere', icon: Circle, factory: SampleModelFactory.createSphere },
   { id: 'cylinder', name: 'Cylinder', icon: Cylinder, factory: SampleModelFactory.createCylinder },
+  { id: 'plane', name: 'Plane', icon: Square, factory: SampleModelFactory.createDrawingPlane },
   { id: 'torus', name: 'Torus', icon: Orbit, factory: SampleModelFactory.createTorus },
   { id: 'capsule', name: 'Capsule', icon: Disc3, factory: SampleModelFactory.createCapsule },
   { id: 'cone', name: 'Cone', icon: Cone, factory: SampleModelFactory.createCone },
   { id: 'pyramid', name: 'Pyramid', icon: Triangle, factory: SampleModelFactory.createPyramid },
-  { id: 'disk', name: 'Disk', icon: Disc, factory: SampleModelFactory.createDisk },
 ];
 
 export const CreatePanel: React.FC<CreatePanelProps> = ({
@@ -59,6 +58,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({
   theme = 'dark',
 }) => {
   const isLight = theme === 'light';
+  const [showFineGeometry, setShowFineGeometry] = useState(false);
   const [modelOpacity, setModelOpacityState] = useState(1.0);
   const [wireframeOpacity, setWireframeOpacityState] = useState(0.0);
   const [spawnNotice, setSpawnNotice] = useState<string | null>(null);
@@ -85,8 +85,8 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({
   };
 
   const cardClass = isLight
-    ? 'p-3 rounded-2xl bg-neutral-100/70 border border-black/5 space-y-2.5'
-    : 'p-3 rounded-2xl bg-white/[0.04] border border-white/10 space-y-2.5';
+    ? 'p-3 rounded-2xl bg-neutral-100/50 border border-black/5 space-y-2.5'
+    : 'p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] space-y-2.5';
 
   const subHeadingClass = `text-[11px] font-bold uppercase tracking-wider ${
     isLight ? 'text-neutral-500' : 'text-neutral-400'
@@ -174,7 +174,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({
         </div>
       </div>
 
-      {/* 3. SHOW AS: Texture vs Clay vs Wireframe & Display Controls */}
+      {/* 3. SHOW AS: Texture vs Clay */}
       <div className={cardClass}>
         <div className={subHeadingClass}>Show As</div>
 
@@ -222,65 +222,89 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({
             <span>White Clay</span>
           </button>
         </div>
+      </div>
 
-        {/* Model Opacity Slider */}
-        <div className="space-y-1 pt-1">
-          <div className="flex justify-between items-center text-[11px]">
-            <span className="font-medium text-current">Model Opacity</span>
-            <span className="font-mono text-[10px] font-bold">
-              {Math.round(modelOpacity * 100)}%
-            </span>
-          </div>
-          <input
-            type="range"
-            min="0.0"
-            max="1.0"
-            step="0.02"
-            value={modelOpacity}
-            onChange={(e) => handleOpacityChange(parseFloat(e.target.value))}
-            className={`w-full h-1.5 rounded cursor-pointer ${
-              isLight ? 'accent-neutral-900 bg-neutral-200' : 'accent-white bg-neutral-800'
-            }`}
-          />
-        </div>
-
-        {/* Wireframe Overlay Slider */}
-        <div className="space-y-1 pt-1">
-          <div className="flex justify-between items-center text-[11px]">
-            <span className="font-medium text-current">Wireframe Overlay</span>
-            <span className="font-mono text-[10px] font-bold">
-              {Math.round(wireframeOpacity * 100)}%
-            </span>
-          </div>
-          <input
-            type="range"
-            min="0.0"
-            max="1.0"
-            step="0.02"
-            value={wireframeOpacity}
-            onChange={(e) => handleWireframeChange(parseFloat(e.target.value))}
-            className={`w-full h-1.5 rounded cursor-pointer ${
-              isLight ? 'accent-neutral-900 bg-neutral-200' : 'accent-white bg-neutral-800'
-            }`}
-          />
-        </div>
-
-        {/* Center Model to Origin */}
+      {/* 4. FINE GEOMETRY & DISPLAY (Expandable Accordion) */}
+      <div className={cardClass}>
         <button
           type="button"
           onClick={() => {
             haptics.trigger('light');
-            engine?.centerModelToOrigin();
+            setShowFineGeometry((prev) => !prev);
           }}
-          className={`w-full min-h-[44px] px-3 py-2 rounded-xl border flex items-center justify-center gap-2 font-medium text-xs transition-all active:scale-98 ${
-            isLight
-              ? 'bg-white border-black/10 hover:bg-neutral-200/50 text-neutral-800'
-              : 'bg-black/30 border-white/10 hover:bg-white/10 text-neutral-200'
-          }`}
+          className="w-full flex items-center justify-between min-h-[36px] text-left"
         >
-          <Crosshair className="w-4 h-4" />
-          <span>Center Model to Origin</span>
+          <div className={subHeadingClass}>Fine Geometry & Display</div>
+          <div className="flex items-center gap-1.5 opacity-70">
+            <span className="text-[10px] font-mono">
+              {showFineGeometry ? 'Hide' : 'Opacity / Wireframe'}
+            </span>
+            {showFineGeometry ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+          </div>
         </button>
+
+        {showFineGeometry && (
+          <div className="space-y-3 pt-1 border-t border-black/5 dark:border-white/5">
+            {/* Model Opacity Slider */}
+            <div className="space-y-1">
+              <div className="flex justify-between items-center text-[11px]">
+                <span className="font-medium text-current">Model Opacity</span>
+                <span className="font-mono text-[10px] font-bold">
+                  {Math.round(modelOpacity * 100)}%
+                </span>
+              </div>
+              <input
+                type="range"
+                min="0.0"
+                max="1.0"
+                step="0.02"
+                value={modelOpacity}
+                onChange={(e) => handleOpacityChange(parseFloat(e.target.value))}
+                className={`w-full h-1.5 rounded cursor-pointer ${
+                  isLight ? 'accent-neutral-900 bg-neutral-200' : 'accent-white bg-neutral-800'
+                }`}
+              />
+            </div>
+
+            {/* Wireframe Overlay Slider */}
+            <div className="space-y-1">
+              <div className="flex justify-between items-center text-[11px]">
+                <span className="font-medium text-current">Wireframe Overlay</span>
+                <span className="font-mono text-[10px] font-bold">
+                  {Math.round(wireframeOpacity * 100)}%
+                </span>
+              </div>
+              <input
+                type="range"
+                min="0.0"
+                max="1.0"
+                step="0.02"
+                value={wireframeOpacity}
+                onChange={(e) => handleWireframeChange(parseFloat(e.target.value))}
+                className={`w-full h-1.5 rounded cursor-pointer ${
+                  isLight ? 'accent-neutral-900 bg-neutral-200' : 'accent-white bg-neutral-800'
+                }`}
+              />
+            </div>
+
+            {/* Center Model to Origin */}
+            <button
+              type="button"
+              onClick={() => {
+                haptics.trigger('light');
+                engine?.centerModelToOrigin();
+              }}
+              className={`w-full min-h-[44px] px-3 py-2 rounded-xl border flex items-center justify-center gap-2 font-medium text-xs transition-all active:scale-98 ${
+                isLight
+                  ? 'bg-white border-black/10 hover:bg-neutral-200/50 text-neutral-800'
+                  : 'bg-black/30 border-white/10 hover:bg-white/10 text-neutral-200'
+              }`}
+            >
+              <Crosshair className="w-4 h-4" />
+              <span>Center Model to Origin</span>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

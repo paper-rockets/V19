@@ -1,0 +1,450 @@
+:root {
+    --bg-color: #0f1117;
+    --text-color: #f4f4f5;
+    --text-muted: #9ca3af;
+    --surface-bg: rgba(20, 22, 26, 0.96);
+    --surface-border: rgba(255, 255, 255, 0.12);
+    --surface-shadow: 0 24px 70px rgba(0, 0, 0, 0.48), 0 1px 0 rgba(255, 255, 255, 0.035) inset;
+    --accent: #38bdf8;
+    --accent-hover: #0ea5e9;
+    --accent-bg: rgba(56, 189, 248, 0.14);
+    --accent-border: rgba(56, 189, 248, 0.72);
+    --accent-text: #e0f7ff;
+    --button-bg: rgba(255, 255, 255, 0.04);
+    --button-border: rgba(255, 255, 255, 0.14);
+    --button-text: #f4f4f5;
+    --button-hover-bg: rgba(255, 255, 255, 0.08);
+    --danger: #ef4444;
+    --danger-hover: #dc2626;
+    --danger-bg: rgba(239, 68, 68, 0.12);
+    --danger-border: rgba(239, 68, 68, 0.4);
+    --modal-overlay: rgba(12, 14, 20, 0.75);
+    --input-bg: rgba(0, 0, 0, 0.35);
+    --connection-line: rgba(56, 189, 248, 0.75);
+}
+
+html.light,
+body.light {
+    --bg-color: #f4f0e9;
+    --text-color: #1f2937;
+    --text-muted: #6b7280;
+    --surface-bg: rgba(247, 244, 238, 0.97);
+    --surface-border: rgba(17, 24, 39, 0.14);
+    --surface-shadow: 0 20px 55px rgba(35, 28, 20, 0.18), 0 1px 0 rgba(255, 255, 255, 0.7) inset;
+    --accent: #0284c7;
+    --accent-hover: #0369a1;
+    --accent-bg: rgba(14, 165, 233, 0.14);
+    --accent-border: rgba(2, 132, 199, 0.8);
+    --accent-text: #0c4a60;
+    --button-bg: rgba(17, 24, 39, 0.04);
+    --button-border: rgba(17, 24, 39, 0.15);
+    --button-text: #374151;
+    --button-hover-bg: rgba(17, 24, 39, 0.08);
+    --danger: #dc2626;
+    --danger-hover: #b91c1c;
+    --danger-bg: rgba(220, 38, 38, 0.1);
+    --danger-border: rgba(220, 38, 38, 0.4);
+    --modal-overlay: rgba(35, 28, 20, 0.5);
+    --input-bg: rgba(255, 255, 255, 0.85);
+    --connection-line: rgba(2, 132, 199, 0.8);
+}
+
+body, html {
+    margin: 0;
+    padding: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: 'Plus Jakarta Sans', Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overflow: hidden;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+#board {
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+    /* Uniform solid background matching app v19 theme — dot pattern removed */
+    background-color: var(--bg-color);
+    background-image: none;
+    overflow: hidden;
+}
+
+#ui-controls {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--surface-bg);
+    border: 1px solid var(--surface-border);
+    padding: 10px 18px;
+    border-radius: 14px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    z-index: 1000;
+    box-shadow: var(--surface-shadow);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    max-width: calc(100vw - 32px);
+    box-sizing: border-box;
+}
+
+/* Drawing Canvas Overlay */
+#drawing-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 25;
+    pointer-events: none;
+    touch-action: none;
+}
+
+#drawing-canvas.drawing-active {
+    pointer-events: auto;
+    cursor: crosshair;
+}
+
+/* Secondary Floating Draw Toolbar */
+.draw-toolbar {
+    position: absolute;
+    bottom: 82px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--surface-bg);
+    border: 1px solid var(--surface-border);
+    padding: 8px 14px;
+    border-radius: 12px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    z-index: 1001;
+    box-shadow: var(--surface-shadow);
+    max-width: calc(100vw - 32px);
+    box-sizing: border-box;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.draw-toolbar.hidden {
+    display: none !important;
+}
+
+.color-picker-group,
+.size-picker-group {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.color-swatch {
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    padding: 0;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    cursor: pointer;
+    box-sizing: border-box;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.color-swatch:hover {
+    transform: scale(1.15);
+}
+
+.color-swatch.active {
+    transform: scale(1.2);
+    border-color: #ffffff;
+    box-shadow: 0 0 0 2px var(--accent);
+}
+
+.tool-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+    min-height: 30px;
+    border-radius: 7px;
+}
+
+.tool-btn.active {
+    background: var(--accent-bg);
+    color: var(--accent);
+    border-color: var(--accent-border);
+    font-weight: 600;
+}
+
+.size-btn {
+    padding: 5px 10px;
+    font-size: 11px;
+    min-height: 28px;
+    border-radius: 6px;
+    font-weight: 500;
+}
+
+.size-btn.active {
+    background: var(--accent-bg);
+    color: var(--accent);
+    border-color: var(--accent-border);
+    font-weight: 600;
+}
+
+.btn-danger-soft {
+    background: var(--danger-bg);
+    border: 1px solid var(--danger-border);
+    color: var(--danger);
+}
+
+.btn-danger-soft:hover {
+    background: var(--danger);
+    color: #ffffff;
+}
+
+.divider {
+    width: 1px;
+    height: 20px;
+    background: var(--surface-border);
+    margin: 0 2px;
+}
+
+/* Toggle Draw Button Active State */
+#btn-toggle-draw.active {
+    background: var(--accent);
+    color: #08131d;
+    font-weight: 600;
+    border-color: var(--accent);
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.45);
+}
+
+button, .btn-secondary {
+    background: var(--button-bg);
+    color: var(--button-text);
+    border: 1px solid var(--button-border);
+    padding: 9px 16px;
+    border-radius: 9px;
+    cursor: pointer;
+    font-weight: 500;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.2;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    box-shadow: none;
+    white-space: nowrap;
+    user-select: none;
+}
+
+button:hover, .btn-secondary:hover {
+    background: var(--button-hover-bg);
+    transform: translateY(-1px);
+}
+
+button:active, .btn-secondary:active {
+    transform: translateY(0);
+}
+
+#btn-add-text, #btn-modal-add {
+    background: var(--accent-bg);
+    color: var(--accent-text);
+    border-color: var(--accent-border);
+    font-weight: 600;
+}
+
+#btn-add-text:hover, #btn-modal-add:hover {
+    background: var(--accent);
+    color: #08131d;
+}
+
+button.btn-danger {
+    background: var(--danger-bg);
+    border: 1px solid var(--danger-border);
+    color: var(--danger);
+    box-shadow: none;
+}
+
+button.btn-danger:hover {
+    background: var(--danger);
+    color: #ffffff;
+}
+
+.hint {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-left: 6px;
+    white-space: nowrap;
+}
+
+.moodboard-item {
+    position: absolute;
+    cursor: grab;
+    user-select: none;
+    border-radius: 12px;
+    box-shadow: var(--surface-shadow);
+    transition: box-shadow 0.2s, border-color 0.2s;
+    border: 2px solid transparent;
+}
+
+.moodboard-item:active {
+    cursor: grabbing;
+}
+
+.moodboard-item.selected-for-connection {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px var(--accent-bg), var(--surface-shadow);
+}
+
+.moodboard-item img {
+    border-radius: 10px;
+    border: 1px solid var(--surface-border);
+    display: block;
+    max-width: 400px;
+    max-height: 400px;
+    pointer-events: none;
+}
+
+.delete-btn {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    background: var(--danger);
+    color: white;
+    border: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 15px;
+    line-height: 1;
+    padding: 0;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+    opacity: 0;
+    transform: scale(0.8);
+    transition: opacity 0.2s, transform 0.2s, background 0.2s;
+}
+
+.moodboard-item:hover .delete-btn {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.delete-btn:hover {
+    background: var(--danger-hover);
+    transform: scale(1.1) !important;
+}
+
+#connections {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.connection-line {
+    stroke: var(--connection-line);
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-dasharray: 6, 6;
+    filter: drop-shadow(0 0 4px rgba(56, 189, 248, 0.4));
+    animation: dash 20s linear infinite;
+}
+
+@keyframes dash {
+    to {
+        stroke-dashoffset: -1000;
+    }
+}
+
+/* Modal styles */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: var(--modal-overlay);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    opacity: 1;
+    transition: opacity 0.2s;
+}
+
+.modal.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.modal-content {
+    background: var(--surface-bg);
+    border: 1px solid var(--surface-border);
+    padding: 24px;
+    border-radius: 16px;
+    width: 420px;
+    max-width: 90vw;
+    box-shadow: var(--surface-shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    box-sizing: border-box;
+}
+
+.modal-content h3 {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.modal-content textarea {
+    width: 100%;
+    height: 120px;
+    background: var(--input-bg);
+    border: 1px solid var(--surface-border);
+    color: var(--text-color);
+    padding: 12px 14px;
+    border-radius: 8px;
+    resize: none;
+    font-family: inherit;
+    font-size: 14px;
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+}
+
+.modal-content textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+/* Text Item on Board */
+.moodboard-text {
+    background: var(--surface-bg);
+    border: 1px solid var(--surface-border);
+    padding: 16px 20px;
+    border-radius: 12px;
+    min-width: 160px;
+    max-width: 320px;
+    color: var(--text-color);
+    font-size: 14px;
+    line-height: 1.55;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    box-shadow: var(--surface-shadow);
+}

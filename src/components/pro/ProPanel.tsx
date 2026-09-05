@@ -1,6 +1,7 @@
-import React from 'react';
-import { ChevronRight } from 'lucide-react';
+import React, { useRef } from 'react';
 import { ProMode, closeSheet, useOpenSheet } from '../play/sheetStore';
+import { useDismissibleSurface } from '../../hooks/useDismissibleSurface';
+import { StudioCloseButton } from '../common/StudioCloseButton';
 import { haptics } from '../../utils/haptics';
 import { SelectPanel } from './SelectPanel';
 import { DrawPanel } from './DrawPanel';
@@ -120,6 +121,13 @@ export const ProPanel: React.FC<ProPanelProps> = ({
     openSheet === 'deform' ||
     openSheet === 'layers';
 
+  const panelRef = useRef<HTMLElement | null>(null);
+  useDismissibleSurface({
+    isOpen: isProMode,
+    onClose: closeSheet,
+    surfaceRef: panelRef,
+  });
+
   if (!isProMode || !openSheet) return null;
 
   const mode = openSheet as ProMode;
@@ -127,42 +135,36 @@ export const ProPanel: React.FC<ProPanelProps> = ({
 
   return (
     <aside
+      ref={panelRef}
       role="region"
       aria-label={`${title} Panel`}
       data-theme={theme}
-      className={`paperrocket-pro-panel fixed left-[76px] sm:left-[88px] top-1/2 -translate-y-1/2 z-40 w-[300px] max-w-[calc(100vw-6rem)] max-h-[72vh] rounded-2xl border shadow-2xl flex flex-col overflow-hidden select-none animate-in fade-in slide-in-from-left-3 duration-150 ${
+      className={`paperrocket-pro-panel fixed left-[76px] sm:left-[88px] top-1/2 -translate-y-1/2 z-40 w-[290px] sm:w-[300px] max-w-[calc(100vw-6rem)] max-h-[76vh] rounded-2xl border shadow-2xl flex flex-col overflow-hidden select-none animate-in fade-in slide-in-from-left-3 duration-150 ${
         light
-          ? 'bg-white border-black/10 text-neutral-800'
-          : 'bg-[#18191d] border-white/10 text-neutral-200'
+          ? 'bg-[#f7f4ee]/98 border-black/15 text-neutral-800 shadow-[0_20px_50px_rgba(35,28,20,0.14)]'
+          : 'bg-[#14161a]/98 border-white/15 text-neutral-200 shadow-[0_24px_70px_rgba(0,0,0,0.6)]'
       }`}
     >
       {/* Header */}
       <div
-        className={`flex items-center justify-between px-4 py-3 border-b min-h-[44px] shrink-0 ${
-          light ? 'border-neutral-200 bg-neutral-50' : 'border-white/10 bg-[#141519]'
+        className={`flex items-center justify-between px-4 py-2.5 border-b min-h-[48px] shrink-0 ${
+          light ? 'border-black/10 bg-black/[0.02]' : 'border-white/10 bg-white/[0.02]'
         }`}
       >
         <h2 className="text-sm font-bold tracking-tight text-current">{title}</h2>
-        <button
-          type="button"
+        <StudioCloseButton
           onClick={() => {
             haptics.trigger('light');
             closeSheet();
           }}
-          className={`flex items-center justify-center h-8 w-8 rounded-lg min-h-[44px] min-w-[44px] transition-colors ${
-            light
-              ? 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200/60'
-              : 'text-neutral-400 hover:text-white hover:bg-white/10'
-          }`}
-          aria-label={`Close ${title} Panel`}
-          title="Collapse Panel"
-        >
-          <ChevronRight className="w-5 h-5" />
-        </button>
+          ariaLabel={`Close ${title} Panel`}
+          title="Close Panel"
+          theme={theme}
+        />
       </div>
 
       {/* Body / Placeholders */}
-      <div className="paperrocket-pro-content flex-1 px-3 py-2 overflow-y-auto">
+      <div className="paperrocket-pro-content flex-1 p-3.5 overflow-y-auto studio-scroll">
         {mode === 'select' && brushSettings && (
           <SelectPanel
             engine={engine}

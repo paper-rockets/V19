@@ -48,6 +48,7 @@ import { ModelStorage } from '../core/modelStorage';
 import { StudioEngine } from '../core/studioEngine';
 import { getQualityProfile, resolvePixelRatio } from '../utils/deviceProfile';
 import { getThemeClasses } from '../utils/themeStyles';
+import { StudioCloseButton } from './common/StudioCloseButton';
 
 interface ModelConverterModalProps {
   isOpen: boolean;
@@ -588,7 +589,7 @@ export const ModelConverterModal: React.FC<ModelConverterModalProps> = ({
   return (
     <div className="paperrocket-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200">
       <div
-        className={`pr-surface w-[82vw] max-w-5xl h-[86vh] max-h-[860px] flex flex-col rounded-2xl shadow-2xl overflow-hidden border font-sans ${themeClasses.shell}`}
+        className={`pr-surface w-full max-w-3xl h-[85vh] max-h-[780px] flex flex-col rounded-2xl shadow-2xl overflow-hidden border font-sans ${themeClasses.shell}`}
       >
         {/* MODAL HEADER */}
         <div
@@ -612,12 +613,9 @@ export const ModelConverterModal: React.FC<ModelConverterModalProps> = ({
               </div>
             </div>
 
-            <button
-              onClick={onClose}
-              className={`p-1.5 rounded-xl transition-colors cursor-pointer md:hidden ${themeClasses.btnGhost}`}
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <div className="md:hidden">
+              <StudioCloseButton onClick={onClose} theme={isLight ? 'light' : 'dark'} ariaLabel="Close Model Converter" />
+            </div>
           </div>
 
           {/* TAB NAVIGATOR */}
@@ -674,12 +672,9 @@ export const ModelConverterModal: React.FC<ModelConverterModalProps> = ({
             </button>
           </div>
 
-          <button
-            onClick={onClose}
-            className={`hidden md:flex p-2 rounded-xl transition-colors cursor-pointer ${themeClasses.btnGhost}`}
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="hidden md:flex">
+            <StudioCloseButton onClick={onClose} theme={isLight ? 'light' : 'dark'} ariaLabel="Close Model Converter" />
+          </div>
         </div>
 
         {/* TOAST NOTIFICATION */}

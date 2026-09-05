@@ -59,6 +59,7 @@ import { modelExporter } from './modelExporter';
 import { modelNormalization } from './modelNormalization';
 import { resolveAssetUrl } from '../utils/assetUrl';
 import { getQualityProfile, resolvePixelRatio, QualityProfile } from '../utils/deviceProfile';
+import { FastSurfaceRaycaster } from './FastSurfaceRaycaster';
 
 // Patch Three.js geometry and mesh prototypes with BVH accelerated raycasting
 try {
@@ -165,6 +166,16 @@ export type UnifiedHistoryEntry =
       timestamp: number;
     };
 
+export interface StudioLightingState {
+  mode: 'studio' | 'north' | 'softbox' | 'silhouette';
+  intensity: number;
+  softness: number;
+  color: string;
+  direction: { x: number; y: number; z: number };
+  shadowFloor: boolean;
+  showGrid: boolean;
+}
+
 declare global {
   interface Window {
     RayEngine?: {
@@ -183,6 +194,7 @@ export class StudioEngine {
   private scene: THREE.Scene;
   private camera: THREE.PerspectiveCamera;
   private raycaster: THREE.Raycaster;
+  public fastRaycaster: FastSurfaceRaycaster;
   private beadGenerator: ConformalBeadGenerator;
   private materialCache: MaterialCache;
   private strokeSmoother: StrokeSmoother = new StrokeSmoother();
@@ -224,6 +236,7 @@ export class StudioEngine {
   // Model & Mesh references
   private targetMeshes: THREE.Mesh[] = [];
   private activeModelName: string = 'Drawing Canvas';
+  public activeModelId: string | null = null;
   private modelMetadata: ModelMetadata = {
     name: 'Drawing Canvas',
     vertexCount: 0,
@@ -234,10 +247,10 @@ export class StudioEngine {
   };
 
   // Camera Orbit State
-  private cameraTarget: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
-  private cameraSpherical: THREE.Spherical = new THREE.Spherical(3.8, Math.PI / 2.3, Math.PI / 4);
-  private targetSpherical: THREE.Spherical = new THREE.Spherical(3.8, Math.PI / 2.3, Math.PI / 4);
-  private targetPosition: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
+  private cameraTarget: THREE.Vector3 = new THREE.Vector3(-0.08, 0.42, 0);
+  private cameraSpherical: THREE.Spherical = new THREE.Spherical(7.85, 1.5303, -0.0249);
+  private targetSpherical: THREE.Spherical = new THREE.Spherical(7.85, 1.5303, -0.0249);
+  private targetPosition: THREE.Vector3 = new THREE.Vector3(-0.08, 0.42, 0);
 
   // Active Stroke State
   private isDrawing: boolean = false;
@@ -399,7 +412,16 @@ export class StudioEngine {
   private drawingPlaneMesh: THREE.Mesh | null = null;
   private studioGroundMesh: THREE.Mesh | null = null;
   private studioBackdropTexture: THREE.CanvasTexture | null = null;
-  private currentStudioTheme: 'light' | 'dark' = 'dark';
+  private currentStudioTheme: 'light' | 'dark' = 'light';
+  private studioLightingState: StudioLightingState = {
+    mode: 'studio',
+    intensity: 1.6,
+    softness: 0.65,
+    color: '#fff7ec',
+    direction: { x: 0.5, y: 0.8, z: 0.55 },
+    shadowFloor: true,
+    showGrid: false,
+  };
   private generatedEnvTexture: THREE.Texture | null = null;
   /**
    * Whether the procedural sky dome may be shown. Low-power devices start with it
@@ -438,7 +460,7 @@ export class StudioEngine {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.autoClear = true;
     this.renderer.autoClearStencil = true;
-    this.renderer.setClearColor(0xffffff, 1.0);
+    this.renderer.setClearColor(0x242629, 1.0);
 
     // Shadow policy: off entirely on low-power hardware (a single depth pass over
     // the model doubles draw calls for a barely visible result at 1.0 DPR).
@@ -504,6 +526,8 @@ export class StudioEngine {
 
     // 5. Tooling & Engines
     this.raycaster = new THREE.Raycaster();
+    this.fastRaycaster = new FastSurfaceRaycaster(this.camera);
+    this.fastRaycaster.setViewport(container.clientWidth || 1, container.clientHeight || 1);
     this.beadGenerator = new ConformalBeadGenerator();
     this.materialCache = new MaterialCache();
     this.uvEngine = new UVPaintingEngine(profile.uvPaintResolution, profile.uvHistoryDepth);
@@ -544,7 +568,7 @@ export class StudioEngine {
     this.studioGroundMesh.position.y = -1.205;
     this.studioGroundMesh.receiveShadow = true;
     this.helperRoot.add(this.studioGroundMesh);
-    this.applyStudioBackdrop('dark');
+    this.applyStudioBackdrop('light');
 
     // 7. Lighting System (PBR Baseline)
     this.ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
@@ -744,6 +768,9 @@ export class StudioEngine {
    */
   public setModelObject(obj: THREE.Object3D, name: string, modelDef?: any): void {
     this.ensureBaselineLighting();
+    if (!this.skyEnabled) {
+      this.applyStudioBackdrop(this.currentStudioTheme);
+    }
     const isDrawingPlane = name === 'Drawing Canvas Plane' || obj.name === 'DrawingCanvasPlane' || obj.name === 'DrawingPlaneCanvas';
     this.clearModel(false);
     this.activeModelName = name;
@@ -756,10 +783,10 @@ export class StudioEngine {
       const plane = this.setupDefaultDrawingPlane(2.7, 3.6);
       plane.visible = true;
       this.targetMeshes = [plane];
-      this.targetSpherical.radius = 5.2;
-      this.targetSpherical.phi = Math.PI / 2;
-      this.targetSpherical.theta = 0;
-      this.targetPosition.set(0, 0, 0);
+      this.targetSpherical.radius = 7.85;
+      this.targetSpherical.phi = 1.5303;
+      this.targetSpherical.theta = -0.0249;
+      this.targetPosition.set(-0.08, 0.42, 0);
       this.cameraSpherical.copy(this.targetSpherical);
       this.updateCameraPosition();
       const shadowMesh = this.helperRoot.getObjectByName('ModelGroundContactShadow');
@@ -815,11 +842,9 @@ export class StudioEngine {
         geom.computeBoundingBox();
         geom.computeBoundingSphere();
 
-        // Compute Bounding Volume Hierarchy (BVH) for accelerated raycasting on complex meshes (e.g. Matilda, Bakery)
+        // Compute Bounding Volume Hierarchy (BVH) with SAH optimization for fast raycasting
         try {
-          if (typeof (geom as any).computeBoundsTree === 'function') {
-            (geom as any).computeBoundsTree();
-          }
+          this.fastRaycaster.updateMeshBVH(child);
         } catch (e) {
           console.warn('BVH computation notice for mesh:', e);
         }
@@ -1006,36 +1031,37 @@ export class StudioEngine {
     // Soft circular ground contact shadow beneath model (y = -1.19)
     let shadowMesh = this.helperRoot.getObjectByName('ModelGroundContactShadow') as THREE.Mesh | null;
     if (!isDrawingPlane) {
+      const footprintRadius = Math.max(0.9, Math.max(scaledBox.max.x - scaledBox.min.x, scaledBox.max.z - scaledBox.min.z) * 0.68);
       if (!shadowMesh) {
-        // Keep the baked shadow close to the model. A large radial shadow reads
-        // as a spotlight halo and makes small imported models appear to float.
-        const shadowGeom = new THREE.CircleGeometry(1.18, 48);
+        const shadowGeom = new THREE.CircleGeometry(1.0, 64);
         shadowGeom.rotateX(-Math.PI / 2);
         const shadowCanvas = document.createElement('canvas');
-        shadowCanvas.width = 256;
-        shadowCanvas.height = 256;
+        shadowCanvas.width = 512;
+        shadowCanvas.height = 512;
         const sCtx = shadowCanvas.getContext('2d');
         if (sCtx) {
-          const grad = sCtx.createRadialGradient(128, 128, 0, 128, 128, 128);
-          grad.addColorStop(0, 'rgba(0, 0, 0, 0.42)');
-          grad.addColorStop(0.28, 'rgba(0, 0, 0, 0.24)');
-          grad.addColorStop(0.64, 'rgba(0, 0, 0, 0.055)');
+          const grad = sCtx.createRadialGradient(256, 256, 0, 256, 256, 256);
+          grad.addColorStop(0, 'rgba(0, 0, 0, 0.68)');
+          grad.addColorStop(0.18, 'rgba(0, 0, 0, 0.46)');
+          grad.addColorStop(0.48, 'rgba(0, 0, 0, 0.16)');
+          grad.addColorStop(0.78, 'rgba(0, 0, 0, 0.03)');
           grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
           sCtx.fillStyle = grad;
-          sCtx.fillRect(0, 0, 256, 256);
+          sCtx.fillRect(0, 0, 512, 512);
         }
         const sTex = new THREE.CanvasTexture(shadowCanvas);
         const shadowMat = new THREE.MeshBasicMaterial({
           map: sTex,
           transparent: true,
-          opacity: this.currentStudioTheme === 'light' ? 0.56 : 0.78,
+          opacity: this.currentStudioTheme === 'light' ? 0.48 : 0.72,
           depthWrite: false,
         });
         shadowMesh = new THREE.Mesh(shadowGeom, shadowMat);
         shadowMesh.name = 'ModelGroundContactShadow';
-        shadowMesh.position.set(0, -1.19, 0);
+        shadowMesh.position.set(0, -1.198, 0);
         this.helperRoot.add(shadowMesh);
       }
+      shadowMesh.scale.set(footprintRadius, footprintRadius, 1);
       shadowMesh.visible = true;
     } else if (shadowMesh) {
       shadowMesh.visible = false;
@@ -1096,9 +1122,7 @@ export class StudioEngine {
         geom.computeBoundingBox();
         geom.computeBoundingSphere();
         try {
-          if (typeof (geom as any).computeBoundsTree === 'function') {
-            (geom as any).computeBoundsTree();
-          }
+          this.fastRaycaster.updateMeshBVH(child);
         } catch (_) {}
         vertexCount += geom.attributes.position ? geom.attributes.position.count : 0;
         triangleCount += geom.index ? geom.index.count / 3 : (geom.attributes.position?.count || 0) / 3;
@@ -1451,7 +1475,10 @@ export class StudioEngine {
 
   /**
    * Raycasts from screen coordinates (normalized -1 to 1) onto front-facing model
-   * polygons with BVH acceleration and smooth barycentric normal interpolation.
+   * polygons with BVH acceleration, seam-bridging fallback, and smooth barycentric normal interpolation.
+   *
+   * Powered by FastSurfaceRaycaster: evaluates directly in mesh local-space with
+   * boundsTree.raycastFirst, dynamic distance pruning, and inlined Cramer's Rule math.
    *
    * Hot path: returns a reused result object backed by module scratch vectors.
    * Callers that retain the geometry must clone it before the next raycast.
@@ -1462,108 +1489,27 @@ export class StudioEngine {
     settings?: BrushSettings
   ): RaycastResult | null {
     const allRaycastTargets = this.collectRaycastTargets();
+    if (allRaycastTargets.length === 0) {
+      return null;
+    }
 
-    _ndcScratch.set(screenX, screenY);
-    this.raycaster.setFromCamera(_ndcScratch, this.camera);
-
-    const intersects = this.intersectScratch;
-    intersects.length = 0;
-    this.raycaster.intersectObjects(allRaycastTargets, false, intersects);
-
-    // Seam & Gap Bridging fallback: if direct ray misses, test a micro-cross jitter
-    // pattern. Six extra raycasts per miss is expensive on entry-tier GPUs, so the
-    // low-power profile disables it unless a brush explicitly opts in.
     const seamBridgingEnabled =
       settings?.raycastSeamBridging !== undefined
         ? settings.raycastSeamBridging
         : this.profile.seamBridging;
 
-    if (intersects.length === 0 && seamBridgingEnabled) {
-      for (let i = 0; i < _SEAM_JITTER.length; i++) {
-        const [ox, oy] = _SEAM_JITTER[i];
-        _ndcScratch.set(screenX + ox, screenY + oy);
-        this.raycaster.setFromCamera(_ndcScratch, this.camera);
-        this.raycaster.intersectObjects(allRaycastTargets, false, intersects);
-        if (intersects.length > 0) break;
-      }
-    }
+    const hit = this.fastRaycaster.intersect(screenX, screenY, allRaycastTargets, {
+      seamBridging: seamBridgingEnabled,
+      doubleSided: settings?.doubleSidedRaycast !== false,
+      barycentricNormals: settings?.barycentricNormals !== false,
+    });
 
-    if (intersects.length === 0) {
+    if (!hit) {
       return null;
     }
 
-    const hit = intersects[0];
-    if (!hit || !(hit.object instanceof THREE.Mesh)) {
-      return null;
-    }
-
-    const mesh = hit.object as THREE.Mesh;
-    const geom = mesh.geometry;
-    let smoothNormal: THREE.Vector3 | null = null;
-
-    // Smooth Barycentric Normal Interpolation from Mesh Attributes
-    const useBarycentric = settings?.barycentricNormals !== false;
-    if (useBarycentric && geom && geom.attributes && geom.attributes.normal && hit.faceIndex !== undefined) {
-      const index = geom.index;
-      const normalAttr = geom.attributes.normal;
-      const posAttr = geom.attributes.position;
-      const faceIdx = hit.faceIndex;
-
-      let a: number, b: number, c: number;
-      if (index) {
-        a = index.getX(faceIdx * 3);
-        b = index.getX(faceIdx * 3 + 1);
-        c = index.getX(faceIdx * 3 + 2);
-      } else {
-        a = faceIdx * 3;
-        b = faceIdx * 3 + 1;
-        c = faceIdx * 3 + 2;
-      }
-
-      if (posAttr && normalAttr && a < posAttr.count && b < posAttr.count && c < posAttr.count) {
-        _pA.fromBufferAttribute(posAttr, a);
-        _pB.fromBufferAttribute(posAttr, b);
-        _pC.fromBufferAttribute(posAttr, c);
-
-        _nA.fromBufferAttribute(normalAttr, a);
-        _nB.fromBufferAttribute(normalAttr, b);
-        _nC.fromBufferAttribute(normalAttr, c);
-
-        // Convert hit point into local object coordinates to compute barycentric coordinates
-        _invObjMatrix.copy(mesh.matrixWorld).invert();
-        _localHit.copy(hit.point).applyMatrix4(_invObjMatrix);
-
-        THREE.Triangle.getBarycoord(_localHit, _pA, _pB, _pC, _baryCoord);
-
-        // Clamp weights for numerical stability
-        const bx = isNaN(_baryCoord.x) ? 0.3333 : Math.max(0, Math.min(1, _baryCoord.x));
-        const by = isNaN(_baryCoord.y) ? 0.3333 : Math.max(0, Math.min(1, _baryCoord.y));
-        const bz = isNaN(_baryCoord.z) ? 0.3333 : Math.max(0, Math.min(1, _baryCoord.z));
-        const bSum = bx + by + bz || 1.0;
-
-        _interpolatedNorm
-          .set(0, 0, 0)
-          .addScaledVector(_nA, bx / bSum)
-          .addScaledVector(_nB, by / bSum)
-          .addScaledVector(_nC, bz / bSum)
-          .normalize();
-
-        // Transform into world space
-        _interpolatedNorm.transformDirection(mesh.matrixWorld).normalize();
-        if (!isNaN(_interpolatedNorm.x) && !isNaN(_interpolatedNorm.y) && !isNaN(_interpolatedNorm.z)) {
-          smoothNormal = _interpolatedNorm;
-        }
-      }
-    }
-
-    const worldNormal = _worldNormalScratch;
-    if (smoothNormal) {
-      worldNormal.copy(smoothNormal);
-    } else if (hit.face) {
-      worldNormal.copy(hit.face.normal).transformDirection(mesh.matrixWorld).normalize();
-    } else {
-      worldNormal.set(0, 1, 0);
-    }
+    const mesh = hit.mesh;
+    const worldNormal = _worldNormalScratch.copy(hit.normal);
 
     // Ensure normal points outward towards camera
     this.camera.getWorldPosition(_camDirScratch);
@@ -2767,80 +2713,28 @@ export class StudioEngine {
     planeGeom.computeVertexNormals();
     planeGeom.computeBoundingBox();
     planeGeom.computeBoundingSphere();
-    try {
-      if (typeof (planeGeom as any).computeBoundsTree === 'function') {
-        (planeGeom as any).computeBoundsTree();
-      }
-    } catch (_) {}
 
-    // Procedural hi-res grid canvas texture with 3:4 vertical aspect ratio matching the plane
+    // Clean canvas texture with 3:4 vertical aspect ratio matching the plane
     const canvas = document.createElement('canvas');
     canvas.width = 768;
     canvas.height = 1024;
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      // Clean, bright white canvas surface with crisp grid lines
+      // Clean, bright white canvas surface
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, 768, 1024);
-
-      // Fine grid subdivisions (50% lighter) - 24 divisions in X, 32 divisions in Y for perfect 1:1 squares
-      ctx.strokeStyle = 'rgba(226, 232, 240, 0.5)'; // slate-200 50% lighter
-      ctx.lineWidth = 1.5;
-      const step = 32;
-      for (let x = 0; x <= 768; x += step) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, 1024);
-        ctx.stroke();
-      }
-      for (let y = 0; y <= 1024; y += step) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(768, y);
-        ctx.stroke();
-      }
-
-      // Major grid lines (every 4 divisions, 50% lighter)
-      ctx.strokeStyle = 'rgba(148, 163, 184, 0.5)'; // slate-400 50% lighter
-      ctx.lineWidth = 2;
-      const majorStep = step * 4;
-      for (let x = 0; x <= 768; x += majorStep) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, 1024);
-        ctx.stroke();
-      }
-      for (let y = 0; y <= 1024; y += majorStep) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(768, y);
-        ctx.stroke();
-      }
-
-      // Center Origin Crosshair (50% lighter Amber)
-      ctx.strokeStyle = 'rgba(245, 158, 11, 0.5)'; // amber-500 50% lighter
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(384 - 50, 512);
-      ctx.lineTo(384 + 50, 512);
-      ctx.moveTo(384, 512 - 50);
-      ctx.lineTo(384, 512 + 50);
-      ctx.stroke();
-
-      // Outer bezel border (50% lighter Slate)
-      ctx.strokeStyle = 'rgba(100, 116, 139, 0.5)'; // slate-500 50% lighter
-      ctx.lineWidth = 4;
-      ctx.strokeRect(4, 4, 760, 1016);
     }
 
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.needsUpdate = true;
 
-    // 3:4 vertical drawing canvas with 50% opacity
-    const planeMat = new THREE.MeshBasicMaterial({
+    // 3:4 vertical drawing canvas with 50% opacity - upgraded to lit MeshStandardMaterial
+    const planeMat = new THREE.MeshStandardMaterial({
       map: texture,
       color: 0xffffff,
+      roughness: 0.85,
+      metalness: 0.05,
       side: THREE.DoubleSide,
       transparent: true,
       opacity: 0.5,
@@ -2849,6 +2743,9 @@ export class StudioEngine {
     MaterialCache.configureModelMaterial(planeMat);
 
     const planeMesh = new THREE.Mesh(planeGeom, planeMat);
+    try {
+      this.fastRaycaster.updateMeshBVH(planeMesh);
+    } catch (_) {}
     planeMesh.name = 'DrawingPlaneCanvas';
     planeMesh.userData.isDrawingPlane = true;
     planeMesh.userData.isDefaultCanvas = true;
@@ -2856,7 +2753,7 @@ export class StudioEngine {
     planeMesh.position.set(position.x, -1.2 + height / 2, position.z);
     planeMesh.rotation.x = 0; // Vertical upright pane
     planeMesh.castShadow = false;
-    planeMesh.receiveShadow = false;
+    planeMesh.receiveShadow = true;
 
     // Edge highlight border vignette (crisp sky outline, 50% opacity)
     const edges = new THREE.EdgesGeometry(planeGeom);
@@ -3212,21 +3109,77 @@ export class StudioEngine {
    * Export all strokes, layers, scene environment and camera data as ProjectSaveData
    */
   public exportProjectData(projectName: string = 'Remix 3D Project', explicitLayers?: Layer[]): ProjectSaveData {
-    const allStrokes: StrokeDescriptor[] = [];
-    this.strokes.forEach(({ descriptor }) => {
-      allStrokes.push({
-        ...descriptor,
-        points: descriptor.points.map((p) => ({
-          ...p,
-          position: { x: p.position.x, y: p.position.y, z: p.position.z } as any,
-          normal: { x: p.normal.x, y: p.normal.y, z: p.normal.z } as any,
-          tangent: p.tangent ? ({ x: p.tangent.x, y: p.tangent.y, z: p.tangent.z } as any) : undefined,
-        })),
-      });
+    const serializeStroke = (desc: StrokeDescriptor): StrokeDescriptor => ({
+      ...desc,
+      points: desc.points.map((p) => ({
+        ...p,
+        position: { x: p.position.x, y: p.position.y, z: p.position.z } as any,
+        normal: { x: p.normal.x, y: p.normal.y, z: p.normal.z } as any,
+        tangent: p.tangent ? ({ x: p.tangent.x, y: p.tangent.y, z: p.tangent.z } as any) : undefined,
+      })),
     });
 
+    const allStrokes: StrokeDescriptor[] = [];
+    this.strokes.forEach(({ descriptor }) => {
+      allStrokes.push(serializeStroke(descriptor));
+    });
+
+    // Serialize undo stacks non-destructively
+    const serializedUndoStack = this.undoStack.map((action) => ({
+      type: action.type,
+      strokes: action.strokes.map(serializeStroke),
+    }));
+
+    const serializedHistoryUndoStack = this.historyUndoStack.map((entry) => {
+      if (entry.kind === 'stroke') {
+        return {
+          kind: 'stroke',
+          action: {
+            type: entry.action.type,
+            strokes: entry.action.strokes.map(serializeStroke),
+          },
+          timestamp: entry.timestamp,
+        };
+      } else if (entry.kind === 'transform') {
+        return {
+          kind: 'transform',
+          scope: entry.scope,
+          inverseMatrix: entry.inverseMatrix.toArray(),
+          forwardMatrix: entry.forwardMatrix.toArray(),
+          layerId: entry.layerId,
+          timestamp: entry.timestamp,
+        };
+      }
+      return entry;
+    });
+
+    const serializedHistoryRedoStack = this.historyRedoStack.map((entry) => {
+      if (entry.kind === 'stroke') {
+        return {
+          kind: 'stroke',
+          action: {
+            type: entry.action.type,
+            strokes: entry.action.strokes.map(serializeStroke),
+          },
+          timestamp: entry.timestamp,
+        };
+      } else if (entry.kind === 'transform') {
+        return {
+          kind: 'transform',
+          scope: entry.scope,
+          inverseMatrix: entry.inverseMatrix.toArray(),
+          forwardMatrix: entry.forwardMatrix.toArray(),
+          layerId: entry.layerId,
+          timestamp: entry.timestamp,
+        };
+      }
+      return entry;
+    });
+
+    const uvCanvases = this.uvEngine ? this.uvEngine.exportAllCanvases() : undefined;
+
     const project: ProjectSaveData = {
-      version: '14.0.0',
+      version: '15.0.0',
       name: projectName,
       timestamp: Date.now(),
       camera: {
@@ -3242,8 +3195,13 @@ export class StudioEngine {
       layers: explicitLayers && explicitLayers.length > 0 ? explicitLayers : this.getLayersSnapshot(),
       strokes: allStrokes,
       activeModelName: this.activeModelName,
+      activeModelId: this.activeModelId,
       showGrid: this.gridHelper?.visible ?? true,
       showWireframe: this.modelWireframeOpacity > 0,
+      undoStack: serializedUndoStack,
+      historyUndoStack: serializedHistoryUndoStack,
+      historyRedoStack: serializedHistoryRedoStack,
+      uvCanvases,
     };
     return project;
   }
@@ -3267,7 +3225,7 @@ export class StudioEngine {
   /**
    * Import project from ProjectSaveData and recreate all strokes & layers
    */
-  public importProjectData(project: ProjectSaveData): void {
+  public async importProjectData(project: ProjectSaveData): Promise<void> {
     if (!project) return;
 
     // 1. Clear existing strokes
@@ -3280,6 +3238,8 @@ export class StudioEngine {
     this.strokes.clear();
     this.undoStack = [];
     this.redoStack = [];
+    this.historyUndoStack = [];
+    this.historyRedoStack = [];
     this.selectStroke(null);
 
     // 2. Restore camera if available
@@ -3312,6 +3272,63 @@ export class StudioEngine {
       }
     }
 
+    // 4. Restore UV canvases if available
+    if (project.uvCanvases && this.uvEngine) {
+      await this.uvEngine.importCanvases(project.uvCanvases);
+    }
+
+    // 5. Restore full undo/redo history
+    if (Array.isArray(project.historyUndoStack) && project.historyUndoStack.length > 0) {
+      this.historyUndoStack = project.historyUndoStack.map((entry: any) => {
+        if (entry.kind === 'transform') {
+          return {
+            ...entry,
+            inverseMatrix: Array.isArray(entry.inverseMatrix)
+              ? new THREE.Matrix4().fromArray(entry.inverseMatrix)
+              : entry.inverseMatrix,
+            forwardMatrix: Array.isArray(entry.forwardMatrix)
+              ? new THREE.Matrix4().fromArray(entry.forwardMatrix)
+              : entry.forwardMatrix,
+          };
+        }
+        return entry;
+      });
+      if (Array.isArray(project.undoStack)) {
+        this.undoStack = [...project.undoStack];
+      }
+      if (Array.isArray(project.historyRedoStack)) {
+        this.historyRedoStack = project.historyRedoStack.map((entry: any) => {
+          if (entry.kind === 'transform') {
+            return {
+              ...entry,
+              inverseMatrix: Array.isArray(entry.inverseMatrix)
+                ? new THREE.Matrix4().fromArray(entry.inverseMatrix)
+                : entry.inverseMatrix,
+              forwardMatrix: Array.isArray(entry.forwardMatrix)
+                ? new THREE.Matrix4().fromArray(entry.forwardMatrix)
+                : entry.forwardMatrix,
+            };
+          }
+          return entry;
+        });
+      }
+    } else if (Array.isArray(project.strokes) && project.strokes.length > 0) {
+      // Synthesize undo stack for older projects so every loaded stroke can still be undone!
+      for (const strokeDesc of project.strokes) {
+        const action = {
+          type: 'create' as const,
+          strokes: [strokeDesc],
+        };
+        this.undoStack.push(action);
+        this.historyUndoStack.push({
+          kind: 'stroke',
+          action,
+          timestamp: (strokeDesc as any).timestamp || Date.now(),
+        });
+      }
+    }
+
+    this.markDirty();
     this.notifyHistory();
     this.onAutoSaveTrigger?.('project_loaded');
   }
@@ -3427,11 +3444,18 @@ export class StudioEngine {
   }
 
   public resetView(): void {
-    const maxDim = Math.max(this.modelMetadata.dimensions.x, this.modelMetadata.dimensions.y, this.modelMetadata.dimensions.z, 1.0);
-    this.targetSpherical.radius = maxDim * 2.2;
-    this.targetSpherical.theta = Math.PI / 4;
-    this.targetSpherical.phi = Math.PI / 2.3;
-    this.targetPosition.set(0, 0, 0);
+    if (this.activeModelName === 'Drawing Canvas' || this.drawingPlaneMesh) {
+      this.targetSpherical.radius = 7.85;
+      this.targetSpherical.phi = 1.5303;
+      this.targetSpherical.theta = -0.0249;
+      this.targetPosition.set(-0.08, 0.42, 0);
+    } else {
+      const maxDim = Math.max(this.modelMetadata.dimensions.x, this.modelMetadata.dimensions.y, this.modelMetadata.dimensions.z, 1.0);
+      this.targetSpherical.radius = maxDim * 2.2;
+      this.targetSpherical.theta = Math.PI / 4;
+      this.targetSpherical.phi = Math.PI / 2.3;
+      this.targetPosition.set(0, 0, 0);
+    }
     this.markDirty();
   }
 
@@ -4149,15 +4173,7 @@ export class StudioEngine {
     this.ensureBaselineLighting();
     switch (preset) {
       case 'studio':
-        this.ambientLight.intensity = 1.25;
-        this.hemiLight.color.setHex(0xffffff);
-        this.hemiLight.groundColor.setHex(0xe2e8f0);
-        this.hemiLight.intensity = 0.9;
-        this.dirLight1.color.setHex(0xffffff);
-        this.dirLight1.intensity = 1.8;
-        this.dirLight2.color.setHex(0xdbeafe);
-        this.dirLight2.intensity = 0.8;
-        this.applySkyPresetIfEnabled('clear-day');
+        this.setStudioLightingMode('studio');
         break;
       case 'daylight':
         this.applySkyPresetIfEnabled('clear-day');
@@ -4169,12 +4185,188 @@ export class StudioEngine {
         this.applySkyPresetIfEnabled('sunset-dusk');
         break;
       case 'clay_neutral':
-        this.ambientLight.intensity = 1.2;
-        this.hemiLight.intensity = 0.85;
-        this.dirLight1.intensity = 1.6;
-        this.applySkyPresetIfEnabled('studio-neutral');
+        this.setStudioLightingMode('studio');
+        this.setModelDisplayMode('clay');
         break;
     }
+  }
+
+  public getStudioLightingState(): Readonly<StudioLightingState> {
+    return {
+      ...this.studioLightingState,
+      direction: { ...this.studioLightingState.direction },
+    };
+  }
+
+  public setStudioLightingMode(mode: 'studio' | 'north' | 'softbox' | 'silhouette'): void {
+    this.ensureBaselineLighting();
+    this.studioLightingState.mode = mode;
+    if (this.skyEngine) {
+      this.skyEngine.setCustomOffBackground(this.studioBackdropTexture);
+      this.skyEngine.applyPreset('off');
+    }
+    if (this.studioBackdropTexture) {
+      this.scene.background = this.studioBackdropTexture;
+    }
+
+    const isLight = this.currentStudioTheme === 'light';
+
+    switch (mode) {
+      case 'studio':
+        // Signature warm directional key + balanced fill + subtle contour rim
+        this.ambientLight.color.setHex(0xffffff);
+        this.ambientLight.intensity = 0.32;
+        this.hemiLight.color.setHex(0xfff7ee);
+        this.hemiLight.groundColor.setHex(isLight ? 0xb5ab9f : 0x1a1b1d);
+        this.hemiLight.intensity = 0.52;
+        this.dirLight1.color.setHex(0xfff7ec);
+        this.dirLight1.position.set(4.5, 7.5, 5.0);
+        this.dirLight1.intensity = 1.6;
+        this.dirLight1.shadow.radius = 7;
+        this.dirLight2.color.setHex(0xe2e8f0);
+        this.dirLight2.position.set(-4.5, 3.2, -4.0);
+        this.dirLight2.intensity = 0.38;
+        this.studioLightingState.color = '#fff7ec';
+        this.studioLightingState.intensity = 1.6;
+        break;
+
+      case 'north':
+        // High-angle diffuse window light, calm cool-neutral tone
+        this.ambientLight.color.setHex(0xffffff);
+        this.ambientLight.intensity = 0.38;
+        this.hemiLight.color.setHex(0xecf2fa);
+        this.hemiLight.groundColor.setHex(isLight ? 0xb2abb5 : 0x181a1d);
+        this.hemiLight.intensity = 0.65;
+        this.dirLight1.color.setHex(0xf0f4fc);
+        this.dirLight1.position.set(0.8, 9.5, 3.0);
+        this.dirLight1.intensity = 1.45;
+        this.dirLight1.shadow.radius = 10;
+        this.dirLight2.color.setHex(0xdbeafe);
+        this.dirLight2.position.set(-1.0, 2.0, -4.5);
+        this.dirLight2.intensity = 0.25;
+        this.studioLightingState.color = '#f0f4fc';
+        this.studioLightingState.intensity = 1.45;
+        break;
+
+      case 'softbox':
+        // Broad wrap-around diffused studio lighting with very soft shadows
+        this.ambientLight.color.setHex(0xffffff);
+        this.ambientLight.intensity = 0.44;
+        this.hemiLight.color.setHex(0xfffcf5);
+        this.hemiLight.groundColor.setHex(isLight ? 0xbaaead : 0x222428);
+        this.hemiLight.intensity = 0.7;
+        this.dirLight1.color.setHex(0xfff9f2);
+        this.dirLight1.position.set(3.8, 6.2, 4.5);
+        this.dirLight1.intensity = 1.5;
+        this.dirLight1.shadow.radius = 12;
+        this.dirLight2.color.setHex(0xf1f5f9);
+        this.dirLight2.position.set(-3.8, 4.5, 2.5);
+        this.dirLight2.intensity = 0.48;
+        this.studioLightingState.color = '#fff9f2';
+        this.studioLightingState.intensity = 1.5;
+        break;
+
+      case 'silhouette':
+        // Dramatic sculpture photography with intense rim kicker and deep contrast
+        this.ambientLight.color.setHex(0xffffff);
+        this.ambientLight.intensity = 0.16;
+        this.hemiLight.color.setHex(0xe2e8f0);
+        this.hemiLight.groundColor.setHex(isLight ? 0x908a82 : 0x0f1011);
+        this.hemiLight.intensity = 0.28;
+        this.dirLight1.color.setHex(0xfffaed);
+        this.dirLight1.position.set(-3.5, 4.5, -5.5);
+        this.dirLight1.intensity = 2.4;
+        this.dirLight1.shadow.radius = 5;
+        this.dirLight2.color.setHex(0xdbeafe);
+        this.dirLight2.position.set(3.5, 2.8, -4.5);
+        this.dirLight2.intensity = 1.4;
+        this.studioLightingState.color = '#fffaed';
+        this.studioLightingState.intensity = 2.4;
+        break;
+    }
+    this.markDirty();
+  }
+
+  public setStudioSoftness(softness?: number): void {
+    const safeSoftness = typeof softness === 'number' && !isNaN(softness) ? softness : 0.65;
+    const s = Math.max(0.1, Math.min(1.0, safeSoftness));
+    this.studioLightingState.softness = s;
+    if (this.dirLight1 && this.dirLight1.shadow) {
+      this.dirLight1.shadow.radius = 2 + s * 12;
+    }
+    if (this.hemiLight) {
+      this.hemiLight.intensity = 0.35 + s * 0.45;
+    }
+    this.markDirty();
+  }
+
+  public setStudioLightDirection(dir?: { x: number; y: number; z: number }): void {
+    if (!dir || typeof dir.x !== 'number' || typeof dir.y !== 'number' || typeof dir.z !== 'number') return;
+    this.studioLightingState.direction = { x: dir.x, y: dir.y, z: dir.z };
+    const len = Math.hypot(dir.x, dir.y, dir.z) || 1;
+    const dist = 9.5;
+    if (this.dirLight1) {
+      this.dirLight1.position.set(
+        (dir.x / len) * dist,
+        Math.max(1.8, (dir.y / len) * dist),
+        (dir.z / len) * dist
+      );
+      this.dirLight1.updateMatrixWorld();
+    }
+    if (this.dirLight2) {
+      const fillDist = 6.5;
+      this.dirLight2.position.set(
+        (-dir.x / len) * fillDist,
+        Math.max(1.5, Math.abs(dir.y / len) * 0.5 * fillDist + 1.2),
+        (-dir.z / len) * fillDist
+      );
+      this.dirLight2.updateMatrixWorld();
+    }
+    this.markDirty();
+  }
+
+  public setStudioLightIntensity(intensity?: number): void {
+    const safeIntensity = typeof intensity === 'number' && !isNaN(intensity) ? intensity : 1.6;
+    this.studioLightingState.intensity = safeIntensity;
+    if (this.dirLight1) {
+      this.dirLight1.intensity = Math.max(0.2, safeIntensity);
+    }
+    if (this.hemiLight) {
+      this.hemiLight.intensity = Math.max(0.15, safeIntensity * 0.35);
+    }
+    this.markDirty();
+  }
+
+  public setStudioLightColor(colorHex?: string): void {
+    if (!colorHex) return;
+    this.studioLightingState.color = colorHex;
+    if (this.dirLight1) {
+      this.dirLight1.color.set(colorHex);
+    }
+    if (this.hemiLight) {
+      this.hemiLight.color.set(colorHex);
+    }
+    this.markDirty();
+  }
+
+  public setStudioFloorShadow(visible: boolean): void {
+    this.studioLightingState.shadowFloor = visible;
+    if (this.studioGroundMesh) {
+      this.studioGroundMesh.visible = visible;
+    }
+    const contactShadow = this.helperRoot.getObjectByName('ModelGroundContactShadow') as THREE.Mesh | null;
+    if (contactShadow) {
+      contactShadow.visible = visible;
+    }
+    this.markDirty();
+  }
+
+  public setStudioGridVisible(visible: boolean): void {
+    this.studioLightingState.showGrid = visible;
+    if (this.gridHelper) {
+      this.gridHelper.visible = visible;
+    }
+    this.markDirty();
   }
 
   private applyStudioBackdrop(theme: 'light' | 'dark'): void {
@@ -4189,19 +4381,19 @@ export class StudioEngine {
     // A seamless cyclorama: brighter around the subject with a quiet falloff
     // toward the edges. The off-centre glow makes the light feel directional
     // without drawing a visible floor or horizon into the scene.
-    const glow = ctx.createRadialGradient(430, 370, 24, 510, 470, 820);
-    glow.addColorStop(0, light ? '#f6f1e8' : '#3d3f40');
-    glow.addColorStop(0.5, light ? '#e9e2d8' : '#2d2f30');
-    glow.addColorStop(1, light ? '#cec5ba' : '#181a1b');
+    const glow = ctx.createRadialGradient(480, 420, 24, 512, 512, 780);
+    glow.addColorStop(0, light ? '#ede7de' : '#303235');
+    glow.addColorStop(0.45, light ? '#dfd7cc' : '#232527');
+    glow.addColorStop(1, light ? '#c6beb2' : '#141516');
     ctx.fillStyle = glow;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // Directional tonal wash: warm limestone in Light and graphite suede in
     // Dark. It keeps the centre calm and adds depth without a visible horizon.
-    const studioWash = ctx.createLinearGradient(40, 10, 980, 1000);
-    studioWash.addColorStop(0, light ? 'rgba(255,249,239,0.24)' : 'rgba(255,255,255,0.045)');
-    studioWash.addColorStop(0.46, light ? 'rgba(229,219,206,0.015)' : 'rgba(0,0,0,0.01)');
-    studioWash.addColorStop(1, light ? 'rgba(116,103,88,0.105)' : 'rgba(0,0,0,0.18)');
+    const studioWash = ctx.createLinearGradient(60, 20, 960, 980);
+    studioWash.addColorStop(0, light ? 'rgba(255,250,242,0.18)' : 'rgba(255,255,255,0.035)');
+    studioWash.addColorStop(0.46, light ? 'rgba(225,215,202,0.015)' : 'rgba(0,0,0,0.01)');
+    studioWash.addColorStop(1, light ? 'rgba(125,110,95,0.08)' : 'rgba(0,0,0,0.22)');
     ctx.fillStyle = studioWash;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -4268,6 +4460,9 @@ export class StudioEngine {
     texture.needsUpdate = true;
     this.studioBackdropTexture = texture;
     this.scene.background = texture;
+    if (this.skyEngine) {
+      this.skyEngine.setCustomOffBackground(texture);
+    }
   }
 
   public setTheme(theme: 'light' | 'dark'): void {
@@ -4287,26 +4482,27 @@ export class StudioEngine {
       // Product-studio lighting: restrained ambience preserves form while a
       // broad warm key from above-left produces the premium reference look.
       this.ambientLight.color.setHex(0xffffff);
-      this.ambientLight.intensity = 0.2;
-      this.hemiLight.color.setHex(0xfffbf5);
-      this.hemiLight.groundColor.setHex(0xb9b0a5);
-      this.hemiLight.intensity = 0.42;
-      this.dirLight1.color.setHex(0xfff4e5);
-      this.dirLight1.position.set(-4.5, 7.5, 5.5);
-      this.dirLight1.intensity = 1.7;
+      this.ambientLight.intensity = 0.28;
+      this.hemiLight.color.setHex(0xfff8ee);
+      this.hemiLight.groundColor.setHex(0xb5ab9f);
+      this.hemiLight.intensity = 0.52;
+      this.dirLight1.color.setHex(0xfff6ea);
+      this.dirLight1.position.set(4.5, 7.5, 5.0);
+      this.dirLight1.intensity = 1.6;
+      this.dirLight1.shadow.radius = 7;
       this.dirLight2.color.setHex(0xdce7ee);
-      this.dirLight2.position.set(4, 2.5, -4);
-      this.dirLight2.intensity = 0.26;
+      this.dirLight2.position.set(-4.5, 3.0, -4.0);
+      this.dirLight2.intensity = 0.32;
 
       const groundMaterial = this.studioGroundMesh?.material as THREE.ShadowMaterial | undefined;
-      if (groundMaterial) groundMaterial.opacity = 0.12;
+      if (groundMaterial) groundMaterial.opacity = 0.18;
       const contactShadow = this.helperRoot.getObjectByName('ModelGroundContactShadow') as THREE.Mesh | null;
       const contactMaterial = contactShadow?.material as THREE.MeshBasicMaterial | undefined;
-      if (contactMaterial) contactMaterial.opacity = 0.56;
+      if (contactMaterial) contactMaterial.opacity = 0.48;
     } else {
       // Comfortable dark slate theme
       this.applyStudioBackdrop('dark');
-      this.renderer.toneMappingExposure = 0.82;
+      this.renderer.toneMappingExposure = 1.0;
       if (this.gridHelper) {
         this.helperRoot.remove(this.gridHelper);
         this.gridHelper.geometry.dispose();
@@ -4316,22 +4512,23 @@ export class StudioEngine {
         this.helperRoot.add(this.gridHelper);
       }
       this.ambientLight.color.setHex(0xffffff);
-      this.ambientLight.intensity = 0.34;
-      this.hemiLight.color.setHex(0xd7d9dc);
-      this.hemiLight.groundColor.setHex(0x1a1b1d);
-      this.hemiLight.intensity = 0.46;
-      this.dirLight1.color.setHex(0xffffff);
-      this.dirLight1.position.set(3, 4, 3);
-      this.dirLight1.intensity = 1.3;
-      this.dirLight2.color.setHex(0xaebac5);
-      this.dirLight2.position.set(-3, 2, -2);
-      this.dirLight2.intensity = 0.38;
+      this.ambientLight.intensity = 0.32;
+      this.hemiLight.color.setHex(0xe4e7eb);
+      this.hemiLight.groundColor.setHex(0x191a1c);
+      this.hemiLight.intensity = 0.5;
+      this.dirLight1.color.setHex(0xfff8f0);
+      this.dirLight1.position.set(4.5, 7.5, 5.0);
+      this.dirLight1.intensity = 1.6;
+      this.dirLight1.shadow.radius = 7;
+      this.dirLight2.color.setHex(0xb5c0cc);
+      this.dirLight2.position.set(-4.5, 3.0, -4.0);
+      this.dirLight2.intensity = 0.35;
 
       const groundMaterial = this.studioGroundMesh?.material as THREE.ShadowMaterial | undefined;
-      if (groundMaterial) groundMaterial.opacity = 0.24;
+      if (groundMaterial) groundMaterial.opacity = 0.28;
       const contactShadow = this.helperRoot.getObjectByName('ModelGroundContactShadow') as THREE.Mesh | null;
       const contactMaterial = contactShadow?.material as THREE.MeshBasicMaterial | undefined;
-      if (contactMaterial) contactMaterial.opacity = 0.78;
+      if (contactMaterial) contactMaterial.opacity = 0.72;
     }
   }
 
@@ -4362,16 +4559,18 @@ export class StudioEngine {
   }
 
   public setModelDisplayMode(mode: ModelDisplayMode): void {
+    if (!mode) return;
     this.modelDisplayMode = mode;
+    const isLight = this.currentStudioTheme === 'light';
     this.targetMeshes.forEach((mesh) => {
       if (mode === 'clay') {
         if (!mesh.userData.originalMaterial) {
           mesh.userData.originalMaterial = mesh.material;
         }
         const clayMat = new THREE.MeshStandardMaterial({
-          color: 0xf5f5f7,
-          roughness: 0.85,
-          metalness: 0.05,
+          color: isLight ? 0xdedad2 : 0xd0c9be,
+          roughness: 0.78,
+          metalness: 0.02,
           side: THREE.DoubleSide,
         });
         MaterialCache.configureModelMaterial(clayMat);
@@ -4379,9 +4578,14 @@ export class StudioEngine {
       } else {
         if (mesh.userData.originalMaterial) {
           mesh.material = mesh.userData.originalMaterial;
+          const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+          mats.forEach((m) => {
+            if (m) MaterialCache.configureModelMaterial(m);
+          });
         }
       }
     });
+    this.markDirty();
   }
 
   /**
@@ -4482,9 +4686,7 @@ export class StudioEngine {
           child.userData.originalMaterial = child.material;
         }
         try {
-          if (typeof (child.geometry as any).computeBoundsTree === 'function') {
-            (child.geometry as any).computeBoundsTree();
-          }
+          this.fastRaycaster.updateMeshBVH(child);
         } catch (_) {}
       }
     });
@@ -4630,30 +4832,30 @@ export class StudioEngine {
 
     if (!this.ambientLight || !this.ambientLight.parent) {
       if (!this.ambientLight) {
-        this.ambientLight = new THREE.AmbientLight(0xffffff, 1.1);
+        this.ambientLight = new THREE.AmbientLight(0xffffff, 0.35);
       }
       this.lightsRoot.add(this.ambientLight);
     }
-    if (this.ambientLight.intensity < 0.6) {
-      this.ambientLight.intensity = 1.1;
+    if (this.ambientLight.intensity <= 0) {
+      this.ambientLight.intensity = 0.35;
     }
 
     if (!this.hemiLight || !this.hemiLight.parent) {
       if (!this.hemiLight) {
-        this.hemiLight = new THREE.HemisphereLight(0xffffff, 0xcbd5e1, 0.85);
+        this.hemiLight = new THREE.HemisphereLight(0xffffff, 0xcbd5e1, 0.55);
       }
       this.lightsRoot.add(this.hemiLight);
     }
 
     if (!this.dirLight1 || !this.dirLight1.parent) {
       if (!this.dirLight1) {
-        this.dirLight1 = new THREE.DirectionalLight(0xffffff, 1.5);
-        this.dirLight1.position.set(6, 10, 6);
+        this.dirLight1 = new THREE.DirectionalLight(0xfff7ec, 1.6);
+        this.dirLight1.position.set(4.5, 7.5, 5.0);
       }
       this.lightsRoot.add(this.dirLight1);
     }
-    if (this.dirLight1.intensity < 0.6) {
-      this.dirLight1.intensity = 1.5;
+    if (this.dirLight1.intensity <= 0) {
+      this.dirLight1.intensity = 1.6;
     }
 
     if (!this.dirLight2 || !this.dirLight2.parent) {
@@ -4769,6 +4971,9 @@ export class StudioEngine {
     if (!width || !height || this.isContextLost) return;
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
+    if (this.fastRaycaster) {
+      this.fastRaycaster.setViewport(width, height);
+    }
     // Re-clamp the pixel ratio: browser zoom and multi-display moves change DPR.
     this.renderer.setPixelRatio(resolvePixelRatio(this.profile));
     this.renderer.setSize(width, height);
@@ -5306,9 +5511,7 @@ export class StudioEngine {
 
       // Compute BVH for raycasting contact
       try {
-        if ((planeMesh.geometry as any).computeBoundsTree) {
-          (planeMesh.geometry as any).computeBoundsTree();
-        }
+        this.fastRaycaster.updateMeshBVH(planeMesh);
       } catch (_) {}
     });
   }
@@ -5322,9 +5525,7 @@ export class StudioEngine {
         if (isCollider) {
           this.guideColliderMeshes.set(meshId, child);
           try {
-            if ((child.geometry as any).computeBoundsTree) {
-              (child.geometry as any).computeBoundsTree();
-            }
+            this.fastRaycaster.updateMeshBVH(child);
           } catch (_) {}
         } else {
           this.guideColliderMeshes.delete(meshId);

@@ -289,6 +289,7 @@ export interface BrushSettings {
   brushWidthMultiplier?: number; // 1.0 to 10.0 for wide straight lines & thick ribbon strokes
   brushAngle?: number; // 0 to 180 degrees stamp rotation
   straightLineMode?: boolean; // locks stroke to straight line from start to current point
+  brushPresetId?: string; // Identifier of equipped preset (e.g. 'spatial_pipe', 'streamline_ink', etc.)
   // Raycasting & Surface Snapping Parameters
   raycastSampleDensity?: 'standard' | 'high' | 'ultra'; // Sub-step raycast resolution (16, 32, 48)
   doubleSidedRaycast?: boolean; // Ensure single-sided & back-facing polygons do not skip
@@ -630,12 +631,30 @@ export interface ProjectSaveData {
   layers: Layer[];
   strokes: StrokeDescriptor[];
   activeModelName?: string;
+  activeModelId?: string;
   lightingPreset?: LightingPreset;
   brushSettings?: Partial<BrushSettings>;
   skySettings?: Partial<SkySettings>;
   showGrid?: boolean;
   showWireframe?: boolean;
+  // Non-destructive history and texture state
+  undoStack?: Array<{ type: 'create' | 'erase'; strokes: StrokeDescriptor[] }>;
+  historyUndoStack?: any[];
+  historyRedoStack?: any[];
+  uvCanvases?: Record<string, string>; // layerId -> base64 PNG dataUrl
 }
+
+export interface SavedProjectSession {
+  id: string;
+  name: string;
+  timestamp: number;
+  thumbnail?: string;
+  strokeCount: number;
+  layerCount: number;
+  activeModelName?: string;
+  projectData: ProjectSaveData;
+}
+
 
 
 

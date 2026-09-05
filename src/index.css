@@ -259,16 +259,20 @@ canvas {
     left: auto !important;
     right: 20px !important;
     bottom: 20px !important;
-    width: 40vw !important;
-    min-width: 320px !important;
-    max-width: 500px !important;
+    width: min(390px, calc(100vw - 40px)) !important;
+    min-width: 0 !important;
+    max-width: calc(100vw - 40px) !important;
     border: 1px solid rgb(255 255 255 / 0.1) !important;
-    border-radius: 18px !important;
+    border-radius: 16px !important;
+  }
+
+  .paperrocket-play-sheet[data-sheet-id="settings"] {
+    width: min(410px, calc(100vw - 40px)) !important;
   }
 }
 
 .paperrocket-modal-overlay {
-  background: transparent !important;
+  background: rgb(0 0 0 / 0.6) !important;
 }
 
 /*
@@ -293,36 +297,12 @@ canvas {
   border-color: rgb(255 255 255 / 0.12) !important;
 }
 
-.paperrocket-pro-panel > :first-child h2,
-.paperrocket-pro-content {
+.paperrocket-pro-panel > :first-child h2 {
   filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.72));
 }
 
 .paperrocket-pro-content {
-  padding-left: 0 !important;
-  padding-right: 5px !important;
-}
-
-.paperrocket-pro-content > div {
-  gap: 0 !important;
-}
-
-.paperrocket-pro-content > div > div {
-  margin: 0 !important;
-  padding: 11px 2px !important;
-  background: transparent !important;
-  border: 0 !important;
-  border-bottom: 1px solid rgb(255 255 255 / 0.11) !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-}
-
-.paperrocket-pro-content > div > div:last-child {
-  border-bottom-color: transparent !important;
-}
-
-.paperrocket-pro-content > div > div > p {
-  display: none;
+  padding: 14px !important;
 }
 
 .paperrocket-pro-content button {
@@ -373,8 +353,8 @@ canvas {
 
 @media (min-width: 640px) {
   .paperrocket-pro-panel {
-    width: 280px !important;
-    max-height: 68vh !important;
+    width: 290px !important;
+    max-height: 76vh !important;
   }
 }
 
@@ -387,12 +367,13 @@ canvas {
   .paperrocket-pro-panel,
   .paperrocket-context-panel {
     left: 60px !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
+    top: 68px !important;
+    bottom: max(8px, env(safe-area-inset-bottom)) !important;
+    transform: none !important;
+    translate: none !important;
     width: min(280px, calc(100vw - 72px)) !important;
     max-width: calc(100vw - 72px) !important;
-    max-height: 75vh !important;
-    max-height: 75dvh !important;
+    max-height: none !important;
   }
 }
 
@@ -494,15 +475,42 @@ html.light .pr-surface.paperrocket-toolbar-surface {
   box-shadow:none !important;
 }
 
-/* 2 · Nested wrappers inside it lose their fills and boxes too.
-       Container elements only — never buttons, inputs or swatches. */
-.pr-surface :is(div,section,aside,header,footer,nav,ul,ol,li,dl):not(.pr-surface):not(.paperrocket-pro-panel):not(.paperrocket-color-studio):is(
-  [class*="bg-white"],[class*="bg-black"],[class*="bg-neutral"],
-  [class*="bg-zinc"],[class*="bg-slate"],[class*="bg-gray"],
-  [class*="bg-stone"],[class*="bg-[#"]
-){
-  background:transparent !important;
-  box-shadow:none !important;
+/* 2 · Inner cards and sections keep subtle backgrounds for hierarchy */
+.studio-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(161 161 170 / 0.45) transparent;
+  scrollbar-gutter: stable;
+}
+
+.studio-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.studio-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 4px 0;
+}
+
+.studio-scroll::-webkit-scrollbar-thumb {
+  background: rgb(161 161 170 / 0.35);
+  border-radius: 9999px;
+}
+
+.studio-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgb(161 161 170 / 0.6);
+}
+
+html.light .studio-scroll {
+  scrollbar-color: rgb(100 116 139 / 0.4) transparent;
+}
+
+html.light .studio-scroll::-webkit-scrollbar-thumb {
+  background: rgb(100 116 139 / 0.35);
+}
+
+html.light .studio-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgb(100 116 139 / 0.6);
 }
 
 /* soften inner divider borders into hairlines instead of hard edges */
@@ -573,3 +581,181 @@ html.light .pr-surface input:not([type]){
 
 /* 6 · Sliders keep the studio accent. */
 .pr-surface input[type="range"]{ accent-color:rgb(56 189 248); }
+
+/* =============================================================
+   MINIMAL MENU SYSTEM
+   Menus use the same visual restraint as the canvas chrome: one
+   quiet plane, hairline groups and cyan only for active state.
+   ============================================================= */
+.paperrocket-play-sheet,
+.paperrocket-pro-panel,
+.paperrocket-context-panel,
+.paperrocket-color-studio {
+  border-radius: 16px !important;
+}
+
+.paperrocket-play-sheet {
+  overflow: hidden;
+}
+
+.paperrocket-sheet-header {
+  min-height: 48px !important;
+  padding: 0 14px !important;
+  border-bottom: 1px solid rgb(255 255 255 / .10);
+}
+
+html.light .paperrocket-sheet-header,
+.paperrocket-play-sheet[data-theme="light"] .paperrocket-sheet-header {
+  border-bottom-color: rgb(17 24 39 / .10);
+}
+
+.paperrocket-sheet-header h2 {
+  font-size: 13px !important;
+  font-weight: 700 !important;
+}
+
+.paperrocket-sheet-header button {
+  width: 38px !important;
+  min-width: 38px !important;
+  height: 38px !important;
+  min-height: 38px !important;
+}
+
+.paperrocket-sheet-body {
+  padding: 0 14px 10px !important;
+}
+
+/* Preferences is intentionally narrower and denser than content browsers. */
+.paperrocket-play-sheet[data-sheet-id="settings"] .paperrocket-sheet-body {
+  padding-inline: 14px !important;
+}
+
+.paperrocket-settings-row {
+  display: grid !important;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 9px !important;
+  min-height: 48px !important;
+  padding-block: 6px !important;
+}
+
+.paperrocket-settings-row > svg {
+  align-self: center;
+  opacity: .72 !important;
+}
+
+.paperrocket-settings-row > div:nth-child(2) > div:first-child {
+  font-size: 11.5px !important;
+  font-weight: 650 !important;
+}
+
+.paperrocket-settings-row > div:nth-child(2) > div:last-child {
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 9.5px !important;
+  opacity: .82;
+}
+
+.paperrocket-settings-control {
+  justify-self: end;
+}
+
+.paperrocket-settings-control button:not(.paperrocket-toggle) {
+  border-radius: 8px !important;
+}
+
+.paperrocket-settings-section {
+  padding: 10px 0 3px !important;
+  font-size: 9px !important;
+  letter-spacing: .13em !important;
+}
+
+.paperrocket-settings-more {
+  font-size: 11.5px !important;
+}
+
+.paperrocket-settings-more > span:last-child {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 9.5px !important;
+}
+
+/* The color studio is a compact horizontal tool palette on tablets/desktop. */
+.paperrocket-color-studio {
+  background: rgb(var(--pr-menu-rgb) / .98) !important;
+  border-color: rgb(var(--pr-menu-border-rgb) / var(--pr-menu-border-opacity)) !important;
+  box-shadow: 0 22px 64px rgb(var(--pr-menu-shadow-rgb) / var(--pr-menu-shadow-opacity)) !important;
+}
+
+.paperrocket-color-studio > header {
+  min-height: 52px !important;
+}
+
+.paperrocket-color-studio > nav button {
+  border-radius: 8px !important;
+}
+
+/* Every floating dialog must remain recoverable on a compressed viewport. */
+@media (max-width: 499px) {
+  .paperrocket-play-sheet {
+    left: 8px !important;
+    right: 8px !important;
+    bottom: max(8px, env(safe-area-inset-bottom)) !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    max-height: calc(100dvh - 16px) !important;
+    border: 1px solid rgb(var(--pr-menu-border-rgb) / var(--pr-menu-border-opacity)) !important;
+    border-radius: 14px !important;
+  }
+
+  .paperrocket-sheet-body {
+    max-height: calc(100dvh - 66px) !important;
+    overscroll-behavior: contain;
+  }
+}
+
+@media (min-width: 500px) {
+  .paperrocket-sheet-grab {
+    display: none !important;
+  }
+}
+
+@media (max-width: 390px) {
+  .paperrocket-settings-row {
+    grid-template-columns: 18px minmax(0, 1fr);
+    row-gap: 6px;
+    padding-block: 8px !important;
+  }
+
+  .paperrocket-settings-control {
+    grid-column: 2;
+    width: 100%;
+    justify-self: stretch;
+  }
+
+  .paperrocket-settings-control > div {
+    width: 100% !important;
+  }
+
+  .paperrocket-settings-control > .paperrocket-toggle {
+    margin-left: auto;
+  }
+
+  .paperrocket-settings-more > span:last-child {
+    display: none;
+  }
+}
+
+@media (max-height: 540px) {
+  .paperrocket-play-sheet,
+  .paperrocket-color-studio {
+    top: 8px !important;
+    bottom: 8px !important;
+    max-height: none !important;
+  }
+}
