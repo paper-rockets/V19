@@ -33,7 +33,7 @@ import { DeferredPanel } from './components/DeferredPanel';
 import { publishCameraPose, publishFps } from './core/telemetryStore';
 import { useUiMode, useHasOnboarded, setUiMode } from './core/uiModeStore';
 import { ProShell } from './components/pro/ProShell';
-import { useOpenSheet, openSheetId, closeSheet } from './components/play/sheetStore';
+import { useOpenSheet, openSheetId, closeSheet, toggleSheet } from './components/play/sheetStore';
 import { PlayTopStrip } from './components/play/PlayTopStrip';
 import { PlayDock, PlayToolId, playToolSettings } from './components/play/PlayDock';
 import { FirstRunOverlay } from './components/play/FirstRunOverlay';
@@ -42,6 +42,7 @@ import { PlayStats } from './components/play/PlayStats';
 import { PlaySettingsSheet } from './components/play/PlaySettingsSheet';
 import { PlayImporter } from './components/play/PlayImporter';
 import { ShapesSheet } from './components/play/ShapesSheet';
+import { MagicFxSheet } from './components/play/MagicFxSheet';
 import { Compass } from 'lucide-react';
 import { CameraRecoveryPill } from './components/CameraRecoveryPill';
 import { AutoSaveToast, AutoSaveStatus } from './components/AutoSaveToast';
@@ -857,6 +858,79 @@ export function App() {
     haptics.trigger('success');
   }, [engine, layers, activeModelName]);
 
+  // Automated Testing / Robot Tester Hook
+  useEffect(() => {
+    (window as any).__testApp = {
+      getEngine: () => engine,
+      setTheme: handleSetTheme,
+      setUiMode: (mode: 'play' | 'pro') => {
+        setUiMode(mode);
+        try { localStorage.setItem('remix3d.uiMode', mode); } catch {}
+      },
+      setTool,
+      setBrushSettings,
+      openSheet: (sheet: any) => openSheetId(sheet),
+      toggleSheet: (sheet: any) => toggleSheet(sheet),
+      openModal: (modalName: string) => {
+        switch (modalName) {
+          case 'settings': toggleSheet('settings'); break;
+          case 'sessions': setIsSessionModalOpen(true); break;
+          case 'illumination': setIsIlluminationOpen(true); break;
+          case 'toybox': setIsToyboxOpen(true); break;
+          case 'importer': setIsPlayImporterOpen(true); break;
+          case 'colorStudio': setIsColorStudioOpen(true); break;
+          case 'skyEnvironment': setIsSkyEnvironmentOpen(true); break;
+          case 'renderSettings': setIsRenderSettingsOpen(true); break;
+          case 'export': setIsExportOpen(true); break;
+          case 'raycast': setIsRaycastSettingsOpen(true); break;
+          case 'curveDecimate': setIsDecimateOpen(true); break;
+          case 'bentGuide': setIsBentGuideOpen(true); break;
+          case 'scaffolding': setIsScaffoldingOpen(true); break;
+          case 'customMirror': setIsCustomMirrorOpen(true); break;
+          case 'arViewer': setIsARViewerOpen(true); break;
+          case 'clipboard': setIsClipboardOpen(true); break;
+          case 'numpad': setNumpadTarget({ title: 'Brush Size', value: 25, unit: 'mm', min: 1, max: 100, step: 1, onChange: () => {} }); break;
+          case 'dna': setActiveDNA({
+            sourceType: 'stroke',
+            colorHex: '#38bdf8',
+            size: 0.04,
+            opacity: 1.0,
+            roughness: 0.3,
+            metalness: 0.2,
+            emissiveIntensity: 0.5,
+            materialType: 'shaded',
+            profile: 'tube',
+            patternType: 'none',
+            patternScale: 1.0,
+            patternIntensity: 1.0,
+            shaderEffect: 'none',
+            timestamp: Date.now()
+          }); break;
+        }
+      },
+      closeAllModals: () => {
+        closeSheet();
+        setIsSessionModalOpen(false);
+        setIsIlluminationOpen(false);
+        setIsToyboxOpen(false);
+        setIsPlayImporterOpen(false);
+        setIsColorStudioOpen(false);
+        setIsSkyEnvironmentOpen(false);
+        setIsRenderSettingsOpen(false);
+        setIsExportOpen(false);
+        setIsRaycastSettingsOpen(false);
+        setIsDecimateOpen(false);
+        setIsBentGuideOpen(false);
+        setIsScaffoldingOpen(false);
+        setIsCustomMirrorOpen(false);
+        setIsARViewerOpen(false);
+        setNumpadTarget(null);
+        setActiveDNA(null);
+        setIsClipboardOpen(false);
+      }
+    };
+  }, [engine, handleSetTheme, setTool, setBrushSettings]);
+
   // 1-Tap Quick Save (Ctrl+S / Top Bar Quick Save button)
   const handleQuickSave = useCallback(async () => {
     if (!engine) return;
@@ -1087,6 +1161,24 @@ export function App() {
     };
   }, []);
 
+  const isAnyModalActive =
+    isIlluminationOpen ||
+    isColorStudioOpen ||
+    isToyboxOpen ||
+    isPlayImporterOpen ||
+    isModelsOpen ||
+    isSessionModalOpen ||
+    isConverterOpen ||
+    isExportOpen ||
+    isRaycastSettingsOpen ||
+    isBentGuideOpen ||
+    isCustomMirrorOpen ||
+    isScaffoldingOpen ||
+    isDecimateOpen ||
+    isSettingsOpen ||
+    isARViewerOpen ||
+    isClipboardOpen;
+
   return (
     <div
       className={`paperrocket-ui relative w-full h-full overflow-hidden select-none transition-colors duration-200 ${
@@ -1155,17 +1247,20 @@ export function App() {
       {/* ================= PLAY MODE (default surface) ================= */}
       {uiMode === 'play' && (
         <>
-          <PlayDock
-            tool={tool}
-            brushSettings={brushSettings}
-            setBrushSettings={setBrushSettings}
-            shapeSnapping={brushSettings.shapeSnapping ?? false}
-            onSelect={handlePlayToolSelect}
-            onOpenFullColor={() => setIsColorStudioOpen(true)}
-            engine={engine}
-            theme={theme}
-          />
+          {!isAnyModalActive && (
+            <PlayDock
+              tool={tool}
+              brushSettings={brushSettings}
+              setBrushSettings={setBrushSettings}
+              shapeSnapping={brushSettings.shapeSnapping ?? false}
+              onSelect={handlePlayToolSelect}
+              onOpenFullColor={() => setIsColorStudioOpen(true)}
+              engine={engine}
+              theme={theme}
+            />
+          )}
           <ShapesSheet brushSettings={brushSettings} setBrushSettings={setBrushSettings} theme={theme} />
+          <MagicFxSheet brushSettings={brushSettings} setBrushSettings={setBrushSettings} theme={theme} />
           {showPlayStats && <PlayStats theme={theme} />}
           <FirstRunOverlay onOpenToybox={() => setIsToyboxOpen(true)} theme={theme} />
           <Toybox
@@ -1281,17 +1376,19 @@ export function App() {
             }}
             isIlluminationOpen={isIlluminationOpen}
           />
-          <PlayDock
-            tool={tool}
-            brushSettings={brushSettings}
-            setBrushSettings={setBrushSettings}
-            shapeSnapping={brushSettings.shapeSnapping ?? false}
-            onSelect={handlePlayToolSelect}
-            onOpenFullColor={() => setIsColorStudioOpen(true)}
-            engine={engine}
-            theme={theme}
-            hideToolRail={true}
-          />
+          {!isNarrowScreen && !isAnyModalActive && (
+            <PlayDock
+              tool={tool}
+              brushSettings={brushSettings}
+              setBrushSettings={setBrushSettings}
+              shapeSnapping={brushSettings.shapeSnapping ?? false}
+              onSelect={handlePlayToolSelect}
+              onOpenFullColor={() => setIsColorStudioOpen(true)}
+              engine={engine}
+              theme={theme}
+              hideToolRail={true}
+            />
+          )}
         </>
       )}
 

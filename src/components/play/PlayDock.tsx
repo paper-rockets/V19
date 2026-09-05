@@ -282,7 +282,13 @@ export const PlayDock: React.FC<PlayDockProps> = ({
           {/* Popout menu appearing to the RIGHT in portrait */}
           {panel && (
             <div
-              className={`absolute left-full ml-3 top-1/2 -translate-y-1/2 w-[184px] rounded-2xl border p-3.5 z-50 select-none animate-in fade-in slide-in-from-left-2 duration-150 ${popoverClasses}`}
+              className={`absolute left-full ml-3 top-1/2 -translate-y-1/2 rounded-2xl border p-3.5 z-50 select-none animate-in fade-in slide-in-from-left-2 duration-150 ${popoverClasses} ${
+                panel === 'color'
+                  ? 'w-[190px]'
+                  : panel === 'size'
+                  ? 'w-[250px] max-w-[calc(100vw-88px)]'
+                  : 'w-[300px] max-w-[calc(100vw-88px)]'
+              }`}
             >
               {/* Top grab handle */}
               <div className={`w-8 h-1 rounded-full mx-auto mb-3 ${grabHandleClasses}`} />
@@ -320,7 +326,7 @@ export const PlayDock: React.FC<PlayDockProps> = ({
 
               {/* Size Selector Panel - Knows active brush & renders its 3D clay mark at each size */}
               {panel === 'size' && (
-                <div className="flex flex-col gap-3 min-w-[220px]">
+                <div className="flex flex-col gap-3 w-full">
                   {/* Header: Active Brush in hand */}
                   <div className="flex items-center justify-between pb-2 border-b border-white/[0.08]">
                     <div className="flex items-center gap-2">
@@ -396,7 +402,7 @@ export const PlayDock: React.FC<PlayDockProps> = ({
 
               {/* Brushes Panel - Exact Design Language from Image 1 */}
               {panel === 'brush' && (
-                <div className="flex flex-col gap-3 w-[280px]">
+                <div className="flex flex-col gap-3 w-full">
                   {/* Header Title & Category Tabs */}
                   <div className="flex flex-col gap-2">
                     <h3 className="text-sm font-semibold tracking-tight text-white/95">Brushes</h3>

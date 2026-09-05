@@ -281,7 +281,7 @@ export const DrawPanel: React.FC<DrawPanelProps> = ({
         </div>
 
         {/* Quick Color Swatches */}
-        <div className="grid grid-cols-8 gap-1.5 pt-0.5">
+        <div className="grid grid-cols-8 gap-1 pt-0.5">
           {['#2563eb', '#38bdf8', '#ef4444', '#f59e0b', '#10b981', '#a855f7', '#18191d', '#ffffff'].map((hex) => {
             const isSelected = (brushSettings.color || '#38bdf8').toLowerCase() === hex.toLowerCase();
             return (
@@ -292,7 +292,7 @@ export const DrawPanel: React.FC<DrawPanelProps> = ({
                   haptics.trigger('light');
                   updateSetting('color', hex);
                 }}
-                className={`h-7 rounded-lg border transition-transform active:scale-90 ${
+                className={`!min-w-0 h-6 sm:h-7 rounded-md sm:rounded-lg border transition-transform active:scale-90 ${
                   isSelected
                     ? isLight
                       ? 'ring-2 ring-neutral-900 scale-105 border-white'
@@ -302,7 +302,9 @@ export const DrawPanel: React.FC<DrawPanelProps> = ({
                 style={{ backgroundColor: hex }}
                 aria-label={`Use ${hex}`}
                 title={hex}
-              />
+              >
+                <span className="sr-only">{hex}</span>
+              </button>
             );
           })}
         </div>

@@ -42,7 +42,7 @@ export const PlayTopStrip: React.FC<PlayTopStripProps> = ({
   onOpenSessions,
 }) => {
   const ink = theme === 'light' ? 'text-neutral-800' : 'text-white/90';
-  const button = `pointer-events-auto w-11 h-11 grid place-items-center rounded-xl transition-colors hover:bg-current/[0.045] active:bg-current/[0.075] ${ink}`;
+  const button = `pointer-events-auto !min-w-[34px] w-9 h-9 sm:w-11 sm:h-11 grid place-items-center rounded-xl transition-colors hover:bg-current/[0.045] active:bg-current/[0.075] ${ink}`;
 
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -80,19 +80,19 @@ export const PlayTopStrip: React.FC<PlayTopStripProps> = ({
   }, []);
 
   return (
-    <header className="fixed inset-x-0 top-0 z-30 flex h-16 items-center justify-between px-3 sm:px-5 pointer-events-none select-none">
+    <header className="fixed inset-x-0 top-0 z-30 flex h-16 items-center justify-between px-2 sm:px-5 pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pointer-events-none select-none">
       <button
         type="button"
         onClick={onOpenToybox}
-        className={`${button} w-auto px-2 gap-2 flex`}
+        className={`${button} w-auto shrink-0 px-2 gap-1.5 sm:gap-2 flex`}
         aria-label="Open model library"
       >
-        <Box className="w-[22px] h-[22px]" strokeWidth={1.35} />
-        <span className="text-[13px] font-medium tracking-[0.01em] max-w-36 truncate">
+        <Box className="w-5 h-5 sm:w-[22px] sm:h-[22px] shrink-0" strokeWidth={1.35} />
+        <span className="text-xs sm:text-[13px] font-medium tracking-[0.01em] max-w-28 sm:max-w-36 truncate">
           {projectName || 'Model'}
         </span>
       </button>
-      <nav className="flex items-center gap-1.5 pointer-events-auto" aria-label="History and settings">
+      <nav className="flex items-center gap-1 sm:gap-1.5 pointer-events-auto shrink-0" aria-label="History and settings">
         <button
           type="button"
           onClick={onUndo}
@@ -126,7 +126,7 @@ export const PlayTopStrip: React.FC<PlayTopStripProps> = ({
           <button
             type="button"
             onClick={onOpenSessions}
-            className={button}
+            className={`${button} hidden sm:grid`}
             aria-label="Project Sessions"
             title="Project Sessions"
           >
@@ -156,7 +156,7 @@ export const PlayTopStrip: React.FC<PlayTopStripProps> = ({
         <button
           type="button"
           onClick={handleToggleFullscreen}
-          className={button}
+          className={`${button} hidden sm:grid`}
           aria-label={isFullscreen ? 'Exit Full Screen' : 'Full Screen'}
           title={isFullscreen ? 'Exit Full Screen' : 'Full Screen'}
         >
