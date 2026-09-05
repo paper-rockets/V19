@@ -1,0 +1,1608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Remix 3D — Minimal Canvas Debugger</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        /* ==========================================================================
+           Minimalist, Calm Dark UI System
+           Strict monochrome foundations with restrained soft purple accent
+           ========================================================================== */
+        :root {
+            --bg-canvas: #090a0d;
+            --bg-surface: #121318;
+            --bg-surface-elevated: #171821;
+            --bg-surface-hover: #1e202b;
+            --border-subtle: #20222c;
+            --border-focus: #8b5cf6;
+            --accent: #8b5cf6;
+            --accent-soft: rgba(139, 92, 246, 0.12);
+            --accent-border: rgba(139, 92, 246, 0.35);
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --text-muted: #606474;
+            --danger: #ef4444;
+            --radius-sm: 4px;
+            --radius-md: 6px;
+            --radius-lg: 10px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-canvas);
+            color: var(--text-primary);
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 13px;
+            touch-action: none;
+        }
+
+        /* Fullscreen Canvas */
+        #viewport-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            touch-action: none;
+        }
+
+        /* Top Minimal Header (Responsive) */
+        #top-bar {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            height: 44px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 10px;
+            z-index: 100;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+        }
+
+        .app-title {
+            font-weight: 700;
+            font-size: 13px;
+            letter-spacing: -0.01em;
+            color: var(--text-primary);
+            white-space: nowrap;
+        }
+
+        .tag-pill {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            font-weight: 500;
+            padding: 2px 6px;
+            border-radius: var(--radius-sm);
+            background: var(--accent-soft);
+            color: var(--accent);
+            border: 1px solid var(--accent-border);
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+
+        .header-actions::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* Minimal Button System */
+        .btn-action {
+            height: 28px;
+            padding: 0 10px;
+            background: var(--bg-surface-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            white-space: nowrap;
+            transition: background 0.1s, border-color 0.1s, color 0.1s;
+        }
+
+        .btn-action:hover, .btn-action:active {
+            background: var(--bg-surface-hover);
+            border-color: var(--border-focus);
+        }
+
+        .btn-action.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #ffffff;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #ffffff;
+        }
+
+        .btn-primary:hover, .btn-primary:active {
+            background: #7c3aed;
+            border-color: #7c3aed;
+        }
+
+        .btn-icon {
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            font-size: 13px;
+        }
+
+        /* Bottom Floating Bar for Quick Mobile Access */
+        #mobile-dock {
+            position: fixed;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            padding: 4px 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            z-index: 100;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+        }
+
+        .zoom-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--text-muted);
+            min-width: 40px;
+            text-align: center;
+            padding: 0 4px;
+        }
+
+        /* Bottom Help Toast */
+        #hint-pill {
+            position: fixed;
+            bottom: 54px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(18, 19, 24, 0.95);
+            border: 1px solid var(--border-subtle);
+            border-radius: 14px;
+            padding: 4px 12px;
+            font-size: 11px;
+            color: var(--text-secondary);
+            pointer-events: none;
+            z-index: 90;
+            white-space: nowrap;
+            opacity: 0.85;
+            transition: opacity 0.2s;
+        }
+
+        /* ==========================================================================
+           Calm Handoff Drawer / Modal (Responsive Bottom Sheet on Mobile)
+           ========================================================================== */
+        #handoff-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 200;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 14px;
+            opacity: 1;
+            transition: opacity 0.2s;
+        }
+
+        #handoff-modal.hidden {
+            display: none !important;
+        }
+
+        .handoff-card {
+            position: relative;
+            width: 100%;
+            max-width: 440px;
+            max-height: 88vh;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+        }
+
+        .handoff-header {
+            height: 42px;
+            padding: 0 14px;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .handoff-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-close {
+            width: 26px;
+            height: 26px;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 18px;
+            cursor: pointer;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-close:hover {
+            color: var(--text-primary);
+            background: var(--bg-surface-elevated);
+        }
+
+        .handoff-body {
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            overflow-y: auto;
+        }
+
+        .preview-box {
+            width: 100%;
+            height: 180px;
+            background: #050608;
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        #handoff-img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            display: block;
+            cursor: grab;
+        }
+
+        .handoff-hint {
+            font-size: 11px;
+            color: var(--text-secondary);
+            line-height: 1.4;
+            background: var(--accent-soft);
+            border: 1px solid var(--accent-border);
+            padding: 8px 10px;
+            border-radius: var(--radius-sm);
+        }
+
+        .handoff-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .json-box {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .json-box label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        #json-preview {
+            width: 100%;
+            height: 100px;
+            background: #050608;
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            padding: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: #c4b5fd;
+            line-height: 1.35;
+            resize: none;
+            outline: none;
+            user-select: text;
+            -webkit-user-select: text;
+        }
+
+        /* Toast notification */
+        #toast {
+            position: fixed;
+            top: 64px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-surface-elevated);
+            border: 1px solid var(--accent-border);
+            color: var(--text-primary);
+            padding: 6px 14px;
+            border-radius: var(--radius-md);
+            font-size: 12px;
+            font-weight: 600;
+            z-index: 300;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+        }
+
+        #toast.visible {
+            opacity: 1;
+        }
+
+        /* Mobile specific adjustments */
+        @media (max-width: 600px) {
+            #top-bar {
+                top: 6px;
+                left: 6px;
+                right: 6px;
+                height: 40px;
+                padding: 0 6px;
+            }
+            .app-title {
+                font-size: 12px;
+            }
+            .tag-pill {
+                display: none;
+            }
+            .btn-action {
+                height: 26px;
+                padding: 0 8px;
+                font-size: 11px;
+            }
+            #hint-pill {
+                display: none;
+            }
+            #handoff-modal {
+                padding: 0;
+                align-items: flex-end;
+            }
+            .handoff-card {
+                max-width: 100%;
+                border-radius: 14px 14px 0 0;
+                max-height: 80vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Fullscreen Infinite Canvas -->
+    <canvas id="viewport-canvas"></canvas>
+
+    <!-- Top Minimal Navigation -->
+    <header id="top-bar">
+        <div class="header-left">
+            <span class="app-title">Canvas Debugger</span>
+            <span class="tag-pill">V19</span>
+        </div>
+
+        <div class="header-actions">
+            <button id="btn-mode-select" class="btn-action active" title="Move & Select">Select</button>
+            <button id="btn-mode-frame" class="btn-action" title="Draw Frame Selection">Draw Frame</button>
+            <button id="btn-add-note" class="btn-action" title="Add Text Note">+ Note</button>
+            <button id="btn-export-active-frame" class="btn-action btn-primary" title="Export selection frame">Export</button>
+        </div>
+    </header>
+
+    <!-- Bottom Touch / Navigation Dock -->
+    <div id="mobile-dock">
+        <button id="btn-zoom-out" class="btn-action btn-icon" title="Zoom Out">−</button>
+        <span id="zoom-text" class="zoom-label">100%</span>
+        <button id="btn-zoom-in" class="btn-action btn-icon" title="Zoom In">+</button>
+        <button id="btn-fit" class="btn-action" title="Fit Content to Screen">Fit Screen</button>
+        <button id="btn-clear" class="btn-action" style="color: var(--danger);" title="Clear canvas">Clear</button>
+    </div>
+
+    <!-- Calm Gestures Hint -->
+    <div id="hint-pill">Pinch to zoom · 1 finger to move/pan · Tap Frame Export</div>
+
+    <!-- Draggable Handoff Drawer / Modal -->
+    <div id="handoff-modal" class="hidden">
+        <div class="handoff-card">
+            <div class="handoff-header">
+                <span class="handoff-title">AI Handoff Ready</span>
+                <button id="btn-close-modal" class="btn-close" title="Close">×</button>
+            </div>
+            <div class="handoff-body">
+                <div class="preview-box">
+                    <img id="handoff-img" draggable="true" alt="Captured Frame" title="Hold & drag directly to AI chat" />
+                </div>
+
+                <div class="handoff-hint">
+                    Drag thumbnail into AI chat or copy the structured context below.
+                </div>
+
+                <div class="handoff-buttons">
+                    <button id="btn-copy-context" class="btn-action btn-primary" style="flex: 1;">Copy Context</button>
+                    <button id="btn-download-img" class="btn-action" style="flex: 1;">Save PNG</button>
+                </div>
+
+                <div class="json-box">
+                    <label>Extracted AI Context:</label>
+                    <textarea id="json-preview" readonly></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ephemeral Toast -->
+    <div id="toast">Ready</div>
+
+    <script>
+        /**
+         * Minimal, Calm Infinite Canvas Engine (Mobile-First Touch & Gestures)
+         */
+
+        const canvas = document.getElementById('viewport-canvas');
+        const ctx = canvas.getContext('2d');
+        const zoomText = document.getElementById('zoom-text');
+        const toast = document.getElementById('toast');
+
+        // Modal elements
+        const handoffModal = document.getElementById('handoff-modal');
+        const handoffImg = document.getElementById('handoff-img');
+        const jsonPreview = document.getElementById('json-preview');
+        const btnCopyContext = document.getElementById('btn-copy-context');
+        const btnDownloadImg = document.getElementById('btn-download-img');
+        const btnCloseModal = document.getElementById('btn-close-modal');
+
+        // Central State
+        const state = {
+            camera: { x: 0, y: 0, zoom: 1.0 },
+            nodes: [],
+            edges: [],
+            tool: 'select', // 'select' | 'frame'
+            selectedNodeId: null,
+            draggedNode: null,
+            dragOffset: { x: 0, y: 0 },
+            resizingNode: null,
+            resizeCorner: null,
+            frameDraft: null, // { startX, startY, curX, curY }
+            dpr: window.devicePixelRatio || 1,
+            extractedContext: null,
+            currentBlobUrl: null,
+
+            // Touch gesture tracking
+            touchState: {
+                isInteracting: false,
+                isPinch: false,
+                initialDistance: 0,
+                initialZoom: 1.0,
+                lastPinchCenter: { x: 0, y: 0 },
+                panStart: { x: 0, y: 0 },
+                lastTouchTime: 0
+            }
+        };
+
+        function showToast(msg) {
+            toast.innerText = msg;
+            toast.classList.add('visible');
+            clearTimeout(toast._timer);
+            toast._timer = setTimeout(() => toast.classList.remove('visible'), 2200);
+        }
+
+        function resizeCanvas() {
+            state.dpr = window.devicePixelRatio || 1;
+            canvas.width = Math.floor(window.innerWidth * state.dpr);
+            canvas.height = Math.floor(window.innerHeight * state.dpr);
+            canvas.style.width = window.innerWidth + 'px';
+            canvas.style.height = window.innerHeight + 'px';
+        }
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+        });
+        resizeCanvas();
+
+        // Screen <-> World coordinate transforms
+        function screenToWorld(sx, sy) {
+            return {
+                x: (sx - state.camera.x) / state.camera.zoom,
+                y: (sy - state.camera.y) / state.camera.zoom
+            };
+        }
+
+        function worldToScreen(wx, wy) {
+            return {
+                x: wx * state.camera.zoom + state.camera.x,
+                y: wy * state.camera.zoom + state.camera.y
+            };
+        }
+
+        function updateZoomText() {
+            zoomText.innerText = `${Math.round(state.camera.zoom * 100)}%`;
+        }
+
+        function setZoom(newZoom, centerX, centerY) {
+            const clamped = Math.max(0.2, Math.min(3.0, newZoom));
+            if (clamped === state.camera.zoom) return;
+
+            const cx = centerX !== undefined ? centerX : window.innerWidth / 2;
+            const cy = centerY !== undefined ? centerY : window.innerHeight / 2;
+
+            const wx = (cx - state.camera.x) / state.camera.zoom;
+            const wy = (cy - state.camera.y) / state.camera.zoom;
+
+            state.camera.zoom = clamped;
+            state.camera.x = cx - wx * clamped;
+            state.camera.y = cy - wy * clamped;
+
+            updateZoomText();
+        }
+
+        function fitAllContent() {
+            if (state.nodes.length === 0) {
+                state.camera = { x: 20, y: 70, zoom: 1.0 };
+                updateZoomText();
+                return;
+            }
+
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            state.nodes.forEach(n => {
+                minX = Math.min(minX, n.x);
+                minY = Math.min(minY, n.y);
+                maxX = Math.max(maxX, n.x + n.width);
+                maxY = Math.max(maxY, n.y + n.height);
+            });
+
+            const pad = window.innerWidth < 600 ? 30 : 60;
+            const contentW = (maxX - minX) + pad * 2;
+            const contentH = (maxY - minY) + pad * 2;
+
+            const availW = window.innerWidth;
+            const availH = window.innerHeight - 110; // offset topbar & bottom dock
+
+            const scaleX = availW / contentW;
+            const scaleY = availH / contentH;
+            const targetZoom = Math.max(0.25, Math.min(1.0, Math.min(scaleX, scaleY)));
+
+            state.camera.zoom = targetZoom;
+            state.camera.x = (availW - (maxX - minX) * targetZoom) / 2 - minX * targetZoom;
+            state.camera.y = ((availH - (maxY - minY) * targetZoom) / 2 - minY * targetZoom) + 50;
+
+            updateZoomText();
+            showToast('Centered and fitted to screen');
+        }
+
+        // ==========================================================================
+        // 2. Node & Edge Creation
+        // ==========================================================================
+        function genId(prefix = 'node') {
+            return `${prefix}_${Math.random().toString(36).substr(2, 6)}`;
+        }
+
+        function createImageNode(x, y, title, src, width = 260, height = 160, meta = {}) {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.src = src;
+            const node = { id: genId('img'), type: 'image', x, y, width, height, title, src, imageObj: img, meta };
+            img.onload = () => {
+                if (img.naturalWidth && img.naturalHeight) {
+                    node.height = Math.round(node.width * (img.naturalHeight / img.naturalWidth));
+                }
+            };
+            state.nodes.push(node);
+            return node;
+        }
+
+        function createTextNode(x, y, title, text, width = 240, height = 120, tag = 'NOTE') {
+            const node = { id: genId('text'), type: 'text', x, y, width, height, title, text, tag };
+            state.nodes.push(node);
+            return node;
+        }
+
+        function createFrameNode(x, y, width = 580, height = 440, title = 'SELECTION FRAME') {
+            const frame = { id: genId('frame'), type: 'frame', x, y, width, height, title };
+            state.nodes.push(frame);
+            return frame;
+        }
+
+        function createEdge(fromId, toId, label = '') {
+            const edge = { id: genId('edge'), from: fromId, to: toId, label };
+            state.edges.push(edge);
+            return edge;
+        }
+
+        // ==========================================================================
+        // 3. AABB Collision & Clean Export Engine
+        // ==========================================================================
+        function aabbIntersect(b1, b2) {
+            return (
+                b1.x < b2.x + b2.width &&
+                b1.x + b1.width > b2.x &&
+                b1.y < b2.y + b2.height &&
+                b1.y + b1.height > b2.y
+            );
+        }
+
+        function executeFrameExport(frame) {
+            if (!frame) return;
+
+            const frameBox = { x: frame.x, y: frame.y, width: frame.width, height: frame.height };
+
+            // Determine intersecting nodes & edges
+            const capturedNodes = state.nodes.filter(n => n.id !== frame.id && aabbIntersect(frameBox, {
+                x: n.x, y: n.y, width: n.width, height: n.height
+            }));
+
+            const capturedNodeIds = new Set(capturedNodes.map(n => n.id));
+            const capturedEdges = state.edges.filter(e => capturedNodeIds.has(e.from) || capturedNodeIds.has(e.to));
+
+            // Off-screen canvas sized to Frame dimensions
+            const offscreen = document.createElement('canvas');
+            const targetW = Math.max(80, Math.round(frame.width));
+            const targetH = Math.max(80, Math.round(frame.height));
+            offscreen.width = targetW;
+            offscreen.height = targetH;
+            const offCtx = offscreen.getContext('2d');
+
+            // Solid calm dark background
+            offCtx.fillStyle = '#090a0d';
+            offCtx.fillRect(0, 0, targetW, targetH);
+
+            // Subtle calm grid
+            offCtx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+            offCtx.lineWidth = 1;
+            const gs = 32;
+            const startX = -(frame.x % gs);
+            const startY = -(frame.y % gs);
+            for (let x = startX; x < targetW; x += gs) {
+                offCtx.beginPath();
+                offCtx.moveTo(x, 0);
+                offCtx.lineTo(x, targetH);
+                offCtx.stroke();
+            }
+            for (let y = startY; y < targetH; y += gs) {
+                offCtx.beginPath();
+                offCtx.moveTo(0, y);
+                offCtx.lineTo(targetW, y);
+                offCtx.stroke();
+            }
+
+            // Translate by (-Frame.x, -Frame.y)
+            offCtx.save();
+            offCtx.translate(-frame.x, -frame.y);
+
+            capturedEdges.forEach(edge => {
+                const fn = state.nodes.find(n => n.id === edge.from);
+                const tn = state.nodes.find(n => n.id === edge.to);
+                if (fn && tn) renderEdge(offCtx, fn, tn, edge, 1.0);
+            });
+
+            capturedNodes.forEach(node => {
+                if (node.type === 'image') renderImageNode(offCtx, node, false, 1.0);
+                else if (node.type === 'text') renderTextNode(offCtx, node, false, 1.0);
+            });
+
+            offCtx.restore();
+
+            // Extract Structured AI Context
+            const contextData = {
+                metadata: {
+                    source: "PaperRockets Remix 3D (V19)",
+                    tool: "Minimalist Canvas Debugger",
+                    timestamp: new Date().toISOString(),
+                    frame: { title: frame.title, width: targetW, height: targetH }
+                },
+                summary: `Captured ${capturedNodes.length} node(s) (${capturedNodes.filter(n => n.type === 'image').length} image(s), ${capturedNodes.filter(n => n.type === 'text').length} text note(s)).`,
+                items: capturedNodes.map(n => ({
+                    id: n.id,
+                    type: n.type,
+                    title: n.title,
+                    text: n.type === 'text' ? n.text : undefined,
+                    imagePath: n.type === 'image' ? (n.meta?.filename || n.src) : undefined,
+                    bounds: { x: Math.round(n.x), y: Math.round(n.y), width: Math.round(n.width), height: Math.round(n.height) }
+                })),
+                connections: capturedEdges.map(e => ({
+                    from: state.nodes.find(n => n.id === e.from)?.title || e.from,
+                    to: state.nodes.find(n => n.id === e.to)?.title || e.to,
+                    label: e.label || undefined
+                }))
+            };
+
+            state.extractedContext = contextData;
+
+            // Generate Blob URL for handoff
+            offscreen.toBlob(blob => {
+                if (!blob) return;
+                if (state.currentBlobUrl) URL.revokeObjectURL(state.currentBlobUrl);
+                const url = URL.createObjectURL(blob);
+                state.currentBlobUrl = url;
+
+                handoffImg.src = url;
+                jsonPreview.value = JSON.stringify(contextData, null, 2);
+                handoffModal.classList.remove('hidden');
+
+                showToast(`Captured ${capturedNodes.length} items inside frame`);
+            }, 'image/png');
+        }
+
+        // Native dragstart for AI handoff
+        handoffImg.addEventListener('dragstart', e => {
+            if (!state.extractedContext) return;
+            const textData = JSON.stringify(state.extractedContext, null, 2);
+            e.dataTransfer.setData('text/plain', textData);
+            e.dataTransfer.setData('application/json', textData);
+            e.dataTransfer.effectAllowed = 'copyMove';
+            showToast('Dragging image with AI context attached');
+        });
+
+        btnCopyContext.addEventListener('click', () => {
+            if (!state.extractedContext) return;
+            const textData = JSON.stringify(state.extractedContext, null, 2);
+            navigator.clipboard.writeText(textData).then(() => {
+                showToast('AI context copied to clipboard');
+            });
+        });
+
+        btnDownloadImg.addEventListener('click', () => {
+            if (!state.currentBlobUrl) return;
+            const a = document.createElement('a');
+            a.href = state.currentBlobUrl;
+            a.download = `debug-frame-${Date.now()}.png`;
+            a.click();
+            showToast('Saved image to device');
+        });
+
+        btnCloseModal.addEventListener('click', () => {
+            handoffModal.classList.add('hidden');
+        });
+
+        // ==========================================================================
+        // 4. Calm Canvas Rendering Engine
+        // ==========================================================================
+        function renderEdge(c, fromNode, toNode, edge, zoom) {
+            const x1 = fromNode.x + fromNode.width / 2;
+            const y1 = fromNode.y + fromNode.height / 2;
+            const x2 = toNode.x + toNode.width / 2;
+            const y2 = toNode.y + toNode.height / 2;
+
+            const dx = Math.abs(x2 - x1) * 0.5;
+            const cx1 = x1 + (x2 > x1 ? dx : -dx);
+            const cy1 = y1;
+            const cx2 = x2 - (x2 > x1 ? dx : -dx);
+            const cy2 = y2;
+
+            c.save();
+            c.strokeStyle = '#8b5cf6';
+            c.lineWidth = 2 / zoom;
+            c.lineCap = 'round';
+
+            c.beginPath();
+            c.moveTo(x1, y1);
+            c.bezierCurveTo(cx1, cy1, cx2, cy2, x2, y2);
+            c.stroke();
+
+            if (edge.label) {
+                const midX = (x1 + x2) / 2;
+                const midY = (y1 + y2) / 2;
+                c.font = `500 ${10 / zoom}px 'JetBrains Mono'`;
+                const txtW = c.measureText(edge.label).width;
+                c.fillStyle = '#121318';
+                c.fillRect(midX - txtW / 2 - 4 / zoom, midY - 7 / zoom, txtW + 8 / zoom, 14 / zoom);
+                c.strokeStyle = '#20222c';
+                c.lineWidth = 1 / zoom;
+                c.strokeRect(midX - txtW / 2 - 4 / zoom, midY - 7 / zoom, txtW + 8 / zoom, 14 / zoom);
+                c.fillStyle = '#9ca3af';
+                c.textAlign = 'center';
+                c.textBaseline = 'middle';
+                c.fillText(edge.label, midX, midY);
+            }
+            c.restore();
+        }
+
+        function renderImageNode(c, node, isSelected, zoom) {
+            c.save();
+            const r = 6;
+            const h = 24;
+
+            // Card background
+            c.fillStyle = '#121318';
+            c.beginPath();
+            c.roundRect(node.x, node.y, node.width, node.height, r);
+            c.fill();
+
+            // Image area
+            if (node.imageObj && node.imageObj.complete && node.imageObj.naturalWidth !== 0) {
+                c.drawImage(node.imageObj, node.x + 1, node.y + h, node.width - 2, node.height - h - 1);
+            } else {
+                c.fillStyle = '#0a0a0e';
+                c.fillRect(node.x + 1, node.y + h, node.width - 2, node.height - h - 1);
+                c.fillStyle = '#606474';
+                c.font = `500 ${10 / zoom}px 'JetBrains Mono'`;
+                c.textAlign = 'center';
+                c.textBaseline = 'middle';
+                c.fillText('Loading image...', node.x + node.width / 2, node.y + h + (node.height - h) / 2);
+            }
+
+            // Header bar
+            c.fillStyle = '#171821';
+            c.beginPath();
+            c.roundRect(node.x, node.y, node.width, h, [r, r, 0, 0]);
+            c.fill();
+
+            c.fillStyle = isSelected ? '#a78bfa' : '#f3f4f6';
+            c.font = `600 11px 'Plus Jakarta Sans', sans-serif`;
+            c.textAlign = 'left';
+            c.textBaseline = 'middle';
+            c.fillText(node.title.slice(0, 26), node.x + 8, node.y + h / 2);
+
+            // Hairline outline
+            c.strokeStyle = isSelected ? '#8b5cf6' : '#20222c';
+            c.lineWidth = isSelected ? 2 : 1;
+            c.beginPath();
+            c.roundRect(node.x, node.y, node.width, node.height, r);
+            c.stroke();
+
+            if (isSelected) renderCornerHandles(c, node);
+            c.restore();
+        }
+
+        function renderTextNode(c, node, isSelected, zoom) {
+            c.save();
+            const r = 6;
+            const h = 24;
+
+            c.fillStyle = '#121318';
+            c.beginPath();
+            c.roundRect(node.x, node.y, node.width, node.height, r);
+            c.fill();
+
+            // Header bar
+            c.fillStyle = '#171821';
+            c.beginPath();
+            c.roundRect(node.x, node.y, node.width, h, [r, r, 0, 0]);
+            c.fill();
+
+            // Minimal Tag
+            c.fillStyle = 'rgba(139, 92, 246, 0.15)';
+            c.fillRect(node.x + 6, node.y + 4, 38, 16);
+            c.fillStyle = '#c4b5fd';
+            c.font = `600 9px 'JetBrains Mono'`;
+            c.textAlign = 'center';
+            c.textBaseline = 'middle';
+            c.fillText(node.tag || 'NOTE', node.x + 25, node.y + 12);
+
+            c.fillStyle = '#f3f4f6';
+            c.font = `600 11px 'Plus Jakarta Sans', sans-serif`;
+            c.textAlign = 'left';
+            c.textBaseline = 'middle';
+            c.fillText(node.title.slice(0, 22), node.x + 50, node.y + 12);
+
+            // Body text
+            c.fillStyle = '#d1d5db';
+            c.font = `11px 'Plus Jakarta Sans', sans-serif`;
+            c.textAlign = 'left';
+            c.textBaseline = 'top';
+
+            const maxW = node.width - 16;
+            const words = (node.text || '').split(' ');
+            let line = '';
+            let curY = node.y + h + 8;
+            const lh = 16;
+
+            for (let w = 0; w < words.length; w++) {
+                const testLine = line + words[w] + ' ';
+                const testW = c.measureText(testLine).width;
+                if (testW > maxW && w > 0) {
+                    c.fillText(line, node.x + 8, curY);
+                    line = words[w] + ' ';
+                    curY += lh;
+                    if (curY > node.y + node.height - 18) break;
+                } else {
+                    line = testLine;
+                }
+            }
+            if (curY <= node.y + node.height - 18) {
+                c.fillText(line, node.x + 8, curY);
+            }
+
+            c.strokeStyle = isSelected ? '#8b5cf6' : '#20222c';
+            c.lineWidth = isSelected ? 2 : 1;
+            c.beginPath();
+            c.roundRect(node.x, node.y, node.width, node.height, r);
+            c.stroke();
+
+            if (isSelected) renderCornerHandles(c, node);
+            c.restore();
+        }
+
+        function renderFrameNode(c, frame, isSelected) {
+            c.save();
+            const r = 8;
+            // Soft calm selection surface
+            c.fillStyle = isSelected ? 'rgba(139, 92, 246, 0.04)' : 'rgba(139, 92, 246, 0.02)';
+            c.fillRect(frame.x, frame.y, frame.width, frame.height);
+
+            // Header Pill
+            const hh = 26;
+            c.fillStyle = '#121318';
+            c.beginPath();
+            c.roundRect(frame.x, frame.y - hh - 4, frame.width, hh, r);
+            c.fill();
+            c.strokeStyle = '#20222c';
+            c.lineWidth = 1;
+            c.stroke();
+
+            c.fillStyle = '#a78bfa';
+            c.font = `600 11px 'Plus Jakarta Sans', sans-serif`;
+            c.textAlign = 'left';
+            c.textBaseline = 'middle';
+            c.fillText(frame.title, frame.x + 10, frame.y - hh / 2 - 4);
+
+            // Export Button in frame header
+            const ebW = 64;
+            const ebH = 18;
+            const ebX = frame.x + frame.width - ebW - 4;
+            const ebY = frame.y - hh + 1;
+
+            c.fillStyle = '#8b5cf6';
+            c.beginPath();
+            c.roundRect(ebX, ebY, ebW, ebH, 4);
+            c.fill();
+
+            c.fillStyle = '#ffffff';
+            c.font = `600 10px 'Plus Jakarta Sans', sans-serif`;
+            c.textAlign = 'center';
+            c.textBaseline = 'middle';
+            c.fillText('Export', ebX + ebW / 2, ebY + ebH / 2);
+
+            // Calm frame boundary (dashed)
+            c.strokeStyle = isSelected ? '#8b5cf6' : 'rgba(139, 92, 246, 0.5)';
+            c.lineWidth = 1.5;
+            c.setLineDash([6, 5]);
+            c.beginPath();
+            c.roundRect(frame.x, frame.y, frame.width, frame.height, r);
+            c.stroke();
+            c.setLineDash([]);
+
+            renderCornerHandles(c, frame);
+            c.restore();
+        }
+
+        function renderCornerHandles(c, node) {
+            const s = 7;
+            c.fillStyle = '#8b5cf6';
+            c.strokeStyle = '#121318';
+            c.lineWidth = 1;
+
+            const pts = [
+                { x: node.x - s / 2, y: node.y - s / 2 },
+                { x: node.x + node.width - s / 2, y: node.y - s / 2 },
+                { x: node.x - s / 2, y: node.y + node.height - s / 2 },
+                { x: node.x + node.width - s / 2, y: node.y + node.height - s / 2 }
+            ];
+
+            pts.forEach(p => {
+                c.beginPath();
+                c.roundRect(p.x, p.y, s, s, 2);
+                c.fill();
+                c.stroke();
+            });
+        }
+
+        function render() {
+            ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const z = state.camera.zoom;
+            const ox = state.camera.x;
+            const oy = state.camera.y;
+
+            // Background canvas fill
+            ctx.fillStyle = '#090a0d';
+            ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+
+            // Subtle calm dot grid
+            const gridSpacing = 36 * z;
+            const startX = ox % gridSpacing;
+            const startY = oy % gridSpacing;
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+            const dotSize = Math.max(1, 1.2 * z);
+            for (let x = startX; x < window.innerWidth; x += gridSpacing) {
+                for (let y = startY; y < window.innerHeight; y += gridSpacing) {
+                    ctx.fillRect(x, y, dotSize, dotSize);
+                }
+            }
+
+            ctx.save();
+            ctx.translate(ox, oy);
+            ctx.scale(z, z);
+
+            // Edges
+            state.edges.forEach(edge => {
+                const fn = state.nodes.find(n => n.id === edge.from);
+                const tn = state.nodes.find(n => n.id === edge.to);
+                if (fn && tn) renderEdge(ctx, fn, tn, edge, z);
+            });
+
+            // Frames (rendered behind cards)
+            state.nodes.filter(n => n.type === 'frame').forEach(frame => {
+                renderFrameNode(ctx, frame, state.selectedNodeId === frame.id);
+            });
+
+            // Image & Text Nodes
+            state.nodes.filter(n => n.type !== 'frame').forEach(node => {
+                const isSelected = state.selectedNodeId === node.id;
+                if (node.type === 'image') renderImageNode(ctx, node, isSelected, z);
+                else if (node.type === 'text') renderTextNode(ctx, node, isSelected, z);
+            });
+
+            // Draft Frame during drag
+            if (state.frameDraft) {
+                const fd = state.frameDraft;
+                const fx = Math.min(fd.startX, fd.curX);
+                const fy = Math.min(fd.startY, fd.curY);
+                const fw = Math.abs(fd.curX - fd.startX);
+                const fh = Math.abs(fd.curY - fd.startY);
+
+                ctx.fillStyle = 'rgba(139, 92, 246, 0.06)';
+                ctx.fillRect(fx, fy, fw, fh);
+                ctx.strokeStyle = '#8b5cf6';
+                ctx.lineWidth = 1.5 / z;
+                ctx.setLineDash([5, 5]);
+                ctx.strokeRect(fx, fy, fw, fh);
+                ctx.setLineDash([]);
+            }
+
+            ctx.restore();
+            requestAnimationFrame(render);
+        }
+        requestAnimationFrame(render);
+
+        // ==========================================================================
+        // 5. Unified Touch & Mouse Gesture Engine (Mobile First)
+        // ==========================================================================
+        function findHitNode(wx, wy) {
+            for (let i = state.nodes.length - 1; i >= 0; i--) {
+                const n = state.nodes[i];
+                if (n.type === 'frame') {
+                    const hh = 30;
+                    if (wx >= n.x && wx <= n.x + n.width && wy >= n.y - hh && wy <= n.y + n.height) {
+                        return n;
+                    }
+                } else {
+                    if (wx >= n.x && wx <= n.x + n.width && wy >= n.y && wy <= n.y + n.height) {
+                        return n;
+                    }
+                }
+            }
+            return null;
+        }
+
+        function isClickingFrameExport(frame, wx, wy) {
+            const hh = 26;
+            const ebW = 64;
+            const ebH = 18;
+            const ebX = frame.x + frame.width - ebW - 4;
+            const ebY = frame.y - hh + 1;
+            return (wx >= ebX && wx <= ebX + ebW && wy >= ebY && wy <= ebY + ebH);
+        }
+
+        function checkResizeCorner(node, wx, wy) {
+            const tol = 16 / state.camera.zoom;
+            const corners = [
+                { id: 'nw', x: node.x, y: node.y },
+                { id: 'ne', x: node.x + node.width, y: node.y },
+                { id: 'sw', x: node.x, y: node.y + node.height },
+                { id: 'se', x: node.x + node.width, y: node.y + node.height }
+            ];
+            for (const c of corners) {
+                if (Math.abs(wx - c.x) <= tol && Math.abs(wy - c.y) <= tol) return c.id;
+            }
+            return null;
+        }
+
+        // TOUCH EVENTS (Native Mobile Support)
+        canvas.addEventListener('touchstart', e => {
+            e.preventDefault();
+            const touches = e.touches;
+
+            if (touches.length === 2) {
+                // Pinch to Zoom gesture
+                state.touchState.isPinch = true;
+                state.touchState.isInteracting = true;
+                const dx = touches[0].clientX - touches[1].clientX;
+                const dy = touches[0].clientY - touches[1].clientY;
+                state.touchState.initialDistance = Math.hypot(dx, dy);
+                state.touchState.initialZoom = state.camera.zoom;
+                state.touchState.lastPinchCenter = {
+                    x: (touches[0].clientX + touches[1].clientX) / 2,
+                    y: (touches[0].clientY + touches[1].clientY) / 2
+                };
+                return;
+            }
+
+            if (touches.length === 1) {
+                const t = touches[0];
+                const rect = canvas.getBoundingClientRect();
+                const sx = t.clientX - rect.left;
+                const sy = t.clientY - rect.top;
+                const world = screenToWorld(sx, sy);
+
+                state.touchState.isPinch = false;
+                state.touchState.isInteracting = true;
+                state.touchState.panStart = { x: sx - state.camera.x, y: sy - state.camera.y };
+
+                // Handle double tap to fit screen
+                const now = Date.now();
+                if (now - state.touchState.lastTouchTime < 300) {
+                    fitAllContent();
+                    state.touchState.lastTouchTime = 0;
+                    return;
+                }
+                state.touchState.lastTouchTime = now;
+
+                if (state.tool === 'frame') {
+                    state.frameDraft = { startX: world.x, startY: world.y, curX: world.x, curY: world.y };
+                    return;
+                }
+
+                // Check resize handle
+                if (state.selectedNodeId) {
+                    const sel = state.nodes.find(n => n.id === state.selectedNodeId);
+                    if (sel) {
+                        const corner = checkResizeCorner(sel, world.x, world.y);
+                        if (corner) {
+                            state.resizingNode = sel;
+                            state.resizeCorner = corner;
+                            return;
+                        }
+                    }
+                }
+
+                const hit = findHitNode(world.x, world.y);
+                if (hit) {
+                    if (hit.type === 'frame' && isClickingFrameExport(hit, world.x, world.y)) {
+                        executeFrameExport(hit);
+                        return;
+                    }
+                    state.selectedNodeId = hit.id;
+                    state.draggedNode = hit;
+                    state.dragOffset = { x: world.x - hit.x, y: world.y - hit.y };
+
+                    // Bring node to front
+                    const idx = state.nodes.indexOf(hit);
+                    if (idx > -1) {
+                        state.nodes.splice(idx, 1);
+                        state.nodes.push(hit);
+                    }
+                } else {
+                    state.selectedNodeId = null;
+                }
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', e => {
+            e.preventDefault();
+            const touches = e.touches;
+
+            if (state.touchState.isPinch && touches.length === 2) {
+                const dx = touches[0].clientX - touches[1].clientX;
+                const dy = touches[0].clientY - touches[1].clientY;
+                const dist = Math.hypot(dx, dy);
+
+                if (state.touchState.initialDistance > 0) {
+                    const factor = dist / state.touchState.initialDistance;
+                    const center = {
+                        x: (touches[0].clientX + touches[1].clientX) / 2,
+                        y: (touches[0].clientY + touches[1].clientY) / 2
+                    };
+                    setZoom(state.touchState.initialZoom * factor, center.x, center.y);
+                }
+                return;
+            }
+
+            if (touches.length === 1) {
+                const t = touches[0];
+                const rect = canvas.getBoundingClientRect();
+                const sx = t.clientX - rect.left;
+                const sy = t.clientY - rect.top;
+                const world = screenToWorld(sx, sy);
+
+                if (state.frameDraft) {
+                    state.frameDraft.curX = world.x;
+                    state.frameDraft.curY = world.y;
+                    return;
+                }
+
+                if (state.resizingNode) {
+                    applyResize(state.resizingNode, state.resizeCorner, world);
+                    return;
+                }
+
+                if (state.draggedNode) {
+                    state.draggedNode.x = world.x - state.dragOffset.x;
+                    state.draggedNode.y = world.y - state.dragOffset.y;
+                    return;
+                }
+
+                // 1-finger canvas pan
+                state.camera.x = sx - state.touchState.panStart.x;
+                state.camera.y = sy - state.touchState.panStart.y;
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', e => {
+            e.preventDefault();
+            state.touchState.isInteracting = false;
+            state.touchState.isPinch = false;
+            state.draggedNode = null;
+            state.resizingNode = null;
+            state.resizeCorner = null;
+
+            if (state.frameDraft) {
+                const fd = state.frameDraft;
+                const fx = Math.min(fd.startX, fd.curX);
+                const fy = Math.min(fd.startY, fd.curY);
+                const fw = Math.abs(fd.curX - fd.startX);
+                const fh = Math.abs(fd.curY - fd.startY);
+
+                if (fw > 30 && fh > 30) {
+                    const f = createFrameNode(fx, fy, fw, fh, 'SELECTION FRAME');
+                    state.selectedNodeId = f.id;
+                    showToast('Selection frame ready. Tap Export to capture.');
+                }
+                state.frameDraft = null;
+                setToolMode('select');
+            }
+        }, { passive: false });
+
+        // MOUSE EVENTS (Desktop Support)
+        let isMousePanning = false;
+        let mousePanStart = { x: 0, y: 0 };
+
+        canvas.addEventListener('pointerdown', e => {
+            if (e.pointerType === 'touch') return; // Handled by touch events
+            const rect = canvas.getBoundingClientRect();
+            const sx = e.clientX - rect.left;
+            const sy = e.clientY - rect.top;
+            const world = screenToWorld(sx, sy);
+
+            if (e.button === 1 || e.spaceKey) {
+                isMousePanning = true;
+                mousePanStart = { x: sx - state.camera.x, y: sy - state.camera.y };
+                return;
+            }
+
+            if (e.button !== 0) return;
+
+            if (state.tool === 'frame') {
+                state.frameDraft = { startX: world.x, startY: world.y, curX: world.x, curY: world.y };
+                return;
+            }
+
+            if (state.selectedNodeId) {
+                const sel = state.nodes.find(n => n.id === state.selectedNodeId);
+                if (sel) {
+                    const corner = checkResizeCorner(sel, world.x, world.y);
+                    if (corner) {
+                        state.resizingNode = sel;
+                        state.resizeCorner = corner;
+                        return;
+                    }
+                }
+            }
+
+            const hit = findHitNode(world.x, world.y);
+            if (hit) {
+                if (hit.type === 'frame' && isClickingFrameExport(hit, world.x, world.y)) {
+                    executeFrameExport(hit);
+                    return;
+                }
+                state.selectedNodeId = hit.id;
+                state.draggedNode = hit;
+                state.dragOffset = { x: world.x - hit.x, y: world.y - hit.y };
+
+                const idx = state.nodes.indexOf(hit);
+                if (idx > -1) {
+                    state.nodes.splice(idx, 1);
+                    state.nodes.push(hit);
+                }
+            } else {
+                state.selectedNodeId = null;
+                isMousePanning = true;
+                mousePanStart = { x: sx - state.camera.x, y: sy - state.camera.y };
+            }
+        });
+
+        canvas.addEventListener('pointermove', e => {
+            if (e.pointerType === 'touch') return;
+            const rect = canvas.getBoundingClientRect();
+            const sx = e.clientX - rect.left;
+            const sy = e.clientY - rect.top;
+            const world = screenToWorld(sx, sy);
+
+            if (isMousePanning) {
+                state.camera.x = sx - mousePanStart.x;
+                state.camera.y = sy - mousePanStart.y;
+                return;
+            }
+
+            if (state.frameDraft) {
+                state.frameDraft.curX = world.x;
+                state.frameDraft.curY = world.y;
+                return;
+            }
+
+            if (state.resizingNode) {
+                applyResize(state.resizingNode, state.resizeCorner, world);
+                return;
+            }
+
+            if (state.draggedNode) {
+                state.draggedNode.x = world.x - state.dragOffset.x;
+                state.draggedNode.y = world.y - state.dragOffset.y;
+            }
+        });
+
+        window.addEventListener('pointerup', e => {
+            if (e.pointerType === 'touch') return;
+            isMousePanning = false;
+            state.draggedNode = null;
+            state.resizingNode = null;
+            state.resizeCorner = null;
+
+            if (state.frameDraft) {
+                const fd = state.frameDraft;
+                const fx = Math.min(fd.startX, fd.curX);
+                const fy = Math.min(fd.startY, fd.curY);
+                const fw = Math.abs(fd.curX - fd.startX);
+                const fh = Math.abs(fd.curY - fd.startY);
+
+                if (fw > 30 && fh > 30) {
+                    const f = createFrameNode(fx, fy, fw, fh, 'SELECTION FRAME');
+                    state.selectedNodeId = f.id;
+                    showToast('Selection frame ready');
+                }
+                state.frameDraft = null;
+                setToolMode('select');
+            }
+        });
+
+        canvas.addEventListener('wheel', e => {
+            e.preventDefault();
+            const factor = e.deltaY < 0 ? 1.12 : 0.89;
+            setZoom(state.camera.zoom * factor, e.clientX, e.clientY);
+        }, { passive: false });
+
+        function applyResize(node, corner, world) {
+            const minW = 70;
+            const minH = 50;
+            if (corner === 'se') {
+                node.width = Math.max(minW, world.x - node.x);
+                node.height = Math.max(minH, world.y - node.y);
+            } else if (corner === 'sw') {
+                const right = node.x + node.width;
+                node.x = Math.min(right - minW, world.x);
+                node.width = right - node.x;
+                node.height = Math.max(minH, world.y - node.y);
+            } else if (corner === 'ne') {
+                const bottom = node.y + node.height;
+                node.width = Math.max(minW, world.x - node.x);
+                node.y = Math.min(bottom - minH, world.y);
+                node.height = bottom - node.y;
+            } else if (corner === 'nw') {
+                const right = node.x + node.width;
+                const bottom = node.y + node.height;
+                node.x = Math.min(right - minW, world.x);
+                node.y = Math.min(bottom - minH, world.y);
+                node.width = right - node.x;
+                node.height = bottom - node.y;
+            }
+        }
+
+        // ==========================================================================
+        // 6. Clipboard & UI Controls
+        // ==========================================================================
+        window.addEventListener('paste', e => {
+            const items = e.clipboardData?.items;
+            if (!items) return;
+
+            const center = screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
+
+            let handled = false;
+            for (let i = 0; i < items.length; i++) {
+                const it = items[i];
+                if (it.type.includes('image')) {
+                    handled = true;
+                    const blob = it.getAsFile();
+                    const reader = new FileReader();
+                    reader.onload = ev => {
+                        createImageNode(center.x, center.y, 'Pasted Screenshot', ev.target.result);
+                        showToast('Pasted image node');
+                    };
+                    reader.readAsDataURL(blob);
+                    break;
+                }
+            }
+
+            if (!handled) {
+                const text = e.clipboardData.getData('text/plain');
+                if (text && text.trim()) {
+                    const lines = text.trim().split('\n');
+                    const title = lines[0].slice(0, 24);
+                    createTextNode(center.x, center.y, title || 'Pasted Note', text.trim());
+                    showToast('Pasted text note');
+                }
+            }
+        });
+
+        // Mode Toggles
+        const btnModeSelect = document.getElementById('btn-mode-select');
+        const btnModeFrame = document.getElementById('btn-mode-frame');
+
+        function setToolMode(m) {
+            state.tool = m;
+            btnModeSelect.classList.toggle('active', m === 'select');
+            btnModeFrame.classList.toggle('active', m === 'frame');
+            if (m === 'frame') showToast('Drag on canvas to draw selection frame');
+        }
+
+        btnModeSelect.addEventListener('click', () => setToolMode('select'));
+        btnModeFrame.addEventListener('click', () => setToolMode('frame'));
+
+        document.getElementById('btn-add-note').addEventListener('click', () => {
+            const center = screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
+            createTextNode(center.x, center.y, 'Review Note', 'Tap note to drag. Connect thoughts or specify UI improvements.');
+            showToast('Added note');
+        });
+
+        document.getElementById('btn-export-active-frame').addEventListener('click', () => {
+            // Find selected frame or first frame
+            let targetFrame = state.nodes.find(n => n.id === state.selectedNodeId && n.type === 'frame');
+            if (!targetFrame) {
+                targetFrame = state.nodes.find(n => n.type === 'frame');
+            }
+            if (targetFrame) {
+                executeFrameExport(targetFrame);
+            } else {
+                showToast('Draw a frame over nodes first');
+            }
+        });
+
+        document.getElementById('btn-zoom-in').addEventListener('click', () => setZoom(state.camera.zoom * 1.25));
+        document.getElementById('btn-zoom-out').addEventListener('click', () => setZoom(state.camera.zoom * 0.8));
+        document.getElementById('btn-fit').addEventListener('click', fitAllContent);
+
+        document.getElementById('btn-clear').addEventListener('click', () => {
+            if (confirm('Clear canvas?')) {
+                state.nodes = [];
+                state.edges = [];
+                state.selectedNodeId = null;
+                showToast('Canvas cleared');
+            }
+        });
+
+        // ==========================================================================
+        // 7. Initial Clean Layout (Mobile & Desktop Responsive)
+        // ==========================================================================
+        function initInitialCards() {
+            const isMobile = window.innerWidth < 600;
+
+            if (isMobile) {
+                // Calm, clean vertical layout tailored for portrait phones
+                const img1 = createImageNode(
+                    20,
+                    20,
+                    'Pro Mode Studio',
+                    '/screenshots/desktop_dark/16_desktop_dark_pro_canvas_default.png',
+                    300,
+                    190
+                );
+
+                const text1 = createTextNode(
+                    20,
+                    230,
+                    'Issue: Input Alignment',
+                    'Dock color trigger to left rail alongside brush size slider to unify tool access.',
+                    300,
+                    100,
+                    'FIX'
+                );
+
+                createEdge(img1.id, text1.id, 'Applies to');
+
+                // Enclosing Frame
+                const frame = createFrameNode(8, -26, 324, 380, 'UI ITERATION FRAME');
+                state.selectedNodeId = frame.id;
+            } else {
+                // Desktop clean layout
+                const img1 = createImageNode(
+                    40,
+                    40,
+                    'Pro Mode Studio',
+                    '/screenshots/desktop_dark/16_desktop_dark_pro_canvas_default.png',
+                    320,
+                    200
+                );
+
+                const text1 = createTextNode(
+                    400,
+                    40,
+                    'Issue: Input Alignment',
+                    'Dock color trigger to left rail alongside brush size slider to unify tool access on mobile.',
+                    280,
+                    130,
+                    'FIX'
+                );
+
+                const img2 = createImageNode(
+                    40,
+                    280,
+                    'Color Studio Modal',
+                    '/screenshots/universal_modals/10_ar_viewer_modal.png',
+                    320,
+                    200
+                );
+
+                createEdge(img1.id, text1.id, 'Applies to');
+                createEdge(text1.id, img2.id, 'Target layout');
+
+                const frame = createFrameNode(20, 0, 680, 500, 'UI ITERATION FRAME');
+                state.selectedNodeId = frame.id;
+            }
+
+            // Smooth initial fit
+            setTimeout(() => {
+                fitAllContent();
+            }, 100);
+        }
+
+        initInitialCards();
+    </script>
+</body>
+</html>

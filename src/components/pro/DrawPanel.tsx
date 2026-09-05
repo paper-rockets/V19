@@ -36,14 +36,9 @@ import {
   BrushCategoryTab,
 } from '../../presets/curatedBrushes';
 import { BrushShapeGlyph } from '../play/BrushShapeGlyph';
+import { RealBrushSizeControl } from '../common/RealBrushSizeControl';
 import { haptics } from '../../utils/haptics';
 
-const SIZE_PRESETS = [
-  { value: 0.015, label: 'S', scale: 0.6, name: 'Fine' },
-  { value: 0.035, label: 'M', scale: 0.8, name: 'Medium' },
-  { value: 0.07, label: 'L', scale: 1.0, name: 'Bold' },
-  { value: 0.12, label: 'XL', scale: 1.25, name: 'Heavy' },
-];
 
 interface DrawPanelProps {
   engine?: StudioEngine | null;
@@ -77,10 +72,10 @@ export const DrawPanel: React.FC<DrawPanelProps> = ({
   };
 
   const cardClass = isLight
-    ? 'p-3 rounded-2xl bg-neutral-100/50 border border-black/5 space-y-2.5'
-    : 'p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] space-y-2.5';
+    ? 'p-2.5 rounded-xl bg-neutral-100/50 border border-black/5 space-y-1.5'
+    : 'p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] space-y-1.5';
 
-  const subHeadingClass = `text-[11px] font-bold uppercase tracking-wider ${
+  const subHeadingClass = `text-[10px] font-bold uppercase tracking-wider ${
     isLight ? 'text-neutral-500' : 'text-neutral-400'
   }`;
 
@@ -105,11 +100,11 @@ export const DrawPanel: React.FC<DrawPanelProps> = ({
   ];
 
   return (
-    <div className="space-y-4 text-xs select-none">
+    <div className="space-y-2 text-xs select-none">
       {/* 1. UNIFIED TOOL ROW: Draw / Erase / Eyedropper */}
       <div className={cardClass}>
         <div className={subHeadingClass}>Active Tool</div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-1.5">
           {/* Draw Button (Unified 3D Pen / Sketch) */}
           <button
             type="button"
@@ -117,7 +112,7 @@ export const DrawPanel: React.FC<DrawPanelProps> = ({
               haptics.trigger('light');
               setTool('brush');
             }}
-            className={`min-h-[44px] px-2 py-2 rounded-xl border flex flex-col items-center justify-center gap-1 font-semibold transition-all ${
+            className={`h-11 min-h-[40px] px-1.5 py-1 rounded-lg border flex flex-col items-center justify-center gap-0.5 font-semibold transition-all ${
               tool === 'brush'
                 ? isLight
                   ? 'bg-neutral-900 border-neutral-900 text-white shadow-sm'
@@ -127,8 +122,8 @@ export const DrawPanel: React.FC<DrawPanelProps> = ({
                 : 'bg-black/30 border-white/10 text-neutral-300 hover:bg-white/5'
             }`}
           >
-            <PenLine className="w-4 h-4" />
-            <span className="text-[11px]">Draw</span>
+            <PenLine className="w-3.5 h-3.5" />
+            <span className="text-[10.5px]">Draw</span>
           </button>
 
           {/* Erase Button */}
@@ -138,7 +133,7 @@ export const DrawPanel: React.FC<DrawPanelProps> = ({
               haptics.trigger('light');
               setTool('eraser');
             }}
-            className={`min-h-[44px] px-2 py-2 rounded-xl border flex flex-col items-center justify-center gap-1 font-semibold transition-all ${
+            className={`h-11 min-h-[40px] px-1.5 py-1 rounded-lg border flex flex-col items-center justify-center gap-0.5 font-semibold transition-all ${
               tool === 'eraser'
                 ? isLight
                   ? 'bg-neutral-900 border-neutral-900 text-white shadow-sm'
@@ -148,8 +143,8 @@ export const DrawPanel: React.FC<DrawPanelProps> = ({
                 : 'bg-black/30 border-white/10 text-neutral-300 hover:bg-white/5'
             }`}
           >
-            <Eraser className="w-4 h-4" />
-            <span className="text-[11px]">Erase</span>
+            <Eraser className="w-3.5 h-3.5" />
+            <span className="text-[10.5px]">Erase</span>
           </button>
 
           {/* Eyedropper / Copy Look */}
@@ -452,61 +447,13 @@ export const DrawPanel: React.FC<DrawPanelProps> = ({
           </div>
         </div>
 
-        {/* Quick Size Presets with Scaled 3D Mark */}
-        <div className="space-y-1 pt-0.5">
-          <label className={`text-[10.5px] font-medium ${isLight ? 'text-neutral-600' : 'text-neutral-400'}`}>
-            Brush size
-          </label>
-          <div className="grid grid-cols-4 gap-1.5">
-            {SIZE_PRESETS.map(({ value, label, name }) => {
-              const isSelected = Math.abs(brushSettings.size - value) < 0.012;
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => {
-                    haptics.trigger('light');
-                    updateSetting('size', value);
-                  }}
-                  className={`p-1.5 rounded-xl border flex flex-col items-center justify-center gap-1 transition-all active:scale-95 ${
-                    isSelected
-                      ? 'border-sky-400 bg-sky-500/[0.12] text-white shadow-[0_0_10px_rgba(56,189,248,0.2)] ring-1 ring-sky-400/60'
-                      : isLight
-                      ? 'border-black/10 bg-white hover:bg-neutral-200/50 text-neutral-700'
-                      : 'border-white/[0.06] bg-[#18191e] hover:border-white/20 text-white/80'
-                  }`}
-                  title={`${name} size`}
-                >
-                  <div className="w-8 h-8 flex items-center justify-center overflow-hidden pointer-events-none">
-                    <BrushShapeGlyph brushId={activeBrush.id} size={value} boxSize={30} />
-                  </div>
-                  <span className="text-[10px] font-bold">{label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Fine-tune Size Slider */}
-        <div className="space-y-1.5 pt-1">
-          <div className="flex justify-between items-center text-[11px]">
-            <span className="font-medium text-current">Fine Size</span>
-            <span className="font-mono text-[10px] font-bold">
-              {Math.round(((brushSettings.size - 0.008) / (0.16 - 0.008)) * 90 + 10)}
-            </span>
-          </div>
-          <input
-            type="range"
-            min="0.008"
-            max="0.16"
-            step="0.002"
-            value={brushSettings.size}
-            onChange={(e) => updateSetting('size', parseFloat(e.target.value))}
-            className={`w-full h-1.5 rounded cursor-pointer ${
-              isLight ? 'accent-neutral-900 bg-neutral-200' : 'accent-sky-400 bg-neutral-800'
-            }`}
-          />
-        </div>
+        {/* Live Real Shape & Size Control */}
+        <RealBrushSizeControl
+          brushSettings={brushSettings}
+          onSizeChange={(newSize) => updateSetting('size', newSize)}
+          theme={theme}
+          showHeading={false}
+        />
 
         {/* Opacity / Intensity Slider */}
         <div className="space-y-1 pt-1">

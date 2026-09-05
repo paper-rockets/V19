@@ -20,7 +20,7 @@ export function resolveAssetUrl(path: string): string {
   // Strip leading slashes, dot-slashes, and redundant prefixes (makes it idempotent)
   const cleanPath = path.replace(/^(\.\/|\/)+/, '');
 
-  // In browser environments (GitHub Pages, localhost, Tauri, Android Webview),
+  // In browser environments (GitHub Pages, localhost, mobile browsers),
   // dynamically resolve against the document base URI to guarantee correct paths on subpaths
   if (typeof window !== 'undefined' && window.location && window.location.origin) {
     let pathname = window.location.pathname || '/';

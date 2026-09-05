@@ -58,7 +58,7 @@ export default defineConfig(({ mode }) => {
     },
     clearScreen: false,
     server: {
-      host: process.env.TAURI_DEV_HOST || '0.0.0.0',
+      host: '0.0.0.0',
       port: 3000,
       strictPort: true,
       cors: true,

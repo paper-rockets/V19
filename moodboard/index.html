@@ -3,59 +3,180 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Remix 3D — Moodboard</title>
+    <title>Remix 3D — Infinite Mind Map & Studio Review</title>
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 </head>
-<body>
+<body class="dark">
+    <!-- Top HUD Navigation Bar -->
+    <header id="top-hud" data-html2canvas-ignore="true">
+        <div class="hud-left">
+            <a id="btn-back-studio" href="/" class="btn btn-secondary" title="Return to 3D Studio">← 3D Studio</a>
+            <span class="hud-title">Remix 3D Mind Map</span>
+            <span class="badge" id="item-count-badge">0 items</span>
+        </div>
+
+        <div class="hud-center">
+            <button id="btn-toggle-catalog" class="btn btn-secondary" type="button" title="Open Screenshot Library Drawer">📷 Screenshot Library</button>
+            <button id="btn-add-text" class="btn btn-primary" type="button" title="Create a new text note">+ Add Text Note</button>
+            <button id="btn-upload-file" class="btn btn-secondary" type="button" title="Upload local image or text file">⬆ Upload</button>
+            <input type="file" id="file-input" accept="image/*,.txt,.md" style="display: none;" multiple>
+            <button id="btn-toggle-draw" class="btn btn-secondary btn-draw" type="button" title="Draw freehand sketches & notes">✎ Pen Draw</button>
+            <button id="btn-auto-layout" class="btn btn-secondary" type="button" title="Arrange all sections cleanly">⊞ Auto-Layout</button>
+        </div>
+
+        <div class="hud-right">
+            <!-- Zoom Controls -->
+            <div class="zoom-controls">
+                <button id="btn-zoom-out" class="btn-icon" type="button" title="Zoom Out (-)">−</button>
+                <span id="zoom-level-text">100%</span>
+                <button id="btn-zoom-in" class="btn-icon" type="button" title="Zoom In (+)">+</button>
+                <button id="btn-zoom-reset" class="btn btn-sm" type="button" title="Reset Zoom to 100%">1:1</button>
+                <button id="btn-zoom-fit" class="btn btn-sm" type="button" title="Fit All Content in Screen">Fit All</button>
+            </div>
+            
+            <div class="divider-vertical"></div>
+
+            <!-- Save & Export Actions -->
+            <button id="btn-save-local" class="btn btn-secondary" type="button" title="Save mind map locally">Save</button>
+            <button id="btn-export-text" class="btn btn-secondary" type="button" title="Export mind map as Markdown outline">Export Text</button>
+            <button id="btn-export-png" class="btn btn-secondary" type="button" title="Export entire board as PNG">Export PNG</button>
+            <button id="btn-theme-toggle" class="btn btn-secondary" type="button" title="Toggle Light / Dark Mode">Theme: Dark</button>
+            <button id="btn-clear-board" class="btn btn-danger-soft" type="button" title="Reset/Clear Board">Clear</button>
+        </div>
+    </header>
+
+    <!-- Pen Drawing Toolbar (Visible when Pen Mode is active) -->
     <div id="draw-toolbar" class="draw-toolbar hidden" data-html2canvas-ignore="true">
+        <span class="toolbar-label">Pen Tool:</span>
         <div class="color-picker-group">
-            <button class="color-swatch active" data-color="#38bdf8" style="background-color: #38bdf8;" title="Cyan / Sky Accent"></button>
+            <button class="color-swatch active" data-color="#38bdf8" style="background-color: #38bdf8;" title="Cyan Blue"></button>
             <button class="color-swatch" data-color="#facc15" style="background-color: #facc15;" title="Yellow Marker"></button>
             <button class="color-swatch" data-color="#f87171" style="background-color: #f87171;" title="Coral Red"></button>
             <button class="color-swatch" data-color="#4ade80" style="background-color: #4ade80;" title="Mint Green"></button>
-            <button class="color-swatch" data-color="#f4f4f5" style="background-color: #f4f4f5;" title="White Ink"></button>
+            <button class="color-swatch" data-color="#ffffff" style="background-color: #ffffff;" title="White Ink"></button>
             <button id="btn-eraser" class="tool-btn" type="button" title="Eraser Mode">Eraser</button>
         </div>
-        <div class="divider"></div>
+        <div class="divider-vertical"></div>
         <div class="size-picker-group">
             <button class="size-btn" data-size="2" type="button" title="Fine (2px)">Fine</button>
             <button class="size-btn active" data-size="4" type="button" title="Mid (4px)">Mid</button>
             <button class="size-btn" data-size="8" type="button" title="Broad (8px)">Broad</button>
         </div>
-        <div class="divider"></div>
+        <div class="divider-vertical"></div>
         <button id="btn-undo-draw" class="tool-btn" type="button" title="Undo last stroke">Undo</button>
-        <button id="btn-clear-draw" class="tool-btn btn-danger-soft" type="button" title="Clear all drawn notes">Clear Ink</button>
+        <button id="btn-clear-draw" class="tool-btn btn-danger-soft" type="button" title="Clear all ink drawings">Clear Ink</button>
+        <button id="btn-close-draw" class="btn btn-sm btn-secondary" type="button">Done</button>
     </div>
 
-    <div id="ui-controls" data-html2canvas-ignore="true">
-        <a id="btn-back-studio" href="/" class="btn-secondary" title="Return to 3D Studio">Studio</a>
-        <button id="btn-theme-toggle" class="btn-secondary" type="button" title="Toggle Light / Dark Theme">Theme: Dark</button>
-        <button id="btn-toggle-draw" type="button" class="btn-toggle-draw" title="Draw freehand notes and sketches">Draw Notes</button>
-        <button id="btn-add-text" type="button">Add Text</button>
-        <button id="btn-export" type="button">Export PNG</button>
-        <button id="btn-clear" class="btn-danger" type="button">Clear</button>
-        <div class="hint" id="status-hint">Paste image (Ctrl+V) · Drag to move · Alt+Click two items to connect</div>
+    <!-- Status & Hint Banner -->
+    <div id="status-toast" class="status-toast" data-html2canvas-ignore="true">
+        <span id="toast-message">Infinite Mind Map Ready · Drag background to pan · Scroll to zoom · Paste images or text anytime</span>
     </div>
-    <!-- Text Input Modal -->
-    <div id="text-modal" class="modal hidden" data-html2canvas-ignore="true">
-        <div class="modal-content">
-            <h3>Add Description</h3>
-            <textarea id="text-input" placeholder="Type your notes or description here..."></textarea>
-            <div class="modal-actions">
-                <button id="btn-modal-cancel" class="btn-danger" type="button">Cancel</button>
-                <button id="btn-modal-add" type="button">Add to Board</button>
+
+    <!-- Collapsible Screenshot Catalog Drawer -->
+    <aside id="catalog-drawer" class="catalog-drawer hidden" data-html2canvas-ignore="true">
+        <div class="catalog-header">
+            <h3>Screenshot Library</h3>
+            <button id="btn-close-catalog" class="btn-icon" type="button" title="Close Library">×</button>
+        </div>
+        <div class="catalog-search-box">
+            <input type="text" id="catalog-search-input" placeholder="Filter screenshots..." />
+        </div>
+        <div class="catalog-tabs">
+            <button class="catalog-tab active" data-tab="all">All</button>
+            <button class="catalog-tab" data-tab="play_mode">Play Mode</button>
+            <button class="catalog-tab" data-tab="pro_mode">Pro Mode</button>
+            <button class="catalog-tab" data-tab="universal_modals">Modals</button>
+            <button class="catalog-tab" data-tab="brush_strokes">Brushes</button>
+            <button class="catalog-tab" data-tab="miscellaneous">Misc</button>
+        </div>
+        <div class="catalog-actions-bar">
+            <button id="btn-add-filtered-to-board" class="btn btn-sm btn-primary" type="button">Load Selected Section to Board</button>
+            <button id="btn-load-all-sections" class="btn btn-sm btn-secondary" type="button">Load All 5 Sections</button>
+        </div>
+        <div id="catalog-list" class="catalog-list">
+            <!-- Dynamically populated screenshot cards -->
+        </div>
+    </aside>
+
+    <!-- Infinite Viewport Wrapper -->
+    <div id="viewport">
+        <!-- The Infinite World (Everything inside transforms with pan & zoom) -->
+        <div id="world">
+            <!-- Sub-Section Boundary Frames -->
+            <div id="sections-layer"></div>
+
+            <!-- SVG Curved Connections (World space) -->
+            <svg id="connections-svg"></svg>
+
+            <!-- Cards Container (Images & Text Nodes) -->
+            <div id="nodes-container"></div>
+        </div>
+
+        <!-- Freehand Pen Canvas (Screen overlay transformed by world transform) -->
+        <canvas id="drawing-canvas"></canvas>
+    </div>
+
+    <!-- Full-Size Image Inspection Lightbox Modal -->
+    <div id="lightbox-modal" class="modal hidden" data-html2canvas-ignore="true">
+        <div class="lightbox-overlay" id="lightbox-overlay"></div>
+        <div class="lightbox-dialog">
+            <div class="lightbox-header">
+                <div class="lightbox-title-wrap">
+                    <span id="lightbox-category" class="badge">Screenshot</span>
+                    <h3 id="lightbox-title">Image Details</h3>
+                    <span id="lightbox-filename" class="text-subtle">filename.png</span>
+                </div>
+                <div class="lightbox-tools">
+                    <button id="btn-lightbox-zoom-out" class="btn-icon" title="Zoom Out">−</button>
+                    <span id="lightbox-zoom-val">100%</span>
+                    <button id="btn-lightbox-zoom-in" class="btn-icon" title="Zoom In">+</button>
+                    <button id="btn-lightbox-reset" class="btn btn-sm" title="Reset Image Zoom">1:1</button>
+                    <button id="btn-lightbox-add-note" class="btn btn-sm btn-primary" title="Create a note connected to this image">+ Add Note</button>
+                    <button id="btn-lightbox-close" class="btn-icon close-btn" title="Close (Esc)">×</button>
+                </div>
+            </div>
+            <div class="lightbox-body" id="lightbox-body">
+                <div class="lightbox-image-wrap" id="lightbox-image-wrap">
+                    <img id="lightbox-img" src="" alt="Full view preview" />
+                </div>
             </div>
         </div>
     </div>
 
-    <div id="board">
-        <canvas id="drawing-canvas"></canvas>
-        <svg id="connections"></svg>
+    <!-- Text Node Input Modal (For new text cards) -->
+    <div id="text-modal" class="modal hidden" data-html2canvas-ignore="true">
+        <div class="modal-content">
+            <h3>Add Mind Map Note</h3>
+            <div class="input-group">
+                <label for="text-title-input">Title / Headline:</label>
+                <input type="text" id="text-title-input" placeholder="e.g., Change brush size slider to vertical" />
+            </div>
+            <div class="input-group">
+                <label for="text-input">Detailed Notes / Request:</label>
+                <textarea id="text-input" rows="4" placeholder="Type what you want changed or reviewed here..."></textarea>
+            </div>
+            <div class="input-group">
+                <label>Note Color / Tag:</label>
+                <div class="note-color-picker">
+                    <button class="note-color-opt active" data-color="yellow" style="background-color: #fef08a;" title="Yellow Sticky"></button>
+                    <button class="note-color-opt" data-color="blue" style="background-color: #bae6fd;" title="Sky Blue Note"></button>
+                    <button class="note-color-opt" data-color="red" style="background-color: #fecaca;" title="Coral Red (Needs Fix)"></button>
+                    <button class="note-color-opt" data-color="green" style="background-color: #bbf7d0;" title="Mint Green (Approved)"></button>
+                    <button class="note-color-opt" data-color="dark" style="background-color: #27272a;" title="Neutral Dark"></button>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button id="btn-modal-cancel" class="btn btn-secondary" type="button">Cancel</button>
+                <button id="btn-modal-add" class="btn btn-primary" type="button">Add Note to Board</button>
+            </div>
+        </div>
     </div>
-    
+
+    <!-- Script dependencies -->
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     <script src="app.js"></script>
 </body>

@@ -1015,10 +1015,12 @@ export const ColorStudioModal: React.FC<ColorStudioModalProps> = ({
               </div>
 
               {/* Slider Readouts for Hue, Saturation, Value */}
-              <div className="w-full space-y-3 bg-[#101218] p-4 rounded-xl border border-white/10 text-xs shadow-inner">
-                <div className="flex items-center justify-between text-neutral-200 font-medium">
+              <div className={`w-full space-y-3 p-4 rounded-xl border text-xs shadow-inner ${
+                isLight ? 'bg-neutral-100 border-black/10 text-neutral-900' : 'bg-[#101218] border-white/10 text-white'
+              }`}>
+                <div className={`flex items-center justify-between font-medium ${isLight ? 'text-neutral-800' : 'text-neutral-200'}`}>
                   <span>Hue Angle (0°–360°)</span>
-                  <span className="font-mono text-white font-bold bg-white/10 px-2 py-0.5 rounded">{Math.round(hsv.h)}°</span>
+                  <span className={`font-mono font-bold px-2 py-0.5 rounded ${isLight ? 'bg-black/5 text-neutral-900' : 'bg-white/10 text-white'}`}>{Math.round(hsv.h)}°</span>
                 </div>
                 <input
                   type="range"

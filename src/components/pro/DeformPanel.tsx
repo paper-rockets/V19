@@ -127,31 +127,31 @@ export const DeformPanel: React.FC<DeformPanelProps> = ({
   };
 
   const cardClass = isLight
-    ? 'p-3 rounded-2xl bg-neutral-100/50 border border-black/5 space-y-2.5'
-    : 'p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] space-y-2.5';
+    ? 'p-2.5 rounded-xl bg-neutral-100/50 border border-black/5 space-y-1.5'
+    : 'p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] space-y-1.5';
 
-  const subHeadingClass = `text-[11px] font-bold uppercase tracking-wider ${
+  const subHeadingClass = `text-[10px] font-bold uppercase tracking-wider ${
     isLight ? 'text-neutral-500' : 'text-neutral-400'
   }`;
 
   return (
-    <div className="space-y-4 font-sans text-xs select-none">
+    <div className="space-y-2 font-sans text-xs select-none">
       {/* 1. Push & Pull (Inflate/Deflate) */}
       <div className={cardClass}>
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Move className={`w-4 h-4 ${isLight ? 'text-neutral-900' : 'text-neutral-200'}`} />
+          <div className="flex items-center gap-1.5">
+            <Move className={`w-3.5 h-3.5 ${isLight ? 'text-neutral-900' : 'text-neutral-200'}`} />
             <span className={subHeadingClass}>Push & Pull</span>
           </div>
           {isPushPullActive && (
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-500 border border-amber-500/30">
+            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-500 border border-amber-500/30">
               Active
             </span>
           )}
         </div>
 
         {isPushPullActive && liquifySettings ? (
-          <div className="pt-1">
+          <div className="pt-0.5">
             <LiquifyPanel
               inline={true}
               settings={liquifySettings}
@@ -172,13 +172,13 @@ export const DeformPanel: React.FC<DeformPanelProps> = ({
           <button
             type="button"
             onClick={handleStartPushPull}
-            className={`w-full min-h-[44px] px-3 py-2 rounded-xl font-bold flex items-center justify-center gap-2 shadow-xs transition-transform active:scale-98 ${
+            className={`w-full h-8 min-h-[32px] px-2.5 py-1 rounded-lg font-bold flex items-center justify-center gap-1.5 shadow-xs transition-transform active:scale-98 ${
               isLight
                 ? 'bg-neutral-900 hover:bg-neutral-800 text-white'
                 : 'bg-white hover:bg-neutral-100 text-neutral-950'
             }`}
           >
-            <Move className="w-4 h-4" />
+            <Move className="w-3.5 h-3.5" />
             <span>Start Push & Pull</span>
           </button>
         )}
@@ -187,11 +187,11 @@ export const DeformPanel: React.FC<DeformPanelProps> = ({
       {/* 2. Symmetry / Mirror */}
       <div className={cardClass}>
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Compass className={`w-4 h-4 ${isLight ? 'text-neutral-900' : 'text-neutral-200'}`} />
+          <div className="flex items-center gap-1.5">
+            <Compass className={`w-3.5 h-3.5 ${isLight ? 'text-neutral-900' : 'text-neutral-200'}`} />
             <span className={subHeadingClass}>Symmetry & Mirror</span>
           </div>
-          <span className="font-mono text-[10px] opacity-70">
+          <span className="font-mono text-[9px] opacity-70">
             {mirrorAxis ? `${mirrorAxis.toUpperCase()}-Axis` : 'Off'}
           </span>
         </div>
@@ -205,7 +205,7 @@ export const DeformPanel: React.FC<DeformPanelProps> = ({
                 key={axis}
                 type="button"
                 onClick={() => handleToggleAxis(axis)}
-                className={`min-h-[40px] rounded-xl border font-bold text-xs transition-all active:scale-95 ${
+                className={`h-8 min-h-[32px] rounded-lg border font-bold text-xs transition-all active:scale-95 ${
                   isSelected
                     ? isLight
                       ? 'bg-neutral-900 border-neutral-900 text-white shadow-xs'
@@ -225,14 +225,14 @@ export const DeformPanel: React.FC<DeformPanelProps> = ({
           <button
             type="button"
             onClick={handleAlignMirrorToView}
-            className={`min-h-[40px] px-2.5 py-1.5 rounded-xl border font-semibold flex items-center justify-center gap-1.5 transition-all text-xs ${
+            className={`h-8 min-h-[32px] px-2 py-1 rounded-lg border font-semibold flex items-center justify-center gap-1.5 transition-all text-xs ${
               isLight
                 ? 'bg-white hover:bg-neutral-100 border-black/10 text-neutral-800'
                 : 'bg-black/30 hover:bg-white/10 border-white/10 text-neutral-200'
             }`}
             title="Align mirror plane to current camera view"
           >
-            <IcAlignView className="w-4 h-4 shrink-0" />
+            <IcAlignView className="w-3.5 h-3.5 shrink-0" />
             <span>Align View</span>
           </button>
 
@@ -242,13 +242,13 @@ export const DeformPanel: React.FC<DeformPanelProps> = ({
               haptics.trigger('light');
               onOpenCustomMirror();
             }}
-            className={`min-h-[40px] px-2.5 py-1.5 rounded-xl border font-semibold flex items-center justify-center gap-1.5 transition-all text-xs ${
+            className={`h-8 min-h-[32px] px-2 py-1 rounded-lg border font-semibold flex items-center justify-center gap-1.5 transition-all text-xs ${
               isLight
                 ? 'bg-white hover:bg-neutral-100 border-black/10 text-neutral-800'
                 : 'bg-black/30 hover:bg-white/10 border-white/10 text-neutral-200'
             }`}
           >
-            <IcMirrorSettings className="w-4 h-4 shrink-0" />
+            <IcMirrorSettings className="w-3.5 h-3.5 shrink-0" />
             <span>Settings</span>
           </button>
         </div>
@@ -256,8 +256,8 @@ export const DeformPanel: React.FC<DeformPanelProps> = ({
 
       {/* 3. Guides & Curves */}
       <div className={cardClass}>
-        <div className="flex items-center gap-2">
-          <Shield className={`w-4 h-4 ${isLight ? 'text-neutral-900' : 'text-neutral-200'}`} />
+        <div className="flex items-center gap-1.5">
+          <Shield className={`w-3.5 h-3.5 ${isLight ? 'text-neutral-900' : 'text-neutral-200'}`} />
           <span className={subHeadingClass}>Guides & Curves</span>
         </div>
 
@@ -268,13 +268,13 @@ export const DeformPanel: React.FC<DeformPanelProps> = ({
               haptics.trigger('light');
               onOpenScaffolding();
             }}
-            className={`min-h-[44px] px-2.5 py-2 rounded-xl border font-semibold flex items-center justify-center gap-2 transition-all text-xs ${
+            className={`h-8 min-h-[32px] px-2 py-1 rounded-lg border font-semibold flex items-center justify-center gap-1.5 transition-all text-xs ${
               isLight
                 ? 'bg-white hover:bg-neutral-100 border-black/10 text-neutral-800'
                 : 'bg-black/30 hover:bg-white/10 border-white/10 text-neutral-200'
             }`}
           >
-            <Shield className="w-4 h-4 shrink-0" />
+            <Shield className="w-3.5 h-3.5 shrink-0" />
             <span>Armatures</span>
           </button>
 
@@ -284,13 +284,13 @@ export const DeformPanel: React.FC<DeformPanelProps> = ({
               haptics.trigger('light');
               onOpenBentGuide();
             }}
-            className={`min-h-[44px] px-2.5 py-2 rounded-xl border font-semibold flex items-center justify-center gap-2 transition-all text-xs ${
+            className={`h-8 min-h-[32px] px-2 py-1 rounded-lg border font-semibold flex items-center justify-center gap-1.5 transition-all text-xs ${
               isLight
                 ? 'bg-white hover:bg-neutral-100 border-black/10 text-neutral-800'
                 : 'bg-black/30 hover:bg-white/10 border-white/10 text-neutral-200'
             }`}
           >
-            <Spline className="w-4 h-4 shrink-0" />
+            <Spline className="w-3.5 h-3.5 shrink-0" />
             <span>Bend Path</span>
           </button>
         </div>
@@ -299,11 +299,11 @@ export const DeformPanel: React.FC<DeformPanelProps> = ({
       {/* 4. Simplify & Decimate */}
       <div className={cardClass}>
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Scissors className={`w-4 h-4 ${isLight ? 'text-neutral-900' : 'text-neutral-200'}`} />
+          <div className="flex items-center gap-1.5">
+            <Scissors className={`w-3.5 h-3.5 ${isLight ? 'text-neutral-900' : 'text-neutral-200'}`} />
             <span className={subHeadingClass}>Simplify & Decimate</span>
           </div>
-          <span className="font-mono text-[10px] font-bold">
+          <span className="font-mono text-[9px] font-bold">
             {Math.round((decimateTolerance / 0.02) * 100)}%
           </span>
         </div>
@@ -327,13 +327,13 @@ export const DeformPanel: React.FC<DeformPanelProps> = ({
           <button
             type="button"
             onClick={handleRunSimplify}
-            className={`min-h-[40px] px-2.5 py-1.5 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all text-xs active:scale-95 shadow-xs ${
+            className={`h-8 min-h-[32px] px-2 py-1 rounded-lg font-bold flex items-center justify-center gap-1.5 transition-all text-xs active:scale-95 shadow-xs ${
               isLight
                 ? 'bg-neutral-900 hover:bg-neutral-800 text-white'
                 : 'bg-white hover:bg-neutral-100 text-neutral-950'
             }`}
           >
-            <IcQuickSimplify className="w-4 h-4 shrink-0" />
+            <IcQuickSimplify className="w-3.5 h-3.5 shrink-0" />
             <span>{simplifyFeedback || 'Simplify Now'}</span>
           </button>
 
@@ -343,13 +343,13 @@ export const DeformPanel: React.FC<DeformPanelProps> = ({
               haptics.trigger('light');
               onOpenDecimate();
             }}
-            className={`min-h-[40px] px-2.5 py-1.5 rounded-xl border font-semibold flex items-center justify-center gap-1.5 transition-all text-xs ${
+            className={`h-8 min-h-[32px] px-2 py-1 rounded-lg border font-semibold flex items-center justify-center gap-1.5 transition-all text-xs ${
               isLight
                 ? 'bg-white hover:bg-neutral-100 border-black/10 text-neutral-800'
                 : 'bg-black/30 hover:bg-white/10 border-white/10 text-neutral-200'
             }`}
           >
-            <IcSimplifySettings className="w-4 h-4 shrink-0" />
+            <IcSimplifySettings className="w-3.5 h-3.5 shrink-0" />
             <span>Settings</span>
           </button>
         </div>

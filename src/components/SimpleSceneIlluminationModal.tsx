@@ -317,8 +317,8 @@ export const SimpleSceneIlluminationModal: React.FC<SimpleSceneIlluminationModal
         onPointerDown={handleHeaderPointerDown}
         onPointerMove={handleHeaderPointerMove}
         onPointerUp={handleHeaderPointerUp}
-        className={`flex items-center justify-between px-3.5 py-2.5 border-b cursor-grab active:cursor-grabbing rounded-t-2xl ${
-          isLight ? 'border-neutral-200 bg-neutral-50/90' : 'border-neutral-800/80 bg-neutral-900/60'
+        className={`flex items-center justify-between px-3 py-1.5 border-b min-h-[32px] cursor-grab active:cursor-grabbing rounded-t-2xl ${
+          isLight ? 'border-neutral-200/80 bg-neutral-50/90' : 'border-neutral-800/80 bg-neutral-900/60'
         }`}
       >
         <span className="text-xs font-semibold tracking-wide">Studio Light</span>
@@ -332,7 +332,7 @@ export const SimpleSceneIlluminationModal: React.FC<SimpleSceneIlluminationModal
       </div>
 
       {/* Miniature Interactive Content */}
-      <div className="p-3 flex flex-col gap-3 text-xs">
+      <div className="p-2.5 flex flex-col gap-2 text-xs">
         {/* Trackball Dome */}
         <div className="flex flex-col items-center">
           <div

@@ -170,23 +170,23 @@ export const SelectPanel: React.FC<SelectPanelProps> = ({
   };
 
   const cardClass = isLight
-    ? 'p-3 rounded-2xl bg-neutral-100/50 border border-black/5 space-y-2.5'
-    : 'p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] space-y-2.5';
+    ? 'p-2.5 rounded-xl bg-neutral-100/50 border border-black/5 space-y-1.5'
+    : 'p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] space-y-1.5';
 
-  const subHeadingClass = `text-[11px] font-bold uppercase tracking-wider ${
+  const subHeadingClass = `text-[10px] font-bold uppercase tracking-wider ${
     isLight ? 'text-neutral-500' : 'text-neutral-400'
   }`;
 
   return (
-    <div className="space-y-4 text-xs select-none">
+    <div className="space-y-2 text-xs select-none">
       {/* 1. SELECTION MODE: Pointer / Lasso toggle */}
       <div className={cardClass}>
         <div className={subHeadingClass}>Selection Mode</div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-1.5">
           <button
             type="button"
             onClick={handlePointerSelect}
-            className={`min-h-[44px] px-3 py-2 rounded-xl border flex items-center justify-center gap-2 font-semibold transition-all ${
+            className={`h-8 min-h-[32px] px-2.5 py-1 rounded-lg border flex items-center justify-center gap-1.5 font-semibold transition-all ${
               (tool === 'pointer' || tool === 'select') && selectionMode === 'pointer'
                 ? isLight
                   ? 'bg-neutral-900 border-neutral-900 text-white shadow-sm'
@@ -196,14 +196,14 @@ export const SelectPanel: React.FC<SelectPanelProps> = ({
                 : 'bg-black/30 border-white/10 text-neutral-300 hover:bg-white/5'
             }`}
           >
-            <MousePointer2 className="w-4 h-4" />
+            <MousePointer2 className="w-3.5 h-3.5" />
             <span>Pointer</span>
           </button>
 
           <button
             type="button"
             onClick={handleLassoSelect}
-            className={`min-h-[44px] px-3 py-2 rounded-xl border flex items-center justify-center gap-2 font-semibold transition-all ${
+            className={`h-8 min-h-[32px] px-2.5 py-1 rounded-lg border flex items-center justify-center gap-1.5 font-semibold transition-all ${
               (tool === 'pointer' || tool === 'select') && selectionMode === 'lasso'
                 ? isLight
                   ? 'bg-neutral-900 border-neutral-900 text-white shadow-sm'
@@ -213,7 +213,7 @@ export const SelectPanel: React.FC<SelectPanelProps> = ({
                 : 'bg-black/30 border-white/10 text-neutral-300 hover:bg-white/5'
             }`}
           >
-            <CircleDashed className="w-4 h-4" />
+            <CircleDashed className="w-3.5 h-3.5" />
             <span>Lasso</span>
           </button>
         </div>
@@ -226,14 +226,14 @@ export const SelectPanel: React.FC<SelectPanelProps> = ({
           <button
             type="button"
             onClick={handleResetTransform}
-            className={`min-h-[36px] px-2 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition-colors ${
+            className={`h-6 px-1.5 py-0.5 rounded-md text-[10px] font-semibold flex items-center gap-1 transition-colors ${
               isLight
                 ? 'text-neutral-600 hover:text-neutral-950 hover:bg-neutral-200/60'
                 : 'text-neutral-400 hover:text-white hover:bg-white/10'
             }`}
             title="Reset position, rotation, and scale"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
+            <RotateCcw className="w-3 h-3" />
             <span>Reset</span>
           </button>
         </div>
@@ -252,7 +252,7 @@ export const SelectPanel: React.FC<SelectPanelProps> = ({
                 haptics.trigger('light');
                 onSelectTargetScope(scope.id);
               }}
-              className={`min-h-[44px] px-2.5 py-1.5 rounded-xl border text-center font-medium transition-all text-xs ${
+              className={`h-8 min-h-[32px] px-2 py-1 rounded-lg border text-center font-medium transition-all text-xs ${
                 targetScope === scope.id
                   ? isLight
                     ? 'bg-neutral-900 border-neutral-900 text-white font-bold shadow-xs'
@@ -280,7 +280,7 @@ export const SelectPanel: React.FC<SelectPanelProps> = ({
               haptics.trigger('light');
               onToggleGizmo();
             }}
-            className={`w-full min-h-[44px] px-3 py-2 rounded-xl border flex items-center justify-between font-medium text-xs transition-colors ${
+            className={`w-full h-8 min-h-[32px] px-2.5 py-1 rounded-lg border flex items-center justify-between font-medium text-xs transition-colors ${
               isGizmoActive
                 ? isLight
                   ? 'bg-neutral-900 border-neutral-900 text-white'
@@ -290,11 +290,11 @@ export const SelectPanel: React.FC<SelectPanelProps> = ({
                 : 'bg-black/30 border-white/10 text-neutral-300 hover:bg-white/5'
             }`}
           >
-            <div className="flex items-center gap-2">
-              <Compass className="w-4 h-4" />
+            <div className="flex items-center gap-1.5">
+              <Compass className="w-3.5 h-3.5" />
               <span>Show Transform Gizmo</span>
             </div>
-            {isGizmoActive ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4 opacity-50" />}
+            {isGizmoActive ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5 opacity-50" />}
           </button>
 
           {/* Lock Selection Toggle */}
@@ -304,7 +304,7 @@ export const SelectPanel: React.FC<SelectPanelProps> = ({
               haptics.trigger('light');
               onToggleLock();
             }}
-            className={`w-full min-h-[44px] px-3 py-2 rounded-xl border flex items-center justify-between font-medium text-xs transition-colors ${
+            className={`w-full h-8 min-h-[32px] px-2.5 py-1 rounded-lg border flex items-center justify-between font-medium text-xs transition-colors ${
               isGizmoLocked
                 ? isLight
                   ? 'bg-neutral-900 border-neutral-900 text-white'
@@ -314,8 +314,8 @@ export const SelectPanel: React.FC<SelectPanelProps> = ({
                 : 'bg-black/30 border-white/10 text-neutral-300 hover:bg-white/5'
             }`}
           >
-            <div className="flex items-center gap-2">
-              {isGizmoLocked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+            <div className="flex items-center gap-1.5">
+              {isGizmoLocked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
               <span>Lock Proportions & Movement</span>
             </div>
             <span className="text-[10px] font-mono opacity-80">{isGizmoLocked ? 'Locked' : 'Free'}</span>
@@ -328,7 +328,7 @@ export const SelectPanel: React.FC<SelectPanelProps> = ({
               haptics.trigger('light');
               setSoftSelection((prev) => !prev);
             }}
-            className={`w-full min-h-[44px] px-3 py-2 rounded-xl border flex items-center justify-between font-medium text-xs transition-colors ${
+            className={`w-full h-8 min-h-[32px] px-2.5 py-1 rounded-lg border flex items-center justify-between font-medium text-xs transition-colors ${
               softSelection
                 ? isLight
                   ? 'bg-neutral-900 border-neutral-900 text-white'
@@ -338,8 +338,8 @@ export const SelectPanel: React.FC<SelectPanelProps> = ({
                 : 'bg-black/30 border-white/10 text-neutral-300 hover:bg-white/5'
             }`}
           >
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4" />
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5" />
               <span>Soft Selection Falloff</span>
             </div>
             <span className="text-[10px] font-mono opacity-80">{softSelection ? 'On' : 'Off'}</span>
@@ -347,21 +347,21 @@ export const SelectPanel: React.FC<SelectPanelProps> = ({
         </div>
 
         {/* Action Buttons: Snap to ground, Clone, Delete */}
-        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-black/5 dark:border-white/5">
+        <div className="grid grid-cols-3 gap-1.5 pt-1.5 border-t border-black/5 dark:border-white/5">
           <button
             type="button"
             onClick={() => {
               haptics.trigger('medium');
               engine?.snapActiveToGround(targetScope);
             }}
-            className={`min-h-[44px] p-2 rounded-xl border flex flex-col items-center justify-center gap-1 font-semibold text-[11px] transition-all active:scale-95 ${
+            className={`h-11 min-h-[40px] p-1.5 rounded-lg border flex flex-col items-center justify-center gap-0.5 font-semibold text-[10px] transition-all active:scale-95 ${
               isLight
                 ? 'bg-white border-black/10 hover:bg-neutral-200/50 text-neutral-800'
                 : 'bg-black/30 border-white/10 hover:bg-white/10 text-white'
             }`}
             title="Auto-snap model to ground plane"
           >
-            <ArrowDownToLine className="w-4 h-4" />
+            <ArrowDownToLine className="w-3.5 h-3.5" />
             <span>To Ground</span>
           </button>
 
@@ -371,14 +371,14 @@ export const SelectPanel: React.FC<SelectPanelProps> = ({
               haptics.trigger('medium');
               engine?.cloneModel();
             }}
-            className={`min-h-[44px] p-2 rounded-xl border flex flex-col items-center justify-center gap-1 font-semibold text-[11px] transition-all active:scale-95 ${
+            className={`h-11 min-h-[40px] p-1.5 rounded-lg border flex flex-col items-center justify-center gap-0.5 font-semibold text-[10px] transition-all active:scale-95 ${
               isLight
                 ? 'bg-white border-black/10 hover:bg-neutral-200/50 text-neutral-800'
                 : 'bg-black/30 border-white/10 hover:bg-white/10 text-white'
             }`}
             title="Clone active model"
           >
-            <Copy className="w-4 h-4" />
+            <Copy className="w-3.5 h-3.5" />
             <span>Clone</span>
           </button>
 
@@ -388,14 +388,14 @@ export const SelectPanel: React.FC<SelectPanelProps> = ({
               haptics.trigger('medium');
               engine?.deleteActiveSelection();
             }}
-            className={`min-h-[44px] p-2 rounded-xl border flex flex-col items-center justify-center gap-1 font-semibold text-[11px] transition-all active:scale-95 ${
+            className={`h-11 min-h-[40px] p-1.5 rounded-lg border flex flex-col items-center justify-center gap-0.5 font-semibold text-[10px] transition-all active:scale-95 ${
               isLight
                 ? 'bg-red-50 border-red-200 hover:bg-red-100 text-red-700'
                 : 'bg-red-950/40 border-red-900/60 hover:bg-red-900/40 text-red-300'
             }`}
             title="Delete selected item (Del)"
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="w-3.5 h-3.5" />
             <span>Delete</span>
           </button>
         </div>
@@ -409,7 +409,7 @@ export const SelectPanel: React.FC<SelectPanelProps> = ({
             haptics.trigger('light');
             setShowTransformDetails((prev) => !prev);
           }}
-          className="w-full flex items-center justify-between min-h-[36px] text-left"
+          className="w-full flex items-center justify-between min-h-[28px] py-0.5 text-left"
         >
           <div className={subHeadingClass}>Transform Details</div>
           <div className="flex items-center gap-1.5 opacity-70">
@@ -421,12 +421,12 @@ export const SelectPanel: React.FC<SelectPanelProps> = ({
         </button>
 
         {showTransformDetails && (
-          <div className="space-y-2.5 pt-1 border-t border-black/5 dark:border-white/5">
+          <div className="space-y-2 pt-1 border-t border-black/5 dark:border-white/5">
             {/* Position Row */}
             <div className="space-y-1">
-              <div className="flex justify-between items-center text-[11px] font-medium">
+              <div className="flex justify-between items-center text-[10px] font-medium">
                 <span className={isLight ? 'text-neutral-700' : 'text-neutral-300'}>Position (m)</span>
-                <span className="text-[10px] opacity-60">Tap to edit</span>
+                <span className="text-[9px] opacity-60">Tap to edit</span>
               </div>
               <div className="grid grid-cols-3 gap-1.5">
                 {[
@@ -438,7 +438,7 @@ export const SelectPanel: React.FC<SelectPanelProps> = ({
                     key={axis}
                     type="button"
                     onClick={() => handleOpenNumpadValue(axis, `Position ${label}`, 'm', -100, 100, 0.1)}
-                    className={`min-h-[44px] px-2 py-1.5 rounded-xl border flex items-center justify-between font-mono text-xs transition-colors ${
+                    className={`h-8 min-h-[32px] px-2 py-1 rounded-lg border flex items-center justify-between font-mono text-xs transition-colors ${
                       isLight
                         ? 'bg-white border-black/10 hover:border-black/30 text-neutral-900'
                         : 'bg-black/30 border-white/10 hover:border-white/30 text-white'
@@ -453,9 +453,9 @@ export const SelectPanel: React.FC<SelectPanelProps> = ({
 
             {/* Rotation Row */}
             <div className="space-y-1 pt-1">
-              <div className="flex justify-between items-center text-[11px] font-medium">
+              <div className="flex justify-between items-center text-[10px] font-medium">
                 <span className={isLight ? 'text-neutral-700' : 'text-neutral-300'}>Rotation (°)</span>
-                <span className="text-[10px] opacity-60">Tap to edit</span>
+                <span className="text-[9px] opacity-60">Tap to edit</span>
               </div>
               <div className="grid grid-cols-3 gap-1.5">
                 {[
@@ -467,7 +467,7 @@ export const SelectPanel: React.FC<SelectPanelProps> = ({
                     key={axis}
                     type="button"
                     onClick={() => handleOpenNumpadValue(axis, `Rotation ${label}`, '°', -360, 360, 15)}
-                    className={`min-h-[44px] px-2 py-1.5 rounded-xl border flex items-center justify-between font-mono text-xs transition-colors ${
+                    className={`h-8 min-h-[32px] px-2 py-1 rounded-lg border flex items-center justify-between font-mono text-xs transition-colors ${
                       isLight
                         ? 'bg-white border-black/10 hover:border-black/30 text-neutral-900'
                         : 'bg-black/30 border-white/10 hover:border-white/30 text-white'
@@ -482,14 +482,14 @@ export const SelectPanel: React.FC<SelectPanelProps> = ({
 
             {/* Scale Row */}
             <div className="space-y-1 pt-1">
-              <div className="flex justify-between items-center text-[11px] font-medium">
+              <div className="flex justify-between items-center text-[10px] font-medium">
                 <span className={isLight ? 'text-neutral-700' : 'text-neutral-300'}>Uniform Scale</span>
-                <span className="text-[10px] opacity-60">Tap to edit</span>
+                <span className="text-[9px] opacity-60">Tap to edit</span>
               </div>
               <button
                 type="button"
                 onClick={() => handleOpenNumpadValue('scale', 'Uniform Scale', '×', 0.05, 20, 0.1)}
-                className={`w-full min-h-[44px] px-3 py-1.5 rounded-xl border flex items-center justify-between font-mono text-xs transition-colors ${
+                className={`w-full h-8 min-h-[32px] px-2.5 py-1 rounded-lg border flex items-center justify-between font-mono text-xs transition-colors ${
                   isLight
                     ? 'bg-white border-black/10 hover:border-black/30 text-neutral-900'
                     : 'bg-black/30 border-white/10 hover:border-white/30 text-white'
@@ -511,7 +511,7 @@ export const SelectPanel: React.FC<SelectPanelProps> = ({
             haptics.trigger('light');
             setShowAdvancedSnapping((prev) => !prev);
           }}
-          className="w-full flex items-center justify-between min-h-[36px] text-left"
+          className="w-full flex items-center justify-between min-h-[28px] py-0.5 text-left"
         >
           <div className={subHeadingClass}>Advanced Snapping</div>
           <div className="flex items-center gap-1.5 opacity-70">
@@ -523,10 +523,10 @@ export const SelectPanel: React.FC<SelectPanelProps> = ({
         </button>
 
         {showAdvancedSnapping && (
-          <div className="space-y-2.5 pt-1 border-t border-black/5 dark:border-white/5">
+          <div className="space-y-2 pt-1 border-t border-black/5 dark:border-white/5">
             {/* Sampling Density */}
             <div className="space-y-1">
-              <div className="flex justify-between items-center text-[11px]">
+              <div className="flex justify-between items-center text-[10px]">
                 <span className="font-semibold text-current">Alignment Detail</span>
                 <span className="font-mono text-[10px] opacity-70">
                   {brushSettings.raycastSampleDensity === 'ultra'
@@ -551,7 +551,7 @@ export const SelectPanel: React.FC<SelectPanelProps> = ({
                         haptics.trigger('light');
                         updateBrushSetting('raycastSampleDensity', lvl.id);
                       }}
-                      className={`min-h-[44px] py-1.5 px-2 rounded-xl border text-center font-medium transition-all text-xs ${
+                      className={`h-8 min-h-[32px] py-1 px-2 rounded-lg border text-center font-medium transition-all text-xs ${
                         isSel
                           ? isLight
                             ? 'bg-neutral-900 border-neutral-900 text-white font-bold shadow-xs'
@@ -570,7 +570,7 @@ export const SelectPanel: React.FC<SelectPanelProps> = ({
 
             {/* Surface Offset Slider */}
             <div className="space-y-1 pt-1">
-              <div className="flex justify-between items-center text-[11px]">
+              <div className="flex justify-between items-center text-[10px]">
                 <span className="font-medium text-current">Surface Offset (Elevation)</span>
                 <span className="font-mono text-[10px] font-semibold">
                   {((brushSettings.surfaceOffset ?? 0.0015) * 1000).toFixed(1)} mm
@@ -590,8 +590,8 @@ export const SelectPanel: React.FC<SelectPanelProps> = ({
             </div>
 
             {/* Toggles */}
-            <div className="space-y-2 pt-1 border-t border-black/5 dark:border-white/5">
-              <label className="flex items-center justify-between min-h-[44px] cursor-pointer">
+            <div className="space-y-1 pt-1 border-t border-black/5 dark:border-white/5">
+              <label className="flex items-center justify-between min-h-[32px] py-0.5 cursor-pointer">
                 <span className="text-[11px] font-medium">Gap & Seam Bridging</span>
                 <input
                   type="checkbox"
@@ -601,7 +601,7 @@ export const SelectPanel: React.FC<SelectPanelProps> = ({
                 />
               </label>
 
-              <label className="flex items-center justify-between min-h-[44px] cursor-pointer">
+              <label className="flex items-center justify-between min-h-[32px] py-0.5 cursor-pointer">
                 <span className="text-[11px] font-medium">Double-Sided Surfaces</span>
                 <input
                   type="checkbox"
@@ -616,7 +616,7 @@ export const SelectPanel: React.FC<SelectPanelProps> = ({
             <button
               type="button"
               onClick={handleManualRecalculate}
-              className={`w-full min-h-[44px] px-3 py-2 rounded-xl border flex items-center justify-center gap-2 font-semibold text-xs transition-all active:scale-98 ${
+              className={`w-full h-8 min-h-[32px] px-2.5 py-1 rounded-lg border flex items-center justify-center gap-1.5 font-semibold text-xs transition-all active:scale-98 ${
                 isLight
                   ? 'bg-white border-black/10 hover:bg-neutral-200/50 text-neutral-800'
                   : 'bg-black/30 border-white/10 hover:bg-white/10 text-neutral-200'
@@ -624,12 +624,12 @@ export const SelectPanel: React.FC<SelectPanelProps> = ({
             >
               {recalcFeedback ? (
                 <>
-                  <Check className="w-4 h-4 text-emerald-500" />
+                  <Check className="w-3.5 h-3.5 text-emerald-500" />
                   <span>{recalcFeedback}</span>
                 </>
               ) : (
                 <>
-                  <RefreshCw className="w-4 h-4" />
+                  <RefreshCw className="w-3.5 h-3.5" />
                   <span>Smooth Surface Normals Now</span>
                 </>
               )}

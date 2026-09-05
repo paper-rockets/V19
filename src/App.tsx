@@ -117,7 +117,7 @@ const ScaffoldingModal = lazy(() =>
 );
 import { haptics } from './utils/haptics';
 import { setGlobalSoundEnabled } from './utils/audio';
-import { TauriBridge } from './core/tauriBridge';
+import { PlatformBridge } from './core/platformBridge';
 import {
   LiquifySettings,
   CustomMirrorConfig,
@@ -796,10 +796,10 @@ export function App() {
     const projectData = engine.exportProjectData(activeModelName || 'Remix 3D Project', layers);
     const jsonStr = JSON.stringify(projectData, null, 2);
     const filename = `${(projectData.name || 'Remix3D_Project').replace(/\s+/g, '_')}_${Date.now()}.remix3d`;
-    await TauriBridge.saveModelFile(filename, jsonStr, [
+    await PlatformBridge.saveModelFile(filename, jsonStr, [
       { name: 'Remix 3D Project', extensions: ['remix3d', 'json'] },
     ]);
-    TauriBridge.triggerHaptic('success');
+    PlatformBridge.triggerHaptic('success');
   }, [engine, layers, activeModelName]);
 
   // Full Project State Load (.remix3d JSON file)
@@ -1011,7 +1011,6 @@ export function App() {
     const { tool: nextTool, patch } = playToolSettings(id);
     setTool(nextTool);
     setBrushSettings((prev) => ({ ...prev, ...patch }));
-    if (id === 'shape') openSheetId('shapes');
   }, []);
 
   const handleResetCamera = () => {
@@ -1259,7 +1258,6 @@ export function App() {
               theme={theme}
             />
           )}
-          <ShapesSheet brushSettings={brushSettings} setBrushSettings={setBrushSettings} theme={theme} />
           <MagicFxSheet brushSettings={brushSettings} setBrushSettings={setBrushSettings} theme={theme} />
           {showPlayStats && <PlayStats theme={theme} />}
           <FirstRunOverlay onOpenToybox={() => setIsToyboxOpen(true)} theme={theme} />
@@ -1917,6 +1915,9 @@ export function App() {
         showStats={showPlayStats}
         onToggleStats={setShowPlayStats}
       />
+
+      {/* Shape Snapping (Auto-Shapes) Sheet accessible from top menu */}
+      <ShapesSheet brushSettings={brushSettings} setBrushSettings={setBrushSettings} theme={theme} />
 
       {/* Auto-Save Status Notification Toast */}
       <AutoSaveToast

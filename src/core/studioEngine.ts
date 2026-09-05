@@ -3865,6 +3865,98 @@ export class StudioEngine {
   }
 
   /**
+   * 2D Translation on the Existing Plane Surface:
+   * Moves targeted plane or selection strictly along its local surface axes
+   * (Up/Down along local Y, Left/Right along local X).
+   */
+  public translateOnPlane(
+    deltaX: number,
+    deltaY: number,
+    scope: TransformTargetScope = 'all'
+  ): void {
+    let right = new THREE.Vector3(1, 0, 0);
+    let up = new THREE.Vector3(0, 1, 0);
+
+    const plane = this.drawingPlaneMesh || (this.modelRoot.getObjectByName('DrawingPlaneCanvas') as THREE.Mesh);
+    if (plane) {
+      const planeQuat = new THREE.Quaternion();
+      plane.getWorldQuaternion(planeQuat);
+      right = new THREE.Vector3(1, 0, 0).applyQuaternion(planeQuat).normalize();
+      up = new THREE.Vector3(0, 1, 0).applyQuaternion(planeQuat).normalize();
+    } else {
+      const forward = this.camera.getWorldDirection(new THREE.Vector3()).normalize();
+      right = new THREE.Vector3().crossVectors(forward, this.camera.up).normalize();
+      up = new THREE.Vector3().crossVectors(right, forward).normalize();
+    }
+
+    const step = 0.08 * this.navigatorSensitivity;
+    const worldDelta = new THREE.Vector3()
+      .addScaledVector(right, deltaX * step)
+      .addScaledVector(up, deltaY * step);
+
+    const transMatrix = new THREE.Matrix4().makeTranslation(worldDelta.x, worldDelta.y, worldDelta.z);
+    this.applyTransformMatrix(transMatrix, scope);
+    this.markDirty();
+  }
+
+  /**
+   * 2D Rotation on the Existing Plane Surface:
+   * Rotates targeted plane or selection around its face normal (in-plane spin).
+   */
+  public rotateOnPlane(
+    deltaAngleRad: number,
+    scope: TransformTargetScope = 'all',
+    isLocked: boolean = false
+  ): void {
+    let angle = deltaAngleRad * this.navigatorSensitivity;
+    if (isLocked) {
+      const step = Math.PI / 12; // 15 degrees
+      angle = Math.round(angle / step) * step;
+      if (Math.abs(angle) < 0.0001) return;
+    }
+
+    const center = this.getSelectionCenter(scope);
+    let normal = new THREE.Vector3(0, 0, 1);
+
+    const plane = this.drawingPlaneMesh || (this.modelRoot.getObjectByName('DrawingPlaneCanvas') as THREE.Mesh);
+    if (plane) {
+      const planeQuat = new THREE.Quaternion();
+      plane.getWorldQuaternion(planeQuat);
+      normal = new THREE.Vector3(0, 0, 1).applyQuaternion(planeQuat).normalize();
+    } else {
+      normal = this.camera.getWorldDirection(new THREE.Vector3()).normalize().negate();
+    }
+
+    const toCenter = new THREE.Matrix4().makeTranslation(-center.x, -center.y, -center.z);
+    const fromCenter = new THREE.Matrix4().makeTranslation(center.x, center.y, center.z);
+    const rotMat = new THREE.Matrix4().makeRotationAxis(normal, angle);
+
+    const finalMat = new THREE.Matrix4()
+      .multiply(fromCenter)
+      .multiply(rotMat)
+      .multiply(toCenter);
+
+    this.applyTransformMatrix(finalMat, scope);
+    this.markDirty();
+  }
+
+  /**
+   * Aligns targeted drawing plane surface directly facing the current camera
+   */
+  public alignSurfaceToCamera(scope: TransformTargetScope = 'all'): void {
+    const camQuat = this.camera.quaternion.clone();
+    const plane = this.drawingPlaneMesh || (this.modelRoot.getObjectByName('DrawingPlaneCanvas') as THREE.Mesh);
+    if (plane) {
+      plane.quaternion.copy(camQuat);
+      plane.updateMatrixWorld(true);
+    } else {
+      this.modelRoot.quaternion.copy(camQuat);
+      this.modelRoot.updateMatrixWorld(true);
+    }
+    this.markDirty();
+  }
+
+  /**
    * Translates targeted objects along a specific 3D axis (wrapper for translateWorldAxis)
    */
   public translateAxis3D(

@@ -139,7 +139,7 @@ export const ProPanel: React.FC<ProPanelProps> = ({
       role="region"
       aria-label={`${title} Panel`}
       data-theme={theme}
-      className={`paperrocket-pro-panel fixed left-[76px] sm:left-[88px] top-1/2 -translate-y-1/2 z-40 w-[290px] sm:w-[300px] max-w-[calc(100vw-6rem)] max-h-[76vh] rounded-2xl border shadow-2xl flex flex-col overflow-hidden select-none animate-in fade-in slide-in-from-left-3 duration-150 ${
+      className={`paperrocket-pro-panel fixed left-[76px] sm:left-[88px] top-1/2 -translate-y-1/2 z-40 w-[290px] sm:w-[300px] max-w-[calc(100vw-6rem)] h-fit max-h-[76vh] rounded-2xl border shadow-2xl flex flex-col overflow-hidden select-none animate-in fade-in slide-in-from-left-3 duration-150 ${
         light
           ? 'bg-[#f7f4ee]/98 border-black/15 text-neutral-800 shadow-[0_20px_50px_rgba(35,28,20,0.14)]'
           : 'bg-[#14161a]/98 border-white/15 text-neutral-200 shadow-[0_24px_70px_rgba(0,0,0,0.6)]'
@@ -147,11 +147,11 @@ export const ProPanel: React.FC<ProPanelProps> = ({
     >
       {/* Header */}
       <div
-        className={`flex items-center justify-between px-4 py-2.5 border-b min-h-[48px] shrink-0 ${
+        className={`flex items-center justify-between px-3 py-1.5 border-b min-h-[34px] shrink-0 ${
           light ? 'border-black/10 bg-black/[0.02]' : 'border-white/10 bg-white/[0.02]'
         }`}
       >
-        <h2 className="text-sm font-bold tracking-tight text-current">{title}</h2>
+        <h2 className="text-xs font-bold uppercase tracking-wider text-current">{title}</h2>
         <StudioCloseButton
           onClick={() => {
             haptics.trigger('light');
@@ -160,11 +160,12 @@ export const ProPanel: React.FC<ProPanelProps> = ({
           ariaLabel={`Close ${title} Panel`}
           title="Close Panel"
           theme={theme}
+          size="sm"
         />
       </div>
 
       {/* Body / Placeholders */}
-      <div className="paperrocket-pro-content flex-1 p-3.5 overflow-y-auto studio-scroll">
+      <div className="paperrocket-pro-content min-h-0 flex-initial p-2.5 overflow-y-auto studio-scroll">
         {mode === 'select' && brushSettings && (
           <SelectPanel
             engine={engine}

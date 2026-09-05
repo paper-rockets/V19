@@ -6,8 +6,6 @@ coverage/
 *.log
 .env*
 !.env.example
-src-tauri/
 target/
-dist-apk/
 crates/**/target/
 .claude/

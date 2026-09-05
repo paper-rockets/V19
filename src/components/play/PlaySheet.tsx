@@ -79,12 +79,7 @@ export const PlaySheet: React.FC<PlaySheetProps> = ({ id, title, children, theme
         transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
       }}
     >
-      {/* Grab handle */}
-      <div className="paperrocket-sheet-grab flex justify-center pt-2.5 pb-1">
-        <div className={`h-1.5 w-12 rounded-full ${isLight ? 'bg-neutral-300' : 'bg-zinc-700'}`} />
-      </div>
-
-      <div className="paperrocket-sheet-header px-5 pb-1 flex items-center justify-between min-h-[44px]">
+      <div className="paperrocket-sheet-header px-5 pt-3.5 pb-1 flex items-center justify-between min-h-[40px]">
         <h2 className="text-sm font-extrabold tracking-tight">{title}</h2>
         <StudioCloseButton onClick={closeSheet} ariaLabel={`Close ${title}`} theme={theme} />
       </div>

@@ -4,7 +4,7 @@ import { Download, Camera, Image, Box, X, Check, Loader2, FolderHeart } from 'lu
 import { ModelStorage } from '../core/modelStorage';
 import { Saved3DModel } from '../types';
 
-import { TauriBridge } from '../core/tauriBridge';
+import { PlatformBridge } from '../core/platformBridge';
 
 interface ExportModalProps {
   engine: StudioEngine | null;
@@ -28,13 +28,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     setExporting('glb');
     try {
       const blob = await engine.exportGLB();
-      const savedPath = await TauriBridge.saveModelFile(
+      const savedPath = await PlatformBridge.saveModelFile(
         `${activeModelName.replace(/\s+/g, '_')}_painted.glb`,
         blob,
         [{ name: 'GLB 3D Model', extensions: ['glb'] }]
       );
       if (savedPath) {
-        TauriBridge.triggerHaptic('success');
+        PlatformBridge.triggerHaptic('success');
         setSuccess('GLB export completed successfully!');
       }
     } catch (e: any) {
@@ -49,13 +49,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     setExporting('obj');
     try {
       const text = engine.exportOBJ();
-      const savedPath = await TauriBridge.saveModelFile(
+      const savedPath = await PlatformBridge.saveModelFile(
         `${activeModelName.replace(/\s+/g, '_')}_painted.obj`,
         text,
         [{ name: 'Wavefront OBJ', extensions: ['obj'] }]
       );
       if (savedPath) {
-        TauriBridge.triggerHaptic('success');
+        PlatformBridge.triggerHaptic('success');
         setSuccess('OBJ export completed successfully!');
       }
     } catch (e: any) {
@@ -72,13 +72,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       const dataUrl = engine.uvEngine.exportPNG();
       const res = await fetch(dataUrl);
       const blob = await res.blob();
-      const savedPath = await TauriBridge.saveModelFile(
+      const savedPath = await PlatformBridge.saveModelFile(
         `${activeModelName.replace(/\s+/g, '_')}_texture_2048.png`,
         blob,
         [{ name: 'PNG Texture Map', extensions: ['png'] }]
       );
       if (savedPath) {
-        TauriBridge.triggerHaptic('success');
+        PlatformBridge.triggerHaptic('success');
         setSuccess('UV Texture map exported successfully!');
       }
     } catch (e: any) {
@@ -95,13 +95,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       const dataUrl = engine.captureSnapshot();
       const res = await fetch(dataUrl);
       const blob = await res.blob();
-      const savedPath = await TauriBridge.saveModelFile(
+      const savedPath = await PlatformBridge.saveModelFile(
         `${activeModelName.replace(/\s+/g, '_')}_studio_render.png`,
         blob,
         [{ name: 'PNG Studio Render', extensions: ['png'] }]
       );
       if (savedPath) {
-        TauriBridge.triggerHaptic('success');
+        PlatformBridge.triggerHaptic('success');
         setSuccess('Studio render snapshot captured!');
       }
     } catch (e: any) {
@@ -139,7 +139,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       };
 
       await ModelStorage.saveModel(savedModel);
-      TauriBridge.triggerHaptic('success');
+      PlatformBridge.triggerHaptic('success');
       setSuccess('Model & Auto Preview saved to your library!');
     } catch (e: any) {
       console.error(e);

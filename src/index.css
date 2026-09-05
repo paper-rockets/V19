@@ -38,6 +38,33 @@ canvas {
   min-width: 44px;
 }
 
+/* Compact top strip on mobile screens (<640px) so all options (Fullscreen, Sessions, etc.) fit comfortably */
+@media (max-width: 639px) {
+  .play-top-strip button,
+  .play-top-strip button:has(> svg:only-child),
+  .play-top-strip button[aria-label]:not(:has(span)) {
+    min-width: 32px !important;
+    min-height: 32px !important;
+    width: 32px !important;
+    height: 32px !important;
+    padding: 0 !important;
+  }
+  .play-top-strip .play-top-strip-left {
+    min-width: auto !important;
+    width: auto !important;
+    height: 32px !important;
+    min-height: 32px !important;
+    padding: 0 6px !important;
+  }
+  .play-top-strip .play-top-strip-mode-btn {
+    min-width: auto !important;
+    width: auto !important;
+    height: 32px !important;
+    min-height: 32px !important;
+    padding: 0 8px !important;
+  }
+}
+
 .paperrocket-ui button:focus-visible,
 .paperrocket-ui input:focus-visible,
 .paperrocket-ui select:focus-visible,
@@ -291,10 +318,10 @@ canvas {
 }
 
 .paperrocket-pro-panel > :first-child {
-  min-height: 40px !important;
-  padding: 0 2px 6px !important;
+  min-height: 34px !important;
+  padding: 4px 10px !important;
   background: transparent !important;
-  border-color: rgb(255 255 255 / 0.12) !important;
+  border-bottom: 1px solid rgb(255 255 255 / 0.08) !important;
 }
 
 .paperrocket-pro-panel > :first-child h2 {
@@ -302,7 +329,7 @@ canvas {
 }
 
 .paperrocket-pro-content {
-  padding: 14px !important;
+  padding: 10px !important;
 }
 
 .paperrocket-pro-content button {
@@ -341,7 +368,10 @@ canvas {
   accent-color: rgb(56 189 248);
 }
 
-.paperrocket-pro-panel[data-theme="light"] > :first-child,
+.paperrocket-pro-panel[data-theme="light"] > :first-child {
+  border-bottom: 1px solid rgb(17 24 39 / 0.08) !important;
+}
+
 .paperrocket-pro-panel[data-theme="light"] .paperrocket-pro-content > div > div {
   border-color: rgb(17 24 39 / 0.14) !important;
 }
@@ -354,6 +384,7 @@ canvas {
 @media (min-width: 640px) {
   .paperrocket-pro-panel {
     width: 290px !important;
+    height: auto !important;
     max-height: 76vh !important;
   }
 }
@@ -368,12 +399,13 @@ canvas {
   .paperrocket-context-panel {
     left: 60px !important;
     top: 68px !important;
-    bottom: max(8px, env(safe-area-inset-bottom)) !important;
+    bottom: auto !important;
     transform: none !important;
     translate: none !important;
     width: min(280px, calc(100vw - 72px)) !important;
     max-width: calc(100vw - 72px) !important;
-    max-height: none !important;
+    height: auto !important;
+    max-height: calc(100dvh - 76px - max(8px, env(safe-area-inset-bottom))) !important;
   }
 }
 

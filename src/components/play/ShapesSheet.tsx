@@ -24,12 +24,12 @@ interface ShapesSheetProps {
 }
 
 const STRICTNESS: { id: string; label: string; hint: string; tol: number }[] = [
-  { id: 'loose', label: 'Eager', hint: 'Tidies almost anything', tol: 0.42 },
-  { id: 'normal', label: 'Normal', hint: 'A good middle', tol: 0.28 },
-  { id: 'strict', label: 'Fussy', hint: 'Only when you were close', tol: 0.14 },
+  { id: 'loose', label: 'High', hint: 'Snaps easily', tol: 0.42 },
+  { id: 'normal', label: 'Medium', hint: 'Balanced', tol: 0.28 },
+  { id: 'strict', label: 'Low', hint: 'Only when exact', tol: 0.14 },
 ];
 
-const RECOGNISES = ['Straight line', 'Circle', 'Oval', 'Arc', 'Triangle', 'Square', 'Polygon'];
+const RECOGNISES = ['Lines', 'Circles', 'Ovals', 'Arcs', 'Triangles', 'Squares', 'Polygons'];
 
 export const ShapesSheet: React.FC<ShapesSheetProps> = ({
   brushSettings,
@@ -70,15 +70,15 @@ export const ShapesSheet: React.FC<ShapesSheetProps> = ({
   );
 
   return (
-    <PlaySheet id="shapes" title="Shape" theme={theme} tall>
+    <PlaySheet id="shapes" title="Shape Snapping" theme={theme} tall>
       <div className={`flex items-center gap-3 py-3 border-b ${isLight ? 'border-neutral-200' : 'border-neutral-800'}`}>
         <div className="flex-1">
-          <div className="text-sm font-bold">Tidy up my shapes</div>
-          <div className="text-[11px] opacity-60">Wobbly circles become circles</div>
+          <div className="text-sm font-bold">Auto-detect shapes</div>
+          <div className="text-[11px] opacity-60">Turns rough sketches into clean circles, squares, and lines</div>
         </div>
         <Toggle
           on={snapOn}
-          label="Tidy up my shapes"
+          label="Auto-detect shapes"
           onChange={() => setBrushSettings((p) => ({ ...p, shapeSnapping: !snapOn }))}
         />
       </div>
@@ -86,7 +86,7 @@ export const ShapesSheet: React.FC<ShapesSheetProps> = ({
       <div className={`flex items-center gap-3 py-3 border-b ${isLight ? 'border-neutral-200' : 'border-neutral-800'}`}>
         <div className="flex-1">
           <div className="text-sm font-bold">Straight lines only</div>
-          <div className="text-[11px] opacity-60">Every stroke snaps to a ruler</div>
+          <div className="text-[11px] opacity-60">Forces every stroke to be straight</div>
         </div>
         <Toggle
           on={straightOnly}
@@ -96,7 +96,7 @@ export const ShapesSheet: React.FC<ShapesSheetProps> = ({
       </div>
 
       <div className="py-3">
-        <div className="text-sm font-bold">How keen is it?</div>
+        <div className="text-sm font-bold">Sensitivity</div>
         <div className="mt-2 grid grid-cols-3 gap-2">
           {STRICTNESS.map((s) => {
             const active = s.id === activeStrictness.id;
@@ -122,7 +122,7 @@ export const ShapesSheet: React.FC<ShapesSheetProps> = ({
       </div>
 
       <div className="pb-1">
-        <div className="text-[11px] font-bold opacity-60 mb-1.5">It can tidy these</div>
+        <div className="text-[11px] font-bold opacity-60 mb-1.5">Supported shapes</div>
         <div className="flex flex-wrap gap-1.5">
           {RECOGNISES.map((r) => (
             <span key={r} className={`px-2.5 py-1 rounded-lg text-[11px] border ${soft}`}>

@@ -316,7 +316,7 @@ export const PlaySettingsSheet: React.FC<PlaySettingsSheetProps> = ({
         </Row>
       )}
 
-      {showMore && onSensitivityChange && (
+      {onSensitivityChange && (
         <Row icon={Compass} label="Navigator Sensitivity" hint={`Speed and responsiveness (${navigatorSensitivity.toFixed(2)}x)`} isLight={isLight}>
           <div className="flex flex-col gap-1.5 w-40">
             <div className="flex items-center gap-1">
@@ -355,7 +355,7 @@ export const PlaySettingsSheet: React.FC<PlaySettingsSheetProps> = ({
         </Row>
       )}
 
-      {showMore && onToggleProjection && (
+      {onToggleProjection && (
         <Row icon={Box} label="Camera Projection" hint="3D perspective depth vs isometric flat view" isLight={isLight}>
           <div className="flex gap-1 w-40">
             <button
@@ -390,29 +390,24 @@ export const PlaySettingsSheet: React.FC<PlaySettingsSheetProps> = ({
         <Toggle on={fingerDraw} onChange={onToggleFingerDraw} label="Touch Input Drawing" isLight={isLight} />
       </Row>
 
-      {showMore && onToggleDisableContextMenu && (
+      {onToggleDisableContextMenu && (
         <Row icon={Compass} label="Radial Quick Menu" hint="Stylus hover or tap shortcut ring" isLight={isLight}>
           <Toggle on={!disableContextMenu} onChange={() => onToggleDisableContextMenu()} label="Radial Quick Menu" isLight={isLight} />
         </Row>
       )}
 
-      {showMore && (
-        <Row icon={Volume2} label="Tactile Sound" hint="Auditory clicks and vibration feedback" isLight={isLight}>
-          <Toggle on={effectiveSound} onChange={handleToggleSoundFeedback} label="Tactile Sound" isLight={isLight} />
-        </Row>
-      )}
+      <Row icon={Volume2} label="Tactile Sound" hint="Auditory clicks and vibration feedback" isLight={isLight}>
+        <Toggle on={effectiveSound} onChange={handleToggleSoundFeedback} label="Tactile Sound" isLight={isLight} />
+      </Row>
 
-      {showMore && onToggleNavigator && (
+      {onToggleNavigator && (
         <Row icon={Compass} label="Spatial Navigator" hint="Corner rotation and positioning controller" isLight={isLight}>
           <Toggle on={showNavigator} onChange={onToggleNavigator} label="Spatial Navigator" isLight={isLight} />
         </Row>
       )}
 
-
-
-
       {/* 2. SCENE */}
-      {showMore && <SectionHeader title="Scene" isLight={isLight} />}
+      <SectionHeader title="Scene" isLight={isLight} />
 
       {onToggleGrid && (
         <Row icon={Grid} label="Ground Grid" hint="Display reference 3D ground plane grid" isLight={isLight}>
@@ -420,6 +415,7 @@ export const PlaySettingsSheet: React.FC<PlaySettingsSheetProps> = ({
         </Row>
       )}
 
+      {/* Accordion toggle: More settings / Fewer settings */}
       <button
         type="button"
         onClick={() => {
@@ -436,183 +432,186 @@ export const PlaySettingsSheet: React.FC<PlaySettingsSheetProps> = ({
         <span className="text-xs text-neutral-400">{showMore ? 'Hide details' : 'Scene, export, storage & Pro'}</span>
       </button>
 
-      {showMore && onTogglePlane && (
-        <Row icon={Layers} label="Drawing Plane" hint="Surface alignment plane for drawing strokes" isLight={isLight}>
-          <Toggle on={showPlane} onChange={() => onTogglePlane()} label="Drawing Plane" isLight={isLight} />
-        </Row>
-      )}
-
-      {onOpenIllumination && (
-        <Row icon={Sun} label="Studio Lighting" hint="Scene illumination, soft shadows, and studio presets" isLight={isLight}>
-          <button type="button" onClick={onOpenIllumination} className={actionBtn}>
-            <Sun className="w-4 h-4 text-amber-400" />
-            <span>Studio Illumination</span>
-          </button>
-        </Row>
-      )}
-
-      {showMore && onOpenSkyEnvironment && (
-        <Row icon={Sun} label="Skybox" hint="Atmosphere and background environment lighting" isLight={isLight}>
-          <button type="button" onClick={onOpenSkyEnvironment} className={actionBtn}>
-            <Sun className="w-4 h-4" />
-            <span>Configure Skybox</span>
-          </button>
-        </Row>
-      )}
-
-      {showMore && onOpenRenderSettings && (
-        <Row icon={Sparkles} label="Picture Quality" hint="Visual fidelity, glow, and viewport rendering" isLight={isLight}>
-          <button type="button" onClick={onOpenRenderSettings} className={actionBtn}>
-            <Sparkles className="w-4 h-4" />
-            <span>Picture Quality</span>
-          </button>
-        </Row>
-      )}
-
+      {/* Advanced Settings Block (Contiguous, revealed directly beneath the toggle) */}
       {showMore && (
-        <Row icon={Box} label="Model Appearance" hint="Keep imported textures or use neutral studio clay" isLight={isLight}>
-          <div className="flex gap-1 w-40">
-            <button type="button" onClick={() => onSetModelDisplayMode('texture')} className={pill(modelDisplayMode === 'texture')}>Texture</button>
-            <button type="button" onClick={() => onSetModelDisplayMode('clay')} className={pill(modelDisplayMode === 'clay')}>White Clay</button>
-          </div>
-        </Row>
-      )}
-
-      {/* 3. SHARE & EXPORT */}
-      {showMore && <SectionHeader title="Share & Export" isLight={isLight} />}
-
-      {showMore && onOpenSessions && (
-        <Row icon={FolderArchive} label="Project Sessions" hint="Save and switch between editable sessions with undo history" isLight={isLight}>
-          <button type="button" onClick={onOpenSessions} className={actionBtn}>
-            <FolderArchive className="w-4 h-4" />
-            <span>Manage Sessions</span>
-          </button>
-        </Row>
-      )}
-
-      {showMore && onOpenExport && (
-        <Row icon={Download} label="Export 3D Artwork" hint="Save model as GLB, OBJ, STL, or image capture" isLight={isLight}>
-          <button type="button" onClick={onOpenExport} className={actionBtn}>
-            <Download className="w-4 h-4" />
-            <span>Export</span>
-          </button>
-        </Row>
-      )}
-
-      {showMore && onOpenARViewer && (
-        <Row icon={Glasses} label="View in AR" hint="Experience model in real space with augmented reality" isLight={isLight}>
-          <button type="button" onClick={onOpenARViewer} className={actionBtn}>
-            <Glasses className="w-4 h-4" />
-            <span>View in AR</span>
-          </button>
-        </Row>
-      )}
-
-      {/* 4. REFERENCE IMAGES */}
-      {showMore && onOpenClipboard && (
         <>
-          <SectionHeader title="Reference Images" isLight={isLight} />
-          <Row icon={Image} label="Reference Images" hint="Pin 2D concept art and blueprint photos on screen" isLight={isLight}>
-            <button type="button" onClick={onOpenClipboard} className={actionBtn}>
-              <Image className="w-4 h-4" />
-              <span>Reference Images</span>
-            </button>
+          {onTogglePlane && (
+            <Row icon={Layers} label="Drawing Plane" hint="Surface alignment plane for drawing strokes" isLight={isLight}>
+              <Toggle on={showPlane} onChange={() => onTogglePlane()} label="Drawing Plane" isLight={isLight} />
+            </Row>
+          )}
+
+          {onOpenIllumination && (
+            <Row icon={Sun} label="Studio Lighting" hint="Scene illumination, soft shadows, and studio presets" isLight={isLight}>
+              <button type="button" onClick={onOpenIllumination} className={actionBtn}>
+                <Sun className="w-4 h-4 text-amber-400" />
+                <span>Studio Illumination</span>
+              </button>
+            </Row>
+          )}
+
+          {onOpenSkyEnvironment && (
+            <Row icon={Sun} label="Skybox" hint="Atmosphere and background environment lighting" isLight={isLight}>
+              <button type="button" onClick={onOpenSkyEnvironment} className={actionBtn}>
+                <Sun className="w-4 h-4" />
+                <span>Configure Skybox</span>
+              </button>
+            </Row>
+          )}
+
+          {onOpenRenderSettings && (
+            <Row icon={Sparkles} label="Picture Quality" hint="Visual fidelity, glow, and viewport rendering" isLight={isLight}>
+              <button type="button" onClick={onOpenRenderSettings} className={actionBtn}>
+                <Sparkles className="w-4 h-4" />
+                <span>Picture Quality</span>
+              </button>
+            </Row>
+          )}
+
+          <Row icon={Box} label="Model Appearance" hint="Keep imported textures or use neutral studio clay" isLight={isLight}>
+            <div className="flex gap-1 w-40">
+              <button type="button" onClick={() => onSetModelDisplayMode('texture')} className={pill(modelDisplayMode === 'texture')}>Texture</button>
+              <button type="button" onClick={() => onSetModelDisplayMode('clay')} className={pill(modelDisplayMode === 'clay')}>White Clay</button>
+            </div>
+          </Row>
+
+          {/* 3. SHARE & EXPORT */}
+          <SectionHeader title="Share & Export" isLight={isLight} />
+
+          {onOpenSessions && (
+            <Row icon={FolderArchive} label="Project Sessions" hint="Save and switch between editable sessions with undo history" isLight={isLight}>
+              <button type="button" onClick={onOpenSessions} className={actionBtn}>
+                <FolderArchive className="w-4 h-4" />
+                <span>Manage Sessions</span>
+              </button>
+            </Row>
+          )}
+
+          {onOpenExport && (
+            <Row icon={Download} label="Export 3D Artwork" hint="Save model as GLB, OBJ, STL, or image capture" isLight={isLight}>
+              <button type="button" onClick={onOpenExport} className={actionBtn}>
+                <Download className="w-4 h-4" />
+                <span>Export</span>
+              </button>
+            </Row>
+          )}
+
+          {onOpenARViewer && (
+            <Row icon={Glasses} label="View in AR" hint="Experience model in real space with augmented reality" isLight={isLight}>
+              <button type="button" onClick={onOpenARViewer} className={actionBtn}>
+                <Glasses className="w-4 h-4" />
+                <span>View in AR</span>
+              </button>
+            </Row>
+          )}
+
+          {/* 4. REFERENCE IMAGES */}
+          {onOpenClipboard && (
+            <>
+              <SectionHeader title="Reference Images" isLight={isLight} />
+              <Row icon={Image} label="Reference Images" hint="Pin 2D concept art and blueprint photos on screen" isLight={isLight}>
+                <button type="button" onClick={onOpenClipboard} className={actionBtn}>
+                  <Image className="w-4 h-4" />
+                  <span>Reference Images</span>
+                </button>
+              </Row>
+            </>
+          )}
+
+          {/* 5. STORAGE & DIAGNOSTICS */}
+          <SectionHeader title="Storage & Diagnostics" isLight={isLight} />
+
+          <Row
+            icon={HardDrive}
+            label="Storage & Autosave"
+            hint={
+              isStoragePersistent
+                ? `Protected against eviction • ${storageEstimate?.formattedUsage || '0 MB'} used`
+                : `Standard browser storage • ${storageEstimate?.formattedUsage || '0 MB'} used`
+            }
+            isLight={isLight}
+          >
+            <div className="flex items-center gap-2">
+              {isStoragePersistent ? (
+                <div
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border ${
+                    isLight
+                      ? 'bg-neutral-100 border-neutral-300 text-neutral-800'
+                      : 'bg-white/10 border-white/20 text-white'
+                  }`}
+                  title="Browser storage permission granted: protected against automatic cache eviction"
+                >
+                  <ShieldCheck className="w-4 h-4 text-current" />
+                  <span>Protected</span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (onRequestStoragePermission) {
+                      await onRequestStoragePermission();
+                      haptics.trigger('success');
+                    }
+                  }}
+                  className={`min-h-[44px] flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all active:scale-95 cursor-pointer ${
+                    isLight
+                      ? 'bg-neutral-900 border-neutral-900 text-white hover:bg-neutral-800'
+                      : 'bg-white border-white text-zinc-950 hover:bg-neutral-200'
+                  }`}
+                  title="Request browser storage permission so projects are protected from browser cache clearance"
+                >
+                  <Shield className="w-4 h-4 text-current" />
+                  <span>Protect Storage</span>
+                </button>
+              )}
+
+              {autoSaveMeta?.exists && onRestoreAutoSave && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onRestoreAutoSave();
+                    haptics.trigger('success');
+                  }}
+                  className={`min-h-[44px] flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all active:scale-95 cursor-pointer ${
+                    isLight
+                      ? 'bg-neutral-100 hover:bg-neutral-200 border-neutral-300 text-neutral-800'
+                      : 'bg-neutral-800 hover:bg-neutral-700 border-neutral-700 text-neutral-200'
+                  }`}
+                  title={`Restore session from ${autoSaveMeta.formattedDate || 'autosave'}`}
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-current" />
+                  <span>Restore</span>
+                </button>
+              )}
+            </div>
+          </Row>
+
+          {onToggleStats && (
+            <Row icon={Gauge} label="Performance Diagnostics" hint="Display real-time frame rate & engine latency" isLight={isLight}>
+              <Toggle on={showStats} onChange={onToggleStats} label="Performance Diagnostics" isLight={isLight} />
+            </Row>
+          )}
+
+          {/* 6. INTERFACE MODE */}
+          <SectionHeader title="Interface Mode" isLight={isLight} />
+          <Row
+            icon={Wrench}
+            label="Pro Mode Interface"
+            hint="Switch to five-mode professional 3D studio workbench"
+            isLight={isLight}
+          >
+            <Toggle
+              on={uiMode === 'pro'}
+              onChange={(v) => {
+                haptics.trigger('mode-switch');
+                setUiMode(v ? 'pro' : 'play');
+              }}
+              label="Pro Mode Interface"
+              isLight={isLight}
+            />
           </Row>
         </>
       )}
-
-      {/* 5. STORAGE & DIAGNOSTICS */}
-      {showMore && <SectionHeader title="Storage & Diagnostics" isLight={isLight} />}
-
-      {showMore && <Row
-        icon={HardDrive}
-        label="Storage & Autosave"
-        hint={
-          isStoragePersistent
-            ? `Protected against eviction • ${storageEstimate?.formattedUsage || '0 MB'} used`
-            : `Standard browser storage • ${storageEstimate?.formattedUsage || '0 MB'} used`
-        }
-        isLight={isLight}
-      >
-        <div className="flex items-center gap-2">
-          {isStoragePersistent ? (
-            <div
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border ${
-                isLight
-                  ? 'bg-neutral-100 border-neutral-300 text-neutral-800'
-                  : 'bg-white/10 border-white/20 text-white'
-              }`}
-              title="Browser storage permission granted: protected against automatic cache eviction"
-            >
-              <ShieldCheck className="w-4 h-4 text-current" />
-              <span>Protected</span>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={async () => {
-                if (onRequestStoragePermission) {
-                  await onRequestStoragePermission();
-                  haptics.trigger('success');
-                }
-              }}
-              className={`min-h-[44px] flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all active:scale-95 cursor-pointer ${
-                isLight
-                  ? 'bg-neutral-900 border-neutral-900 text-white hover:bg-neutral-800'
-                  : 'bg-white border-white text-zinc-950 hover:bg-neutral-200'
-              }`}
-              title="Request browser storage permission so projects are protected from browser cache clearance"
-            >
-              <Shield className="w-4 h-4 text-current" />
-              <span>Protect Storage</span>
-            </button>
-          )}
-
-          {autoSaveMeta?.exists && onRestoreAutoSave && (
-            <button
-              type="button"
-              onClick={() => {
-                onRestoreAutoSave();
-                haptics.trigger('success');
-              }}
-              className={`min-h-[44px] flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all active:scale-95 cursor-pointer ${
-                isLight
-                  ? 'bg-neutral-100 hover:bg-neutral-200 border-neutral-300 text-neutral-800'
-                  : 'bg-neutral-800 hover:bg-neutral-700 border-neutral-700 text-neutral-200'
-              }`}
-              title={`Restore session from ${autoSaveMeta.formattedDate || 'autosave'}`}
-            >
-              <RotateCcw className="w-3.5 h-3.5 text-current" />
-              <span>Restore</span>
-            </button>
-          )}
-        </div>
-      </Row>}
-
-      {showMore && onToggleStats && (
-        <Row icon={Gauge} label="Performance Diagnostics" hint="Display real-time frame rate & engine latency" isLight={isLight}>
-          <Toggle on={showStats} onChange={onToggleStats} label="Performance Diagnostics" isLight={isLight} />
-        </Row>
-      )}
-
-      {/* 6. INTERFACE MODE */}
-      {showMore && <SectionHeader title="Interface Mode" isLight={isLight} />}
-      {showMore && <Row
-        icon={Wrench}
-        label="Pro Mode Interface"
-        hint="Switch to five-mode professional 3D studio workbench"
-        isLight={isLight}
-      >
-        <Toggle
-          on={uiMode === 'pro'}
-          onChange={(v) => {
-            haptics.trigger('mode-switch');
-            setUiMode(v ? 'pro' : 'play');
-          }}
-          label="Pro Mode Interface"
-          isLight={isLight}
-        />
-      </Row>}
 
       </div>
     </PlaySheet>

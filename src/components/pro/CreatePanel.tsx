@@ -85,15 +85,15 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({
   };
 
   const cardClass = isLight
-    ? 'p-3 rounded-2xl bg-neutral-100/50 border border-black/5 space-y-2.5'
-    : 'p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] space-y-2.5';
+    ? 'p-2.5 rounded-xl bg-neutral-100/50 border border-black/5 space-y-1.5'
+    : 'p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] space-y-1.5';
 
-  const subHeadingClass = `text-[11px] font-bold uppercase tracking-wider ${
+  const subHeadingClass = `text-[10px] font-bold uppercase tracking-wider ${
     isLight ? 'text-neutral-500' : 'text-neutral-400'
   }`;
 
   return (
-    <div className="space-y-4 text-xs select-none">
+    <div className="space-y-2 text-xs select-none">
       {/* 1. 3D SHAPES / PRIMITIVES */}
       <div className={cardClass}>
         <div className="flex items-center justify-between">
@@ -104,7 +104,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({
             </span>
           )}
         </div>
-        <div className="grid grid-cols-4 gap-1.5">
+        <div className="grid grid-cols-4 gap-1">
           {PRIMITIVES.map((p) => {
             const Icon = p.icon;
             return (
@@ -112,15 +112,15 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({
                 key={p.id}
                 type="button"
                 onClick={() => handleSpawn(p)}
-                className={`min-h-[48px] p-1.5 rounded-xl border flex flex-col items-center justify-center gap-1 transition-all active:scale-95 ${
+                className={`h-10 min-h-[38px] p-1 rounded-lg border flex flex-col items-center justify-center gap-0.5 transition-all active:scale-95 ${
                   isLight
                     ? 'bg-white border-black/10 hover:bg-neutral-200/50 text-neutral-800'
                     : 'bg-black/30 border-white/10 hover:bg-white/10 text-neutral-200'
                 }`}
                 title={`Spawn ${p.name}`}
               >
-                <Icon className="w-4 h-4" />
-                <span className="text-[10px] font-medium leading-none">{p.name}</span>
+                <Icon className="w-3.5 h-3.5" />
+                <span className="text-[9.5px] font-medium leading-none">{p.name}</span>
               </button>
             );
           })}
@@ -131,7 +131,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({
       <div className={cardClass}>
         <div className={subHeadingClass}>3D Models</div>
 
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {/* Open Model Library Button */}
           <button
             type="button"
@@ -139,14 +139,14 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({
               haptics.trigger('light');
               onOpenModelLibrary();
             }}
-            className={`w-full min-h-[44px] px-3 py-2 rounded-xl border flex items-center justify-between font-medium transition-all ${
+            className={`w-full h-8 min-h-[32px] px-2.5 py-1 rounded-lg border flex items-center justify-between font-medium transition-all ${
               isLight
                 ? 'bg-neutral-900 border-neutral-900 text-white shadow-xs'
                 : 'bg-white border-white text-neutral-950 font-bold shadow-xs'
             }`}
           >
-            <div className="flex items-center gap-2">
-              <FolderOpen className="w-4 h-4" />
+            <div className="flex items-center gap-1.5">
+              <FolderOpen className="w-3.5 h-3.5" />
               <span>Browse Model Library</span>
             </div>
             <span className="text-[10px] opacity-75 truncate max-w-[100px]">{activeModelName}</span>
@@ -159,14 +159,14 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({
               haptics.trigger('light');
               onOpenImporter();
             }}
-            className={`w-full min-h-[44px] px-3 py-2 rounded-xl border flex items-center justify-between font-medium transition-all ${
+            className={`w-full h-8 min-h-[32px] px-2.5 py-1 rounded-lg border flex items-center justify-between font-medium transition-all ${
               isLight
                 ? 'bg-white border-black/10 hover:bg-neutral-200/50 text-neutral-800'
                 : 'bg-black/30 border-white/10 hover:bg-white/10 text-neutral-200'
             }`}
           >
-            <div className="flex items-center gap-2">
-              <Upload className="w-4 h-4" />
+            <div className="flex items-center gap-1.5">
+              <Upload className="w-3.5 h-3.5" />
               <span>Import 3D Model File</span>
             </div>
             <span className="text-[10px] opacity-60 font-mono">GLB, OBJ, STL</span>
@@ -187,7 +187,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({
               onSetModelDisplayMode('texture');
               engine?.setModelDisplayMode('texture');
             }}
-            className={`min-h-[44px] px-3 py-2 rounded-xl border flex items-center justify-center gap-2 font-medium transition-all ${
+            className={`h-8 min-h-[32px] px-2.5 py-1 rounded-lg border flex items-center justify-center gap-1.5 font-medium transition-all ${
               modelDisplayMode === 'texture'
                 ? isLight
                   ? 'bg-neutral-900 border-neutral-900 text-white font-bold shadow-xs'
@@ -197,7 +197,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({
                 : 'bg-black/30 border-white/10 text-neutral-300 hover:bg-white/5'
             }`}
           >
-            <Palette className="w-4 h-4" />
+            <Palette className="w-3.5 h-3.5" />
             <span>Full Texture</span>
           </button>
 
@@ -208,7 +208,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({
               onSetModelDisplayMode('clay');
               engine?.setModelDisplayMode('clay');
             }}
-            className={`min-h-[44px] px-3 py-2 rounded-xl border flex items-center justify-center gap-2 font-medium transition-all ${
+            className={`h-8 min-h-[32px] px-2.5 py-1 rounded-lg border flex items-center justify-center gap-1.5 font-medium transition-all ${
               modelDisplayMode === 'clay'
                 ? isLight
                   ? 'bg-neutral-900 border-neutral-900 text-white font-bold shadow-xs'
@@ -218,7 +218,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({
                 : 'bg-black/30 border-white/10 text-neutral-300 hover:bg-white/5'
             }`}
           >
-            <Sparkles className="w-4 h-4" />
+            <Sparkles className="w-3.5 h-3.5" />
             <span>White Clay</span>
           </button>
         </div>
@@ -232,7 +232,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({
             haptics.trigger('light');
             setShowFineGeometry((prev) => !prev);
           }}
-          className="w-full flex items-center justify-between min-h-[36px] text-left"
+          className="w-full flex items-center justify-between min-h-[28px] py-0.5 text-left"
         >
           <div className={subHeadingClass}>Fine Geometry & Display</div>
           <div className="flex items-center gap-1.5 opacity-70">
@@ -244,10 +244,10 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({
         </button>
 
         {showFineGeometry && (
-          <div className="space-y-3 pt-1 border-t border-black/5 dark:border-white/5">
+          <div className="space-y-2 pt-1 border-t border-black/5 dark:border-white/5">
             {/* Model Opacity Slider */}
             <div className="space-y-1">
-              <div className="flex justify-between items-center text-[11px]">
+              <div className="flex justify-between items-center text-[10px]">
                 <span className="font-medium text-current">Model Opacity</span>
                 <span className="font-mono text-[10px] font-bold">
                   {Math.round(modelOpacity * 100)}%
@@ -268,7 +268,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({
 
             {/* Wireframe Overlay Slider */}
             <div className="space-y-1">
-              <div className="flex justify-between items-center text-[11px]">
+              <div className="flex justify-between items-center text-[10px]">
                 <span className="font-medium text-current">Wireframe Overlay</span>
                 <span className="font-mono text-[10px] font-bold">
                   {Math.round(wireframeOpacity * 100)}%
@@ -294,13 +294,13 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({
                 haptics.trigger('light');
                 engine?.centerModelToOrigin();
               }}
-              className={`w-full min-h-[44px] px-3 py-2 rounded-xl border flex items-center justify-center gap-2 font-medium text-xs transition-all active:scale-98 ${
+              className={`w-full h-8 min-h-[32px] px-2.5 py-1 rounded-lg border flex items-center justify-center gap-1.5 font-medium text-xs transition-all active:scale-98 ${
                 isLight
                   ? 'bg-white border-black/10 hover:bg-neutral-200/50 text-neutral-800'
                   : 'bg-black/30 border-white/10 hover:bg-white/10 text-neutral-200'
               }`}
             >
-              <Crosshair className="w-4 h-4" />
+              <Crosshair className="w-3.5 h-3.5" />
               <span>Center Model to Origin</span>
             </button>
           </div>

@@ -10,6 +10,7 @@ import {
   IcSave as Save,
   IcSessions as FolderArchive,
 } from '../pro/StudioIcons';
+import { Square } from 'lucide-react';
 import { toggleSheet } from './sheetStore';
 
 interface PlayTopStripProps {
@@ -42,7 +43,7 @@ export const PlayTopStrip: React.FC<PlayTopStripProps> = ({
   onOpenSessions,
 }) => {
   const ink = theme === 'light' ? 'text-neutral-800' : 'text-white/90';
-  const button = `pointer-events-auto !min-w-[34px] w-9 h-9 sm:w-11 sm:h-11 grid place-items-center rounded-xl transition-colors hover:bg-current/[0.045] active:bg-current/[0.075] ${ink}`;
+  const button = `pointer-events-auto min-w-[30px] w-8 h-8 sm:w-10 sm:h-10 sm:min-w-[40px] grid place-items-center rounded-lg sm:rounded-xl transition-colors hover:bg-current/[0.045] active:bg-current/[0.075] ${ink}`;
 
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -80,19 +81,19 @@ export const PlayTopStrip: React.FC<PlayTopStripProps> = ({
   }, []);
 
   return (
-    <header className="fixed inset-x-0 top-0 z-30 flex h-16 items-center justify-between px-2 sm:px-5 pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pointer-events-none select-none">
+    <header className="play-top-strip fixed inset-x-0 top-0 z-30 flex h-14 sm:h-16 items-center justify-between px-1.5 sm:px-5 pl-[max(0.375rem,env(safe-area-inset-left))] pr-[max(0.375rem,env(safe-area-inset-right))] pointer-events-none select-none">
       <button
         type="button"
         onClick={onOpenToybox}
-        className={`${button} w-auto shrink-0 px-2 gap-1.5 sm:gap-2 flex`}
+        className={`${button} play-top-strip-left w-auto shrink-0 px-1.5 sm:px-2 gap-1 sm:gap-2 flex`}
         aria-label="Open model library"
       >
-        <Box className="w-5 h-5 sm:w-[22px] sm:h-[22px] shrink-0" strokeWidth={1.35} />
-        <span className="text-xs sm:text-[13px] font-medium tracking-[0.01em] max-w-28 sm:max-w-36 truncate">
+        <Box className="w-4 h-4 sm:w-[22px] sm:h-[22px] shrink-0" strokeWidth={1.35} />
+        <span className="text-[11px] sm:text-[13px] font-medium tracking-[0.01em] max-w-16 sm:max-w-36 truncate">
           {projectName || 'Model'}
         </span>
       </button>
-      <nav className="flex items-center gap-1 sm:gap-1.5 pointer-events-auto shrink-0" aria-label="History and settings">
+      <nav className="flex items-center gap-0.5 sm:gap-1.5 pointer-events-auto shrink-0 max-w-[calc(100vw-68px)] overflow-x-auto no-scrollbar py-0.5" aria-label="History and settings">
         <button
           type="button"
           onClick={onUndo}
@@ -100,7 +101,7 @@ export const PlayTopStrip: React.FC<PlayTopStripProps> = ({
           className={`${button} disabled:opacity-25`}
           aria-label="Undo"
         >
-          <Undo2 className="w-[21px] h-[21px]" strokeWidth={1.35} />
+          <Undo2 className="w-[18px] h-[18px] sm:w-[21px] sm:h-[21px]" strokeWidth={1.35} />
         </button>
         <button
           type="button"
@@ -109,7 +110,7 @@ export const PlayTopStrip: React.FC<PlayTopStripProps> = ({
           className={`${button} disabled:opacity-25`}
           aria-label="Redo"
         >
-          <Redo2 className="w-[21px] h-[21px]" strokeWidth={1.35} />
+          <Redo2 className="w-[18px] h-[18px] sm:w-[21px] sm:h-[21px]" strokeWidth={1.35} />
         </button>
         {onQuickSave && (
           <button
@@ -119,18 +120,18 @@ export const PlayTopStrip: React.FC<PlayTopStripProps> = ({
             aria-label="Quick Save Session (Ctrl+S)"
             title="Quick Save Session (Ctrl+S)"
           >
-            <Save className="w-[20px] h-[20px]" strokeWidth={1.35} />
+            <Save className="w-[18px] h-[18px] sm:w-[20px] sm:h-[20px]" strokeWidth={1.35} />
           </button>
         )}
         {onOpenSessions && (
           <button
             type="button"
             onClick={onOpenSessions}
-            className={`${button} hidden sm:grid`}
+            className={button}
             aria-label="Project Sessions"
             title="Project Sessions"
           >
-            <FolderArchive className="w-[20px] h-[20px]" strokeWidth={1.35} />
+            <FolderArchive className="w-[18px] h-[18px] sm:w-[20px] sm:h-[20px]" strokeWidth={1.35} />
           </button>
         )}
         {onOpenIllumination && (
@@ -141,9 +142,18 @@ export const PlayTopStrip: React.FC<PlayTopStripProps> = ({
             aria-label="Studio Illumination"
             title="Studio Illumination"
           >
-            <Sun className="w-[21px] h-[21px]" strokeWidth={1.35} />
+            <Sun className="w-[18px] h-[18px] sm:w-[21px] sm:h-[21px]" strokeWidth={1.35} />
           </button>
         )}
+        <button
+          type="button"
+          onClick={() => toggleSheet('shapes')}
+          className={button}
+          aria-label="Shape Snapping"
+          title="Shape Snapping (Auto-Shapes)"
+        >
+          <Square className="w-[17px] h-[17px] sm:w-[19px] sm:h-[19px]" strokeWidth={1.35} />
+        </button>
         <button
           type="button"
           onClick={() => toggleSheet('settings')}
@@ -151,33 +161,33 @@ export const PlayTopStrip: React.FC<PlayTopStripProps> = ({
           aria-label="Settings"
           title="Settings"
         >
-          <Settings className="w-[21px] h-[21px]" strokeWidth={1.35} />
+          <Settings className="w-[18px] h-[18px] sm:w-[21px] sm:h-[21px]" strokeWidth={1.35} />
         </button>
         <button
           type="button"
           onClick={handleToggleFullscreen}
-          className={`${button} hidden sm:grid`}
+          className={button}
           aria-label={isFullscreen ? 'Exit Full Screen' : 'Full Screen'}
           title={isFullscreen ? 'Exit Full Screen' : 'Full Screen'}
         >
           {isFullscreen ? (
-            <Minimize className="w-[21px] h-[21px]" strokeWidth={1.35} />
+            <Minimize className="w-[18px] h-[18px] sm:w-[21px] sm:h-[21px]" strokeWidth={1.35} />
           ) : (
-            <Maximize className="w-[21px] h-[21px]" strokeWidth={1.35} />
+            <Maximize className="w-[18px] h-[18px] sm:w-[21px] sm:h-[21px]" strokeWidth={1.35} />
           )}
         </button>
         {uiMode === 'pro' && onSwitchUiMode && (
           <button
             type="button"
             onClick={onSwitchUiMode}
-            className={`min-h-[44px] px-3 rounded-xl text-xs font-semibold flex items-center gap-1.5 active:scale-95 transition-all ml-1 ${
+            className={`play-top-strip-mode-btn h-8 sm:h-9 px-1.5 sm:px-3 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-semibold flex items-center gap-1 active:scale-95 transition-all shrink-0 ml-0.5 sm:ml-1 ${
               theme === 'light'
                 ? 'hover:bg-black/[0.035] text-neutral-700'
                 : 'hover:bg-white/[0.045] text-neutral-300'
             }`}
-            title="Back to Normal mode"
+            title="Back to Play mode"
           >
-            <span>Normal</span>
+            <span>Play</span>
           </button>
         )}
       </nav>

@@ -2,10 +2,12 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom';
 import * as THREE from 'three';
 import {
+  Box,
   Check,
   ChevronDown,
   Copy,
   Layers,
+  Paintbrush,
   Palette,
   Pipette,
   Sliders,
@@ -28,6 +30,7 @@ import {
 import { normalizeHexColor } from '../core/materialCache';
 import { ALL_MATERIAL_PRESETS, PRESET_CATEGORIES } from '../presets/materialPresets';
 import { BrushSettings } from '../types';
+import { MenuSegmentedToggle, getMenuSurfaceClasses } from './ui/MenuPrimitives';
 
 interface ColorStudioModalProps {
   isOpen: boolean;
@@ -63,11 +66,15 @@ const QUICK_SHADER_NAMES = [
   'Flat Graphic White',
   'Toon Classic 2-Tone',
   'Crystal Clear Glass',
+  'Prism Rainbow Glass',
+  'Summer Ocean Water',
   'Polished Gold Ingot',
+  'Burnished Copper',
   'Electric Neon Cyan',
+  'Hot Molten Lava',
   'Toon Manga Ink & White',
 ];
-const QUICK_SHADER_LABELS = ['Clay', 'Toon', 'Gloss', 'Metal', 'Glow', 'Ink'];
+const QUICK_SHADER_LABELS = ['Clay', 'Toon', 'Gloss', 'Prism', 'Water', 'Metal', 'Copper', 'Glow', 'Lava', 'Ink'];
 const DEFAULT_VERTEX_SHADER = `
 precision mediump float;
 varying vec3 v_normal;
@@ -109,7 +116,7 @@ export const ColorStudioModal: React.FC<ColorStudioModalProps> = ({
     const named = QUICK_SHADER_NAMES.map((name) =>
       ALL_MATERIAL_PRESETS.find((preset) => preset.name === name),
     ).filter(Boolean) as any[];
-    return named.length === QUICK_SHADER_NAMES.length ? named : ALL_MATERIAL_PRESETS.slice(0, 6);
+    return named.length === QUICK_SHADER_NAMES.length ? named : ALL_MATERIAL_PRESETS.slice(0, 10);
   }, []);
   const [selectedPresetId, setSelectedPresetId] = useState(() => quickPresets[0]?.id ?? '');
   const [shaderCategory, setShaderCategory] = useState<string>('All');
@@ -354,16 +361,17 @@ export const ColorStudioModal: React.FC<ColorStudioModalProps> = ({
   ];
   const activeTitle = tabs.find((tab) => tab.id === activeTab)?.label ?? 'Color';
   const shell = isLight
-    ? 'bg-[#f7f4ee]/95 border-black/15 text-neutral-900 shadow-[0_20px_55px_rgba(35,28,20,.18)]'
+    ? 'bg-[#FAF9F5] border-black/15 text-neutral-900 shadow-[0_20px_55px_rgba(35,28,20,.18)]'
     : 'bg-[#14161a]/95 border-white/15 text-neutral-100 shadow-[0_24px_70px_rgba(0,0,0,.55)]';
-  const quietText = isLight ? 'text-neutral-500' : 'text-neutral-400';
+  const quietText = isLight ? 'text-neutral-600' : 'text-neutral-400';
   const divider = isLight ? 'border-black/10' : 'border-white/10';
-  const ghostButton = isLight ? 'text-neutral-600 hover:text-neutral-950 hover:bg-black/5' : 'text-neutral-400 hover:text-white hover:bg-white/5';
-  const field = isLight ? 'border-black/15 bg-white/35 text-neutral-900' : 'border-white/15 bg-black/15 text-neutral-100';
+  const ghostButton = isLight ? 'text-neutral-700 hover:text-neutral-950 hover:bg-black/5' : 'text-neutral-400 hover:text-white hover:bg-white/5';
+  const field = isLight ? 'border-black/15 bg-white text-neutral-900 shadow-xs' : 'border-white/15 bg-black/15 text-neutral-100';
   const slider = (label: string, valueLabel: string, input: React.ReactNode) => (
     <label className="block space-y-1.5">
-      <span className="flex items-center justify-between text-[11px] font-medium">
-        <span className={quietText}>{label}</span><span className="font-mono">{valueLabel}</span>
+      <span className="flex items-center justify-between text-[11px] font-semibold">
+        <span className={isLight ? 'text-neutral-700' : 'text-neutral-300'}>{label}</span>
+        <span className={`font-mono font-bold ${isLight ? 'text-neutral-900' : 'text-neutral-100'}`}>{valueLabel}</span>
       </span>
       {input}
     </label>
@@ -380,7 +388,7 @@ export const ColorStudioModal: React.FC<ColorStudioModalProps> = ({
       >
         <header className={`flex min-h-14 items-center justify-between border-b px-3 ${divider}`}>
           <div className="flex min-w-0 items-center gap-2.5">
-            <span className="h-9 w-9 shrink-0 rounded-lg border border-white/20" style={{ backgroundColor: currentColor }} />
+            <span className={`h-9 w-9 shrink-0 rounded-lg border ${isLight ? 'border-black/20' : 'border-white/20'}`} style={{ backgroundColor: currentColor }} />
             <div className="min-w-0">
               <h2 className="truncate text-sm font-semibold">{activeTitle}</h2>
               <input
@@ -391,7 +399,7 @@ export const ColorStudioModal: React.FC<ColorStudioModalProps> = ({
                   if (/^#[0-9a-fA-F]{6}$/.test(next)) applyColor(next);
                   else onChangeColor(next);
                 }}
-                className={`mt-0.5 w-24 border-0 bg-transparent p-0 font-mono text-[10px] outline-none ${quietText}`}
+                className={`mt-0.5 w-24 border-0 bg-transparent p-0 font-mono text-[11px] font-bold outline-none ${isLight ? 'text-neutral-800' : 'text-neutral-200'}`}
               />
             </div>
           </div>
@@ -408,82 +416,83 @@ export const ColorStudioModal: React.FC<ColorStudioModalProps> = ({
           {activeTab === 'wheel' && <div className="grid gap-3 sm:grid-cols-[190px_minmax(0,1fr)] sm:items-start">
             <div className="flex justify-center sm:pt-1"><canvas ref={wheelCanvasRef} style={{ width: WHEEL_SIZE, height: WHEEL_SIZE }} onPointerDown={handleWheelPointerDown} onPointerMove={handleWheelPointerMove} onPointerUp={handleWheelPointerUp} onPointerCancel={handleWheelPointerUp} className="touch-none cursor-crosshair" /></div>
             <div className="space-y-3 min-w-0">
-              {slider('Saturation', `${Math.round(hsv.s * 100)}%`, <input type="range" min="0" max="100" value={Math.round(hsv.s * 100)} onChange={(event) => applyHsv({ ...hsv, s: Number(event.target.value) / 100 })} className="h-2 w-full cursor-pointer accent-sky-400" />)}
-              {slider('Lightness', `${Math.round(hsv.v * 100)}%`, <input type="range" min="0" max="100" value={Math.round(hsv.v * 100)} onChange={(event) => applyHsv({ ...hsv, v: Number(event.target.value) / 100 })} className="h-2 w-full cursor-pointer accent-sky-400" />)}
+              {slider('Saturation', `${Math.round(hsv.s * 100)}%`, <input type="range" min="0" max="100" value={Math.round(hsv.s * 100)} onChange={(event) => applyHsv({ ...hsv, s: Number(event.target.value) / 100 })} className={`h-2 w-full rounded-full cursor-pointer accent-sky-500 ${isLight ? 'bg-black/10' : 'bg-white/15'}`} />)}
+              {slider('Lightness', `${Math.round(hsv.v * 100)}%`, <input type="range" min="0" max="100" value={Math.round(hsv.v * 100)} onChange={(event) => applyHsv({ ...hsv, v: Number(event.target.value) / 100 })} className={`h-2 w-full rounded-full cursor-pointer accent-sky-500 ${isLight ? 'bg-black/10' : 'bg-white/15'}`} />)}
               <div>
-                <div className={`mb-1.5 text-[10px] font-semibold uppercase tracking-[.14em] ${quietText}`}>Recent</div>
-                <div className="grid grid-cols-6 gap-1.5">{recentColors.map((color) => <button key={color} type="button" onClick={() => applyColor(color)} aria-label={`Use ${color}`} className={`aspect-square min-h-0 w-full rounded-lg border ${color.toLowerCase() === currentColor.toLowerCase() ? 'border-sky-400 ring-2 ring-sky-400/35' : isLight ? 'border-black/15' : 'border-white/15'}`} style={{ backgroundColor: color }} />)}</div>
+                <div className={`mb-1.5 text-[10px] font-bold uppercase tracking-[.14em] ${isLight ? 'text-neutral-600' : 'text-neutral-400'}`}>Recent</div>
+                <div className="grid grid-cols-6 gap-1.5">{recentColors.map((color) => <button key={color} type="button" onClick={() => applyColor(color)} aria-label={`Use ${color}`} className={`aspect-square min-h-0 w-full rounded-lg border ${color.toLowerCase() === currentColor.toLowerCase() ? 'border-sky-500 ring-2 ring-sky-500/35' : isLight ? 'border-black/15' : 'border-white/15'}`} style={{ backgroundColor: color }} />)}</div>
               </div>
-              <button type="button" onClick={() => setShowPalettes((shown) => !shown)} className={`flex h-10 w-full items-center justify-between border-t text-xs ${divider} ${ghostButton}`}><span className="flex items-center gap-2"><Layers className="h-4 w-4" /> Palettes</span><ChevronDown className={`h-4 w-4 ${showPalettes ? 'rotate-180' : ''}`} /></button>
+              <button type="button" onClick={() => setShowPalettes((shown) => !shown)} className={`flex h-10 w-full items-center justify-between border-t text-xs font-semibold ${divider} ${ghostButton}`}><span className="flex items-center gap-2"><Layers className="h-4 w-4" /> Palettes</span><ChevronDown className={`h-4 w-4 ${showPalettes ? 'rotate-180' : ''}`} /></button>
             </div>
             {showPalettes && <div className="space-y-2 pb-1 sm:col-span-2">
               <select value={paletteName} onChange={(event) => setPaletteName(event.target.value as keyof typeof CURATED_PALETTES)} className={`h-11 w-full rounded-xl border px-3 text-xs outline-none ${field}`}>{Object.keys(CURATED_PALETTES).map((name) => <option key={name}>{name}</option>)}</select>
-              <div className="grid grid-cols-7 gap-1.5">{CURATED_PALETTES[paletteName].map((color) => <button key={color} type="button" onClick={() => applyColor(color)} className="h-10 rounded-lg border border-white/15" style={{ backgroundColor: color }} aria-label={`Use ${color}`} />)}</div>
+              <div className="grid grid-cols-7 gap-1.5">{CURATED_PALETTES[paletteName].map((color) => <button key={color} type="button" onClick={() => applyColor(color)} className={`h-10 rounded-lg border ${isLight ? 'border-black/15' : 'border-white/15'}`} style={{ backgroundColor: color }} aria-label={`Use ${color}`} />)}</div>
             </div>}
           </div>}
 
           {activeTab === 'oklch' && <div className="space-y-5 py-1">
-            {slider('Lightness', `${(oklch.L * 100).toFixed(1)}%`, <input type="range" min="0" max="100" step="0.5" value={oklch.L * 100} onChange={(event) => handleOklchChange('L', Number(event.target.value) / 100)} className="h-2 w-full cursor-pointer accent-sky-400" />)}
-            {slider('Chroma', oklch.C.toFixed(3), <input type="range" min="0" max="0.38" step="0.005" value={oklch.C} onChange={(event) => handleOklchChange('C', Number(event.target.value))} className="h-2 w-full cursor-pointer accent-sky-400" />)}
-            {slider('Hue', `${Math.round(oklch.h)}°`, <input type="range" min="0" max="359" value={oklch.h} onChange={(event) => handleOklchChange('h', Number(event.target.value))} className="h-2 w-full cursor-pointer accent-sky-400" />)}
-            <button type="button" onClick={() => setShowPosterize((shown) => !shown)} className={`flex h-11 w-full items-center justify-between border-t text-xs ${divider} ${ghostButton}`}><span>Posterize</span><ChevronDown className={`h-4 w-4 ${showPosterize ? 'rotate-180' : ''}`} /></button>
+            {slider('Lightness', `${(oklch.L * 100).toFixed(1)}%`, <input type="range" min="0" max="100" step="0.5" value={oklch.L * 100} onChange={(event) => handleOklchChange('L', Number(event.target.value) / 100)} className={`h-2 w-full rounded-full cursor-pointer accent-sky-500 ${isLight ? 'bg-black/10' : 'bg-white/15'}`} />)}
+            {slider('Chroma', oklch.C.toFixed(3), <input type="range" min="0" max="0.38" step="0.005" value={oklch.C} onChange={(event) => handleOklchChange('C', Number(event.target.value))} className={`h-2 w-full rounded-full cursor-pointer accent-sky-500 ${isLight ? 'bg-black/10' : 'bg-white/15'}`} />)}
+            {slider('Hue', `${Math.round(oklch.h)}°`, <input type="range" min="0" max="359" value={oklch.h} onChange={(event) => handleOklchChange('h', Number(event.target.value))} className={`h-2 w-full rounded-full cursor-pointer accent-sky-500 ${isLight ? 'bg-black/10' : 'bg-white/15'}`} />)}
+            <button type="button" onClick={() => setShowPosterize((shown) => !shown)} className={`flex h-11 w-full items-center justify-between border-t text-xs font-semibold ${divider} ${ghostButton}`}><span>Posterize</span><ChevronDown className={`h-4 w-4 ${showPosterize ? 'rotate-180' : ''}`} /></button>
             {showPosterize && <div className="space-y-3">
-              {slider('Steps', String(posterizeSteps), <input type="range" min="2" max="12" value={posterizeSteps} onChange={(event) => setPosterizeSteps(Number(event.target.value))} className="h-2 w-full cursor-pointer accent-sky-400" />)}
-              <button type="button" onClick={() => applyColor(posterizedColor)} className={`flex h-11 w-full items-center justify-between rounded-xl border px-3 ${field}`}><span className="text-xs">Use posterized color</span><span className="flex items-center gap-2 font-mono text-[10px]">{posterizedColor.toUpperCase()}<span className="h-7 w-7 rounded-lg border border-white/15" style={{ backgroundColor: posterizedColor }} /></span></button>
+              {slider('Steps', String(posterizeSteps), <input type="range" min="2" max="12" value={posterizeSteps} onChange={(event) => setPosterizeSteps(Number(event.target.value))} className={`h-2 w-full rounded-full cursor-pointer accent-sky-500 ${isLight ? 'bg-black/10' : 'bg-white/15'}`} />)}
+              <button type="button" onClick={() => applyColor(posterizedColor)} className={`flex h-11 w-full items-center justify-between rounded-xl border px-3 ${field}`}><span className="text-xs font-semibold">Use posterized color</span><span className="flex items-center gap-2 font-mono text-[10px] font-bold">{posterizedColor.toUpperCase()}<span className={`h-7 w-7 rounded-lg border ${isLight ? 'border-black/15' : 'border-white/15'}`} style={{ backgroundColor: posterizedColor }} /></span></button>
             </div>}
           </div>}
 
           {activeTab === 'harmonies' && <div className="space-y-4 py-1">
-            <div className={`grid grid-cols-3 border-b ${divider}`}>{([['complementary', 'Complement'], ['analogous', 'Analogous'], ['triadic', 'Triad']] as Array<[HarmonyMode, string]>).map(([mode, label]) => <button key={mode} type="button" onClick={() => setHarmonyMode(mode)} className={`h-11 border-b-2 text-[11px] font-medium ${harmonyMode === mode ? 'border-sky-400 text-sky-400' : `border-transparent ${ghostButton}`}`}>{label}</button>)}</div>
-            <div className="grid min-h-20 gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(harmonyColors.length, 7)}, minmax(0, 1fr))` }}>{harmonyColors.slice(0, 7).map((color, index) => <button key={`${color}-${index}`} type="button" onClick={() => applyColor(color)} className={`min-h-20 rounded-xl border ${color.toLowerCase() === currentColor.toLowerCase() ? 'border-sky-400 ring-2 ring-sky-400/35' : 'border-white/15'}`} style={{ backgroundColor: color }} aria-label={`Use ${color}`} />)}</div>
+            <div className={`grid grid-cols-3 border-b ${divider}`}>{([['complementary', 'Complement'], ['analogous', 'Analogous'], ['triadic', 'Triad']] as Array<[HarmonyMode, string]>).map(([mode, label]) => <button key={mode} type="button" onClick={() => setHarmonyMode(mode)} className={`h-11 border-b-2 text-[11px] font-semibold ${harmonyMode === mode ? (isLight ? 'border-sky-600 text-sky-700' : 'border-sky-400 text-sky-400') : `border-transparent ${ghostButton}`}`}>{label}</button>)}</div>
+            <div className="grid min-h-20 gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(harmonyColors.length, 7)}, minmax(0, 1fr))` }}>{harmonyColors.slice(0, 7).map((color, index) => <button key={`${color}-${index}`} type="button" onClick={() => applyColor(color)} className={`min-h-20 rounded-xl border ${color.toLowerCase() === currentColor.toLowerCase() ? 'border-sky-500 ring-2 ring-sky-500/35' : isLight ? 'border-black/15' : 'border-white/15'}`} style={{ backgroundColor: color }} aria-label={`Use ${color}`} />)}</div>
             <select value={harmonyMode} onChange={(event) => setHarmonyMode(event.target.value as HarmonyMode)} className={`h-11 w-full rounded-xl border px-3 text-xs outline-none ${field}`} aria-label="Harmony mode"><option value="complementary">Complementary</option><option value="analogous">Analogous</option><option value="triadic">Triadic</option><option value="tetradic">Tetradic</option><option value="splitComplementary">Split complementary</option><option value="monochromaticRamp">Monochromatic ramp</option><option value="tonalChromaRamp">Tonal chroma ramp</option></select>
           </div>}
 
           {activeTab === 'shaders' && (
             <div className="space-y-3 py-1">
-              <div className="grid grid-cols-3 gap-x-3 gap-y-4">
+              <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
                 {quickPresets.map((preset, index) => (
                   <button
                     key={preset.id}
                     type="button"
                     onClick={() => applyPreset(preset)}
-                    className={`flex min-h-[84px] flex-col items-center justify-center gap-1 rounded-xl border transition-colors ${
-                      selectedPresetId === preset.id ? 'border-sky-400 bg-sky-400/10 text-sky-300' : `border-transparent ${ghostButton}`
+                    className={`flex flex-col items-center justify-center gap-1 rounded-xl p-1.5 border transition-all active:scale-95 ${
+                      selectedPresetId === preset.id
+                        ? isLight
+                          ? 'border-sky-600 bg-sky-500/15 text-sky-800 font-bold'
+                          : 'border-sky-400 bg-sky-400/10 text-sky-300 font-bold'
+                        : `border-transparent ${ghostButton}`
                     }`}
                     title={preset.name}
                   >
                     <span
-                      className={`block h-12 w-12 overflow-hidden rounded-full border shadow-sm ${
-                        selectedPresetId === preset.id ? 'border-sky-400 ring-2 ring-sky-400/25' : 'border-white/15'
+                      className={`block h-10 w-10 sm:h-11 sm:w-11 overflow-hidden rounded-full border shadow-sm ${
+                        selectedPresetId === preset.id
+                          ? 'border-sky-500 ring-2 ring-sky-500/25'
+                          : isLight ? 'border-black/15' : 'border-white/15'
                       }`}
                     >
                       <img src={preset.url} alt="" className="h-full w-full object-cover" />
                     </span>
-                    <span className="text-[10px] font-medium">{QUICK_SHADER_LABELS[index] ?? preset.name}</span>
+                    <span className="text-[10px] truncate max-w-full font-medium">{QUICK_SHADER_LABELS[index] ?? preset.name}</span>
                   </button>
                 ))}
               </div>
 
-              <div className={`grid grid-cols-2 gap-1 rounded-xl border p-1 ${divider}`}>
-                {(['brush', 'model'] as const).map((target) => (
-                  <button
-                    key={target}
-                    type="button"
-                    onClick={() => setShaderTarget(target)}
-                    disabled={target === 'model' && !onApplyToModel}
-                    className={`h-11 rounded-lg text-xs font-semibold capitalize ${
-                      shaderTarget === target ? 'bg-sky-400/15 text-sky-400' : ghostButton
-                    } disabled:opacity-30`}
-                  >
-                    {target}
-                  </button>
-                ))}
-              </div>
+              {/* Unified Segmented Target Selector with Icons */}
+              <MenuSegmentedToggle
+                theme={isLight ? 'light' : 'dark'}
+                value={shaderTarget}
+                onChange={(t) => setShaderTarget(t as 'brush' | 'model')}
+                options={[
+                  { id: 'brush', label: 'Brush', icon: Paintbrush, title: 'Apply to active brush' },
+                  { id: 'model', label: 'Model', icon: Box, disabled: !onApplyToModel, title: 'Apply to 3D model' },
+                ]}
+              />
 
               <button
                 type="button"
                 onClick={() => setShowAllShaders((shown) => !shown)}
-                className={`flex h-11 w-full items-center justify-between border-t text-xs ${divider} ${ghostButton}`}
+                className={`flex h-11 w-full items-center justify-between border-t text-xs font-semibold ${divider} ${ghostButton}`}
               >
                 <span>{showAllShaders ? 'Hide shader gallery' : 'Visual shader gallery & controls'}</span>
                 <ChevronDown className={`h-4 w-4 transition-transform ${showAllShaders ? 'rotate-180' : ''}`} />
@@ -526,14 +535,20 @@ export const ColorStudioModal: React.FC<ColorStudioModalProps> = ({
                           onClick={() => applyPreset(preset)}
                           className={`flex flex-col items-center gap-1.5 p-2 rounded-xl border transition-all cursor-pointer text-left ${
                             isSelected
-                              ? 'border-sky-400 bg-sky-400/15 text-sky-300 ring-2 ring-sky-400/30 font-bold'
+                              ? isLight
+                                ? 'border-sky-600 bg-sky-500/15 text-sky-800 ring-2 ring-sky-500/30 font-bold'
+                                : 'border-sky-400 bg-sky-400/15 text-sky-300 ring-2 ring-sky-400/30 font-bold'
+                              : isLight
+                              ? 'border-transparent hover:border-black/10 hover:bg-black/5 text-neutral-800'
                               : `border-transparent hover:border-white/20 hover:bg-white/5 ${ghostButton}`
                           }`}
                           title={preset.name}
                         >
                           <span
                             className={`block h-12 w-12 shrink-0 overflow-hidden rounded-full border shadow-sm ${
-                              isSelected ? 'border-sky-400 ring-2 ring-sky-400/40' : 'border-white/20'
+                              isSelected
+                                ? 'border-sky-500 ring-2 ring-sky-500/40'
+                                : isLight ? 'border-black/15' : 'border-white/20'
                             }`}
                           >
                             <img
@@ -550,15 +565,15 @@ export const ColorStudioModal: React.FC<ColorStudioModalProps> = ({
                       );
                     })}
                     {filteredPresets.length === 0 && (
-                      <div className="col-span-full py-8 text-center text-xs text-neutral-400">
+                      <div className={`col-span-full py-8 text-center text-xs ${isLight ? 'text-neutral-500' : 'text-neutral-400'}`}>
                         No shaders found matching your criteria.
                       </div>
                     )}
                   </div>
 
                   {/* Shader Uniform Controls */}
-                  <div className={`p-3 rounded-xl border space-y-2.5 ${isLight ? 'bg-black/[0.02] border-black/10' : 'bg-white/[0.02] border-white/10'}`}>
-                    <div className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
+                  <div className={`p-3 rounded-xl border space-y-2.5 ${isLight ? 'bg-black/[0.03] border-black/10' : 'bg-white/[0.02] border-white/10'}`}>
+                    <div className={`text-[11px] font-bold uppercase tracking-wider ${isLight ? 'text-neutral-700' : 'text-neutral-400'}`}>
                       Shader Uniforms
                     </div>
                     <div className="space-y-2.5">
@@ -569,7 +584,7 @@ export const ColorStudioModal: React.FC<ColorStudioModalProps> = ({
                           max="100"
                           value={Math.round(shaderRoughness * 100)}
                           onChange={(e) => handleUniformChange('roughness', Number(e.target.value) / 100)}
-                          className="h-2 w-full cursor-pointer accent-sky-400"
+                          className={`h-2 w-full rounded-full cursor-pointer accent-sky-500 ${isLight ? 'bg-black/10' : 'bg-white/15'}`}
                         />
                       ))}
                       {slider('Metalness', `${Math.round(shaderMetalness * 100)}%`, (
@@ -579,7 +594,7 @@ export const ColorStudioModal: React.FC<ColorStudioModalProps> = ({
                           max="100"
                           value={Math.round(shaderMetalness * 100)}
                           onChange={(e) => handleUniformChange('metalness', Number(e.target.value) / 100)}
-                          className="h-2 w-full cursor-pointer accent-sky-400"
+                          className={`h-2 w-full rounded-full cursor-pointer accent-sky-500 ${isLight ? 'bg-black/10' : 'bg-white/15'}`}
                         />
                       ))}
                       {slider('Glow / Rim Power', `${shaderRimPower.toFixed(2)}`, (
@@ -589,7 +604,7 @@ export const ColorStudioModal: React.FC<ColorStudioModalProps> = ({
                           max="200"
                           value={Math.round(shaderRimPower * 100)}
                           onChange={(e) => handleUniformChange('rim', Number(e.target.value) / 100)}
-                          className="h-2 w-full cursor-pointer accent-sky-400"
+                          className={`h-2 w-full rounded-full cursor-pointer accent-sky-500 ${isLight ? 'bg-black/10' : 'bg-white/15'}`}
                         />
                       ))}
                     </div>
@@ -600,13 +615,13 @@ export const ColorStudioModal: React.FC<ColorStudioModalProps> = ({
           )}
 
           {activeTab === 'gradients' && <div className="space-y-4 py-1">
-            <div className="flex items-center justify-between"><span className={`text-xs ${quietText}`}>Target color</span><label className={`flex h-11 items-center gap-2 rounded-xl border px-2 ${field}`}><input type="color" value={secondaryColor} onChange={(event) => setSecondaryColor(event.target.value)} className="h-8 w-8 cursor-pointer border-0 bg-transparent" aria-label="Gradient target color" /><span className="font-mono text-[10px]">{secondaryColor.toUpperCase()}</span></label></div>
-            <div className="grid h-20 grid-cols-9 overflow-hidden rounded-xl border border-white/15">{gradient.map((color, index) => <button key={`${color}-${index}`} type="button" onClick={() => applyColor(color)} style={{ backgroundColor: color }} className="h-full" aria-label={`Use gradient color ${color}`} />)}</div>
-            <div className="flex items-center justify-between text-[10px] font-mono"><span>{normalizeHexColor(currentColor, '#38bdf8').toUpperCase()}</span><span className={quietText}>OKLCh blend</span><span>{secondaryColor.toUpperCase()}</span></div>
+            <div className="flex items-center justify-between"><span className={`text-xs font-semibold ${isLight ? 'text-neutral-700' : quietText}`}>Target color</span><label className={`flex h-11 items-center gap-2 rounded-xl border px-2 ${field}`}><input type="color" value={secondaryColor} onChange={(event) => setSecondaryColor(event.target.value)} className="h-8 w-8 cursor-pointer border-0 bg-transparent" aria-label="Gradient target color" /><span className="font-mono text-[10px] font-bold">{secondaryColor.toUpperCase()}</span></label></div>
+            <div className={`grid h-20 grid-cols-9 overflow-hidden rounded-xl border ${isLight ? 'border-black/15' : 'border-white/15'}`}>{gradient.map((color, index) => <button key={`${color}-${index}`} type="button" onClick={() => applyColor(color)} style={{ backgroundColor: color }} className="h-full" aria-label={`Use gradient color ${color}`} />)}</div>
+            <div className="flex items-center justify-between text-[10px] font-mono font-bold"><span>{normalizeHexColor(currentColor, '#38bdf8').toUpperCase()}</span><span className={isLight ? 'text-neutral-600 font-semibold' : quietText}>OKLCh blend</span><span>{secondaryColor.toUpperCase()}</span></div>
           </div>}
         </div>
 
-        <nav className={`grid grid-cols-5 border-t px-1 py-1 ${divider}`} aria-label="Color modes">{tabs.map((tab) => { const Icon = tab.icon; const selected = activeTab === tab.id; return <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)} className={`flex h-12 flex-col items-center justify-center gap-0.5 rounded-xl text-[9px] font-medium ${selected ? 'bg-sky-400/12 text-sky-400' : ghostButton}`} aria-current={selected ? 'page' : undefined}><Icon className="h-4 w-4" /><span>{tab.label}</span></button>; })}</nav>
+        <nav className={`grid grid-cols-5 border-t px-1 py-1 ${divider}`} aria-label="Color modes">{tabs.map((tab) => { const Icon = tab.icon; const selected = activeTab === tab.id; return <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)} className={`flex h-12 flex-col items-center justify-center gap-0.5 rounded-xl text-[9px] font-medium transition-all ${selected ? (isLight ? 'bg-black/10 text-neutral-950 font-bold' : 'bg-sky-400/15 text-sky-400 font-bold') : ghostButton}`} aria-current={selected ? 'page' : undefined}><Icon className="h-4 w-4" /><span>{tab.label}</span></button>; })}</nav>
       </section>
     </div>,
     document.body,

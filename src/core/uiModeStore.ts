@@ -24,8 +24,8 @@ const ONBOARDED_KEY = 'remix3d.hasOnboarded';
 type Listener = () => void;
 
 /**
- * localStorage is not always reachable: the Tauri webview can deny it, private
- * browsing throws on write, and some Android webviews throw on read. Every access
+ * localStorage is not always reachable: private browsing can deny it or throw
+ * on write, and some mobile webviews throw on read. Every access
  * is wrapped so a storage failure degrades to the default instead of a white screen.
  */
 function readStored(key: string): string | null {

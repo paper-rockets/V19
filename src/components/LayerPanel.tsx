@@ -393,7 +393,7 @@ export const LayerPanelComponent: React.FC<LayerPanelProps> = ({
       id={inline ? undefined : "mody-layer-studio-panel"}
       className={
         inline
-          ? `pr-surface w-full select-none space-y-3 font-sans ${isLight ? 'text-neutral-800' : 'text-neutral-200'}`
+          ? `pr-surface w-full select-none space-y-2 font-sans ${isLight ? 'text-neutral-800' : 'text-neutral-200'}`
           : `pr-surface fixed top-14 sm:top-16 right-2 sm:right-6 z-50 w-[calc(100vw-16px)] sm:w-96 max-w-[400px] select-none shadow-2xl rounded-2xl border p-4 space-y-3 font-sans animate-in fade-in slide-in-from-right-2 duration-150 ${
               isLight
                 ? 'bg-white border-black/10 text-neutral-800 shadow-[0_20px_50px_rgba(0,0,0,0.12)]'
@@ -429,7 +429,7 @@ export const LayerPanelComponent: React.FC<LayerPanelProps> = ({
         <button
           type="button"
           onClick={() => handleAddLayer(null)}
-          className="min-h-[44px] py-1.5 px-2.5 rounded-xl bg-neutral-900 dark:bg-white hover:bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-xs font-semibold flex items-center justify-center gap-1.5 shadow transition-all active:scale-98"
+          className="h-8 min-h-[32px] py-1 px-2.5 rounded-lg bg-neutral-900 dark:bg-white hover:bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-xs font-semibold flex items-center justify-center gap-1.5 shadow transition-all active:scale-98"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>New Layer</span>
@@ -437,7 +437,7 @@ export const LayerPanelComponent: React.FC<LayerPanelProps> = ({
         <button
           type="button"
           onClick={() => handleAddGroup(null)}
-          className={`min-h-[44px] py-1.5 px-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 shadow transition-all active:scale-98 border ${
+          className={`h-8 min-h-[32px] py-1 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow transition-all active:scale-98 border ${
             isLight
               ? 'bg-neutral-100 hover:bg-neutral-200 border-black/10 text-neutral-800'
               : 'bg-neutral-800 hover:bg-neutral-700 border-neutral-700 text-neutral-200'
@@ -462,7 +462,7 @@ export const LayerPanelComponent: React.FC<LayerPanelProps> = ({
               key={item.id}
               onClick={() => setActiveLayerId(item.id)}
               style={{ marginLeft: `${depth * 14}px` }}
-              className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
+              className={`p-2 rounded-xl border transition-all cursor-pointer ${
                 isActive
                   ? isGroup
                     ? isLight

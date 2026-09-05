@@ -11,6 +11,8 @@ import {
 import { haptics } from '../../utils/haptics';
 import { StudioEngine } from '../../core/studioEngine';
 import { useDismissibleSurface } from '../../hooks/useDismissibleSurface';
+import { RealBrushSizeControl } from '../common/RealBrushSizeControl';
+import { MenuShelf } from '../ui/MenuPrimitives';
 
 export type PlayToolId = 'draw' | 'shape' | 'eraser';
 
@@ -34,12 +36,6 @@ const TOOLS = [
 
 const COLORS = ['#2563eb', '#38bdf8', '#ef4444', '#f59e0b', '#10b981', '#a855f7', '#18191d', '#ffffff'];
 
-const SIZE_PRESETS = [
-  { value: 0.015, label: 'S', scale: 0.6, name: 'Fine' },
-  { value: 0.035, label: 'M', scale: 0.8, name: 'Medium' },
-  { value: 0.07, label: 'L', scale: 1.0, name: 'Bold' },
-  { value: 0.12, label: 'XL', scale: 1.25, name: 'Heavy' },
-];
 
 export function activePlayTool(tool: ToolType, shapeSnapping: boolean): PlayToolId {
   if (tool === 'eraser') return 'eraser';
@@ -114,13 +110,9 @@ export const PlayDock: React.FC<PlayDockProps> = ({
   const dockClasses = isLight
     ? 'border-black/15 bg-[#f7f4ee]/98 shadow-[0_12px_36px_rgba(35,28,20,0.12)] text-neutral-800'
     : 'border-white/[0.08] bg-[#121316]/95 shadow-2xl text-white';
-  const popoverClasses = isLight
-    ? 'border-black/15 bg-[#f7f4ee]/98 shadow-[0_20px_50px_rgba(35,28,20,0.16)] text-neutral-900'
-    : 'border-white/[0.08] bg-[#131518]/96 shadow-2xl text-white';
   const dividerClasses = isLight ? 'bg-black/10' : 'bg-white/10';
   const subTextClasses = isLight ? 'text-neutral-600' : 'text-white/70';
   const sliderTrackClasses = isLight ? 'bg-black/15' : 'bg-white/20';
-  const grabHandleClasses = isLight ? 'bg-black/20' : 'bg-white/20';
   const cardBorderClasses = isLight ? 'border-black/10' : 'border-white/[0.08]';
 
   // Brush size integer for display (matching the "56" in the mockup)
@@ -132,7 +124,7 @@ export const PlayDock: React.FC<PlayDockProps> = ({
       {isCompressed && !hideToolRail ? (
         /* ================= COMPRESSED / PORTRAIT ORIENTATION: Left tool rail ================= */
         <div
-          className={`pointer-events-auto absolute left-3 top-1/2 -translate-y-1/2 flex flex-col items-center gap-2 rounded-2xl border p-1.5 sm:left-5 ${railClasses}`}
+          className={`pointer-events-auto absolute left-3 top-1/2 -translate-y-1/2 flex flex-col items-center gap-2 sm:left-5 ${isLight ? 'text-neutral-800' : 'text-white/85'}`}
         >
           {/* Tool mode buttons: Draw, Shape, Erase */}
           {TOOLS.map(({ id, label, icon: Icon }) => (
@@ -145,14 +137,14 @@ export const PlayDock: React.FC<PlayDockProps> = ({
                 setPanel(null);
               }}
               title={label}
-              className={`relative flex h-11 w-11 items-center justify-center rounded-xl border transition-all active:scale-95 ${
+              className={`relative flex h-11 w-11 items-center justify-center rounded-xl transition-colors active:scale-95 border-0 bg-transparent ${
                 active === id
                   ? isLight
-                    ? 'border-sky-600/70 bg-black/[0.04] text-neutral-950 shadow-xs'
-                    : 'border-sky-400/80 bg-white/[0.08] text-white shadow-[0_0_8px_rgba(56,189,248,0.15)]'
+                    ? 'text-sky-600'
+                    : 'text-sky-400'
                   : isLight
-                  ? 'border-transparent text-neutral-500 hover:text-neutral-950 hover:bg-black/[0.03]'
-                  : 'border-transparent text-white/50 hover:text-white/90 hover:bg-white/[0.04]'
+                  ? 'text-neutral-500 hover:text-neutral-900'
+                  : 'text-white/50 hover:text-white/90'
               }`}
               aria-label={label}
               aria-pressed={active === id}
@@ -161,21 +153,20 @@ export const PlayDock: React.FC<PlayDockProps> = ({
             </button>
           ))}
 
-          {/* Divider */}
-          <span className={`w-7 h-px my-0.5 ${dividerClasses}`} />
-
           {/* Color swatch disc */}
           <button
             type="button"
             onClick={() => setPanel(panel === 'color' ? null : 'color')}
-            className={`w-11 h-11 rounded-xl grid place-items-center active:scale-95 transition-all ${
-              panel === 'color' ? (isLight ? 'bg-black/[0.06]' : 'bg-white/[0.08]') : (isLight ? 'hover:bg-black/[0.03]' : 'hover:bg-white/[0.05]')
-            }`}
+            className="w-11 h-11 rounded-xl grid place-items-center active:scale-95 transition-transform border-0 bg-transparent"
             aria-label="Color"
             title="Color"
           >
             <span
-              className="w-7 h-7 rounded-full border border-black/10 dark:border-white/20 shadow-md ring-1 ring-inset ring-black/5 dark:ring-white/20"
+              className={`w-7 h-7 rounded-full border transition-all ${
+                panel === 'color'
+                  ? 'border-sky-500 ring-2 ring-sky-500/40 shadow-xs'
+                  : isLight ? 'border-black/15' : 'border-white/20'
+              }`}
               style={{ background: brushSettings.color || '#38bdf8' }}
             />
           </button>
@@ -184,21 +175,29 @@ export const PlayDock: React.FC<PlayDockProps> = ({
           <button
             type="button"
             onClick={() => setPanel(panel === 'size' ? null : 'size')}
-            className={`w-11 h-11 rounded-xl flex items-center justify-center active:scale-95 transition-all border ${
+            className={`w-11 h-11 rounded-xl flex items-center justify-center active:scale-95 transition-colors border-0 bg-transparent ${
               panel === 'size'
                 ? isLight
-                  ? 'border-sky-600/80 bg-sky-600/10 text-neutral-950'
-                  : 'border-sky-400/80 bg-sky-500/[0.12] text-white'
+                  ? 'text-sky-600'
+                  : 'text-sky-400'
                 : isLight
-                ? 'border-black/10 bg-black/[0.02] text-neutral-600 hover:text-neutral-950'
-                : 'border-white/[0.08] bg-white/[0.02] text-white/75 hover:text-white'
+                ? 'text-neutral-500 hover:text-neutral-900'
+                : 'text-white/50 hover:text-white/90'
             }`}
             aria-label="Stroke size"
             title={`Size: ${activeBrush.name}`}
           >
-            <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${isLight ? 'border-neutral-400' : 'border-white/40'}`}>
+            <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${
+              panel === 'size'
+                ? isLight ? 'border-sky-600' : 'border-sky-400'
+                : isLight ? 'border-neutral-400' : 'border-white/40'
+            }`}>
               <span
-                className={`rounded-full transition-all ${isLight ? 'bg-neutral-900' : 'bg-white'}`}
+                className={`rounded-full transition-all ${
+                  panel === 'size'
+                    ? isLight ? 'bg-sky-600' : 'bg-sky-400'
+                    : isLight ? 'bg-neutral-900' : 'bg-white'
+                }`}
                 style={{
                   width: Math.max(4, Math.min(10, brushSettings.size * 100)),
                   height: Math.max(4, Math.min(10, brushSettings.size * 100)),
@@ -211,14 +210,14 @@ export const PlayDock: React.FC<PlayDockProps> = ({
           <button
             type="button"
             onClick={() => setPanel(panel === 'brush' ? null : 'brush')}
-            className={`w-11 h-11 rounded-xl flex items-center justify-center active:scale-95 transition-all border ${
+            className={`w-11 h-11 rounded-xl flex items-center justify-center active:scale-95 transition-colors border-0 bg-transparent ${
               panel === 'brush'
                 ? isLight
-                  ? 'border-sky-600/80 bg-sky-600/10 text-neutral-950'
-                  : 'border-sky-400/80 bg-sky-500/[0.12] text-white'
+                  ? 'text-sky-600'
+                  : 'text-sky-400'
                 : isLight
-                ? 'border-black/10 bg-black/[0.02] text-neutral-600 hover:text-neutral-950'
-                : 'border-white/[0.08] bg-white/[0.02] text-white/75 hover:text-white'
+                ? 'text-neutral-500 hover:text-neutral-900'
+                : 'text-white/50 hover:text-white/90'
             }`}
             aria-label="Brushes"
             title={`Brush: ${activeBrush.name}`}
@@ -228,70 +227,20 @@ export const PlayDock: React.FC<PlayDockProps> = ({
             </svg>
           </button>
 
-          {/* Divider */}
-          <span className={`w-7 h-px my-0.5 ${dividerClasses}`} />
-
-          {/* Palette Confirmation (Portrait) */}
-          <div className="flex flex-col items-center gap-1">
-            <button
-              type="button"
-              onClick={() => {
-                haptics.trigger('light');
-                setBrushSettings((p) => ({
-                  ...p,
-                  drawingMode: p.drawingMode === 'spatial_3d' ? 'surface' : 'spatial_3d',
-                }));
-              }}
-              className={`px-1.5 py-0.5 rounded-md border text-[9px] font-bold tracking-tight transition-all active:scale-95 ${
-                isConformal
-                  ? isLight
-                    ? 'bg-sky-50 text-sky-700 border-sky-300'
-                    : 'bg-sky-500/20 text-sky-300 border-sky-400/40'
-                  : isLight
-                  ? 'bg-amber-50 text-amber-700 border-amber-300'
-                  : 'bg-amber-500/20 text-amber-300 border-amber-400/40'
-              }`}
-              title={isConformal ? 'Conformal (Surface). Tap to switch to Non-Conformal.' : 'Non-Conformal (Mid-Air). Tap to switch to Conformal.'}
-            >
-              {isConformal ? 'Conf' : 'Non-C'}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                haptics.trigger('light');
-                setBrushSettings((p) => ({
-                  ...p,
-                  profile: (p.profile === 'ribbon' || p.profile === 'conformal') ? 'tube' : 'ribbon',
-                }));
-              }}
-              className={`px-1.5 py-0.5 rounded-md border text-[9px] font-bold tracking-tight transition-all active:scale-95 ${
-                isFlat
-                  ? isLight
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
-                    : 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40'
-                  : isLight
-                  ? 'bg-purple-50 text-purple-700 border-purple-300'
-                  : 'bg-purple-500/20 text-purple-300 border-purple-400/40'
-              }`}
-              title={isFlat ? 'Flat (Ribbon). Tap to switch to Not Flat (Tube).' : 'Not Flat (Tube). Tap to switch to Flat (Ribbon).'}
-            >
-              {isFlat ? 'Flat' : '3D'}
-            </button>
-          </div>
 
           {/* Popout menu appearing to the RIGHT in portrait */}
           {panel && (
-            <div
-              className={`absolute left-full ml-3 top-1/2 -translate-y-1/2 rounded-2xl border p-3.5 z-50 select-none animate-in fade-in slide-in-from-left-2 duration-150 ${popoverClasses} ${
+            <MenuShelf
+              theme={theme}
+              padding={panel === 'brush' ? 'standard' : 'tight'}
+              className={`absolute left-full ml-3 top-1/2 -translate-y-1/2 z-50 animate-in fade-in slide-in-from-left-2 duration-150 ${
                 panel === 'color'
-                  ? 'w-[190px]'
+                  ? 'w-[172px]'
                   : panel === 'size'
-                  ? 'w-[250px] max-w-[calc(100vw-88px)]'
-                  : 'w-[300px] max-w-[calc(100vw-88px)]'
+                  ? 'w-[154px]'
+                  : 'w-[320px] max-w-[calc(100vw-88px)]'
               }`}
             >
-              {/* Top grab handle */}
-              <div className={`w-8 h-1 rounded-full mx-auto mb-3 ${grabHandleClasses}`} />
 
               {/* Color Panel */}
               {panel === 'color' && (
@@ -304,7 +253,9 @@ export const PlayDock: React.FC<PlayDockProps> = ({
                           setBrushSettings((p) => ({ ...p, color }));
                           setPanel(null);
                         }}
-                        className="w-8 h-8 rounded-full border border-white/20 active:scale-90 transition-transform shadow-sm"
+                        className={`w-8 h-8 rounded-full border active:scale-90 transition-transform shadow-sm ${
+                          isLight ? 'border-black/20' : 'border-white/20'
+                        }`}
                         style={{ background: color }}
                         aria-label={`Use ${color}`}
                       />
@@ -316,87 +267,26 @@ export const PlayDock: React.FC<PlayDockProps> = ({
                       setPanel(null);
                       onOpenFullColor?.();
                     }}
-                    className="w-full h-8 rounded-lg border border-white/10 flex items-center justify-center gap-1.5 text-xs font-medium text-white/80 hover:text-white hover:bg-white/10 active:scale-95 transition-all"
+                    className={`w-full h-8 rounded-lg border flex items-center justify-center gap-1.5 text-xs font-semibold active:scale-95 transition-all ${
+                      isLight
+                        ? 'border-black/15 text-neutral-800 hover:text-black hover:bg-black/5'
+                        : 'border-white/10 text-white/80 hover:text-white hover:bg-white/10'
+                    }`}
                   >
                     <span>More colors</span>
-                    <ChevronRight className="w-3.5 h-3.5 opacity-60" />
+                    <ChevronRight className="w-3.5 h-3.5 opacity-70" />
                   </button>
                 </div>
               )}
 
-              {/* Size Selector Panel - Knows active brush & renders its 3D clay mark at each size */}
+              {/* Size Selector Panel - Actual Shape & Size with Slider */}
               {panel === 'size' && (
-                <div className="flex flex-col gap-3 w-full">
-                  {/* Header: Active Brush in hand */}
-                  <div className="flex items-center justify-between pb-2 border-b border-white/[0.08]">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-black/40 border border-white/[0.08] flex items-center justify-center overflow-hidden">
-                        <img
-                          src={activeBrush.iconUrl}
-                          alt={activeBrush.name}
-                          className="w-6 h-6 object-contain pointer-events-none"
-                        />
-                      </div>
-                      <span className="text-xs font-semibold text-white/95">{activeBrush.name}</span>
-                    </div>
-                    <span className="text-xs font-mono text-sky-400 font-semibold">{displaySizeNumber}</span>
-                  </div>
-
-                  {/* Size options rendering active brush's 3D sculpt mark */}
-                  <div className="grid grid-cols-2 gap-2">
-                    {SIZE_PRESETS.map(({ value, label, scale, name }) => {
-                      const isSelected = Math.abs(brushSettings.size - value) < 0.012;
-                      return (
-                        <button
-                          key={value}
-                          type="button"
-                          onClick={() => {
-                            haptics.trigger('light');
-                            setBrushSettings((p) => ({ ...p, size: value }));
-                            setPanel(null);
-                          }}
-                          className={`p-2 rounded-xl border flex flex-col items-center justify-center gap-1 transition-all active:scale-95 ${
-                            isSelected
-                              ? 'border-sky-400 bg-sky-500/[0.12] text-white shadow-[0_0_12px_rgba(56,189,248,0.25)] ring-1 ring-sky-400/60'
-                              : 'border-white/[0.06] bg-[#18191e] hover:border-white/20 text-white/80'
-                          }`}
-                          title={`${name} size`}
-                        >
-                          <div className="w-10 h-10 flex items-center justify-center overflow-hidden">
-                            <img
-                              src={activeBrush.iconUrl}
-                              alt={activeBrush.name}
-                              className="object-contain pointer-events-none"
-                              style={{
-                                width: `${Math.round(36 * scale)}px`,
-                                height: `${Math.round(36 * scale)}px`,
-                              }}
-                            />
-                          </div>
-                          <span className="text-[10px] font-semibold tracking-wide text-white/75">{label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Size fine slider matching the mockup */}
-                  <div className="pt-2 border-t border-white/[0.08] flex flex-col gap-1.5">
-                    <div className="flex justify-between text-[11px] text-white/70">
-                      <span>Brush Size</span>
-                      <span className="font-mono text-white/95">{displaySizeNumber}</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0.008"
-                      max="0.16"
-                      step="0.002"
-                      value={brushSettings.size}
-                      onChange={(e) => {
-                        setBrushSettings((p) => ({ ...p, size: parseFloat(e.target.value) }));
-                      }}
-                      className="w-full h-1 bg-white/20 rounded-full appearance-none cursor-pointer accent-sky-400"
-                    />
-                  </div>
+                <div className="w-full">
+                  <RealBrushSizeControl
+                    brushSettings={brushSettings}
+                    onSizeChange={(newSize) => setBrushSettings((p) => ({ ...p, size: newSize }))}
+                    theme={theme}
+                  />
                 </div>
               )}
 
@@ -511,7 +401,7 @@ export const PlayDock: React.FC<PlayDockProps> = ({
                   </div>
                 </div>
               )}
-            </div>
+            </MenuShelf>
           )}
         </div>
       ) : (
@@ -725,11 +615,11 @@ export const PlayDock: React.FC<PlayDockProps> = ({
 
             {/* Popout menu appearing ABOVE the bottom dock */}
             {panel && (
-              <div
-                className={`absolute bottom-full mb-3 left-1/2 -translate-x-1/2 rounded-2xl border p-4 z-50 select-none animate-in fade-in slide-in-from-bottom-2 duration-150 ${popoverClasses}`}
+              <MenuShelf
+                theme={theme}
+                padding="standard"
+                className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150"
               >
-                {/* Top grab handle */}
-                <div className={`w-9 h-1 rounded-full mx-auto mb-3 ${grabHandleClasses}`} />
 
                 {/* Color Panel */}
                 {panel === 'color' && (
@@ -764,63 +654,14 @@ export const PlayDock: React.FC<PlayDockProps> = ({
                   </div>
                 )}
 
-                {/* Size Selector Panel */}
+                {/* Size Selector Panel - Actual Shape & Size with Slider */}
                 {panel === 'size' && (
-                  <div className="flex flex-col gap-3 min-w-[300px] max-w-[calc(100vw-24px)]">
-                    <div className={`flex items-center justify-between pb-1.5 border-b ${isLight ? 'border-black/10' : 'border-white/[0.08]'}`}>
-                      <div className="flex items-center gap-2">
-                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center overflow-hidden border ${
-                          isLight ? 'bg-black/5 border-black/10' : 'bg-black/40 border-white/[0.08]'
-                        }`}>
-                          <img
-                            src={activeBrush.iconUrl}
-                            alt={activeBrush.name}
-                            className="w-6 h-6 object-contain pointer-events-none"
-                          />
-                        </div>
-                        <span className={`text-xs font-semibold ${isLight ? 'text-neutral-900' : 'text-white/95'}`}>{activeBrush.name} Size</span>
-                      </div>
-                      <span className="text-xs font-mono text-sky-500 dark:text-sky-400 font-semibold">{displaySizeNumber}</span>
-                    </div>
-
-                    {/* S, M, L, XL sizes in a horizontal row showing active brush 3D mark */}
-                    <div className="flex items-center gap-2 py-1">
-                      {SIZE_PRESETS.map(({ value, label, scale, name }) => {
-                        const isSelected = Math.abs(brushSettings.size - value) < 0.012;
-                        return (
-                          <button
-                            key={value}
-                            type="button"
-                            onClick={() => {
-                              haptics.trigger('light');
-                              setBrushSettings((p) => ({ ...p, size: value }));
-                              setPanel(null);
-                            }}
-                            className={`flex-1 p-2 rounded-xl border flex flex-col items-center justify-center gap-1 transition-all active:scale-95 ${
-                              isSelected
-                                ? 'border-sky-500 dark:border-sky-400 bg-sky-500/[0.12] text-neutral-900 dark:text-white shadow-[0_0_12px_rgba(56,189,248,0.25)] ring-1 ring-sky-400/60'
-                                : isLight
-                                  ? 'border-black/10 bg-black/5 hover:border-black/20 text-neutral-700'
-                                  : 'border-white/[0.06] bg-[#18191e] hover:border-white/20 text-white/80'
-                            }`}
-                            title={`${name} size`}
-                          >
-                            <div className="w-10 h-10 flex items-center justify-center overflow-hidden">
-                              <img
-                                src={activeBrush.iconUrl}
-                                alt={activeBrush.name}
-                                className="object-contain pointer-events-none"
-                                style={{
-                                  width: `${Math.round(36 * scale)}px`,
-                                  height: `${Math.round(36 * scale)}px`,
-                                }}
-                              />
-                            </div>
-                            <span className={`text-[10px] font-semibold ${isLight ? 'text-neutral-600' : 'text-white/75'}`}>{label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
+                  <div className="w-[280px] max-w-[calc(100vw-24px)]">
+                    <RealBrushSizeControl
+                      brushSettings={brushSettings}
+                      onSizeChange={(newSize) => setBrushSettings((p) => ({ ...p, size: newSize }))}
+                      theme={theme}
+                    />
                   </div>
                 )}
 
@@ -974,7 +815,7 @@ export const PlayDock: React.FC<PlayDockProps> = ({
                     </div>
                   </div>
                 )}
-              </div>
+              </MenuShelf>
             )}
           </div>
         </>
