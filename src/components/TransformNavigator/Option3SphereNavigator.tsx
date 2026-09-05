@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Compass, RotateCcw, Minus, Maximize2, Camera, Layers } from 'lucide-react';
+import { Compass, RotateCcw, Minus, Maximize2, Camera, Layers, Move, RotateCw } from 'lucide-react';
 import { StudioEngine } from '../../core/studioEngine';
 import { TransformTargetScope } from '../../types';
 import { getCameraPose, subscribeCameraPose } from '../../core/telemetryStore';
@@ -40,6 +40,8 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
 }) => {
   const isLight = theme === 'light';
   const [c3Mode, setC3Mode] = useState<'surface' | 'camera'>('surface');
+  const [transformAction, setTransformAction] = useState<'move' | 'rotate'>('move');
+  const stickPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isExpanded, setIsExpanded] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem('paperrocket_nav_expanded');
@@ -275,7 +277,7 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
   );
 
   // Active Drag Highlight State for Canvas Feedback
-  const [activeSector, setActiveSector] = useState<'center' | 'cones' | 'sides' | 'rim' | null>(null);
+  const [activeSector, setActiveSector] = useState<'center' | 'up' | 'down' | 'left' | 'right' | 'rim' | 'rotate' | null>(null);
   const rimAngleRef = useRef<number>(0);
 
   // Redraw High-DPI Canvas
@@ -302,6 +304,7 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     const G_DOT = GW * 0.088;
 
     const isSurface = c3Mode === 'surface';
+    const isMove = transformAction === 'move';
     const snugRadius = G_ARM + G_DOT;
 
     // Background sphere
@@ -319,7 +322,7 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     ctx.stroke();
 
     // Outer Orbit Dashes & Markers
-    if (isSurface) {
+    if (isSurface || !isMove) {
       ctx.strokeStyle = activeSector === 'rim' ? '#38bdf8' : 'rgba(56, 189, 248, 0.35)';
       ctx.lineWidth = activeSector === 'rim' ? 2 : 1;
       ctx.setLineDash([3, 4]);
@@ -340,65 +343,152 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     }
     ctx.restore();
 
-    // Projected axes
-    const projected = AXES.map((ax) => {
-      const p = projectDir(ax.dir[0], ax.dir[1], ax.dir[2], GW, GH, G_ARM);
-      return { ax, p, depth: p.depth };
-    }).sort((a, b) => a.depth - b.depth);
-
-    projected.forEach(({ ax, p, depth }) => {
-      const isFront = depth >= -0.05;
+    // In Move mode, draw clean orthogonal crosshairs across the pad
+    if (isMove) {
       ctx.save();
-      ctx.strokeStyle = isFront
-        ? ax.col
-        : isLight
-        ? 'rgba(0,0,0,0.22)'
-        : 'rgba(255, 255, 255, 0.18)';
-      ctx.lineWidth = isFront ? 2.4 : 1.2;
-      if (!isFront) ctx.setLineDash([2, 2]);
+      ctx.strokeStyle = isLight ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.12)';
+      ctx.lineWidth = 1.2;
+      ctx.setLineDash([3, 3]);
       ctx.beginPath();
-      ctx.moveTo(GW / 2, GH / 2);
-      ctx.lineTo(p.x, p.y);
+      ctx.moveTo(GW / 2 - G_ARM, GH / 2);
+      ctx.lineTo(GW / 2 + G_ARM, GH / 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(GW / 2, GH / 2 - G_ARM);
+      ctx.lineTo(GW / 2, GH / 2 + G_ARM);
       ctx.stroke();
       ctx.restore();
-    });
-
-    // Center disc
-    ctx.save();
-    if (isSurface) {
-      ctx.fillStyle = activeSector === 'center'
-        ? 'rgba(56, 189, 248, 0.45)'
-        : isLight
-        ? 'rgba(56, 189, 248, 0.22)'
-        : 'rgba(56, 189, 248, 0.18)';
-      ctx.beginPath();
-      ctx.arc(GW / 2, GH / 2, 20, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#38bdf8';
-      ctx.lineWidth = 1.6;
-      ctx.stroke();
-
-      ctx.fillStyle = '#38bdf8';
-      ctx.beginPath();
-      ctx.arc(GW / 2, GH / 2, 4, 0, Math.PI * 2);
-      ctx.fill();
     } else {
-      ctx.fillStyle = activeSector === 'center'
-        ? (isLight ? '#0284c7' : '#38bdf8')
-        : isLight
-        ? 'rgba(0,0,0,0.45)'
-        : 'rgba(255, 255, 255, 0.6)';
-      ctx.beginPath();
-      ctx.arc(GW / 2, GH / 2, 4, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.restore();
+      // In 3D Rotate mode, project axes
+      const projected = AXES.map((ax) => {
+        const p = projectDir(ax.dir[0], ax.dir[1], ax.dir[2], GW, GH, G_ARM);
+        return { ax, p, depth: p.depth };
+      }).sort((a, b) => a.depth - b.depth);
 
-    // Cones / Axis Markers
-    projected.forEach(({ ax, p, depth }) => {
-      const isFront = depth >= -0.05;
+      projected.forEach(({ ax, p, depth }) => {
+        // Never draw Z or -Z if it lands within 26px of the center to prevent off-center overlapping!
+        const distFromCenter = Math.hypot(p.x - GW / 2, p.y - GH / 2);
+        if ((ax.lbl === 'Z' || ax.lbl === '-Z') && distFromCenter < 26) return;
+
+        const isFront = depth >= -0.05;
+        ctx.save();
+        ctx.strokeStyle = isFront
+          ? ax.col
+          : isLight
+          ? 'rgba(0,0,0,0.22)'
+          : 'rgba(255, 255, 255, 0.18)';
+        ctx.lineWidth = isFront ? 2.4 : 1.2;
+        if (!isFront) ctx.setLineDash([2, 2]);
+        ctx.beginPath();
+        ctx.moveTo(GW / 2, GH / 2);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+        ctx.restore();
+      });
+    }
+
+    // Directional buttons / Cones in Move mode
+    if (isMove) {
+      const triSize = G_DOT * 1.35;
+
+      // UP Arrow Button
+      const upActive = activeSector === 'up';
+      const upY = GH / 2 - G_ARM;
       ctx.save();
-      if (isSurface) {
+      ctx.beginPath();
+      ctx.moveTo(GW / 2, upY - triSize);
+      ctx.lineTo(GW / 2 - triSize * 0.85, upY + triSize * 0.65);
+      ctx.lineTo(GW / 2 + triSize * 0.85, upY + triSize * 0.65);
+      ctx.closePath();
+      ctx.fillStyle = upActive ? '#0284c7' : '#38bdf8';
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.8;
+      ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 8.5px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('Up', GW / 2, upY + triSize * 0.1);
+      ctx.restore();
+
+      // DOWN Arrow Button
+      const dnActive = activeSector === 'down';
+      const dnY = GH / 2 + G_ARM;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(GW / 2, dnY + triSize);
+      ctx.lineTo(GW / 2 - triSize * 0.85, dnY - triSize * 0.65);
+      ctx.lineTo(GW / 2 + triSize * 0.85, dnY - triSize * 0.65);
+      ctx.closePath();
+      ctx.fillStyle = dnActive ? '#334155' : '#475569';
+      ctx.fill();
+      ctx.strokeStyle = isLight ? '#0f172a' : '#94a3b8';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 8px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('Dn', GW / 2, dnY - triSize * 0.1);
+      ctx.restore();
+
+      // LEFT Arrow Button
+      const leftActive = activeSector === 'left';
+      const leftX = GW / 2 - G_ARM;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(leftX - triSize, GH / 2);
+      ctx.lineTo(leftX + triSize * 0.65, GH / 2 - triSize * 0.85);
+      ctx.lineTo(leftX + triSize * 0.65, GH / 2 + triSize * 0.85);
+      ctx.closePath();
+      ctx.fillStyle = leftActive ? '#334155' : (isLight ? '#94a3b8' : '#64748b');
+      ctx.fill();
+      ctx.strokeStyle = isLight ? '#0f172a' : '#cbd5e1';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 8px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('L', leftX + triSize * 0.1, GH / 2);
+      ctx.restore();
+
+      // RIGHT Arrow Button
+      const rightActive = activeSector === 'right';
+      const rightX = GW / 2 + G_ARM;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(rightX + triSize, GH / 2);
+      ctx.lineTo(rightX - triSize * 0.65, GH / 2 - triSize * 0.85);
+      ctx.lineTo(rightX - triSize * 0.65, GH / 2 + triSize * 0.85);
+      ctx.closePath();
+      ctx.fillStyle = rightActive ? '#334155' : (isLight ? '#94a3b8' : '#64748b');
+      ctx.fill();
+      ctx.strokeStyle = isLight ? '#0f172a' : '#cbd5e1';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 8px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('R', rightX - triSize * 0.1, GH / 2);
+      ctx.restore();
+
+    } else {
+      // In 3D Rotate mode: draw 3D projected markers
+      const projected = AXES.map((ax) => {
+        const p = projectDir(ax.dir[0], ax.dir[1], ax.dir[2], GW, GH, G_ARM);
+        return { ax, p, depth: p.depth };
+      }).sort((a, b) => a.depth - b.depth);
+
+      projected.forEach(({ ax, p, depth }) => {
+        // Never draw Z or -Z if it lands within 26px of the center to prevent off-center overlapping!
+        const distFromCenter = Math.hypot(p.x - GW / 2, p.y - GH / 2);
+        if ((ax.lbl === 'Z' || ax.lbl === '-Z') && distFromCenter < 26) return;
+
+        const isFront = depth >= -0.05;
+        ctx.save();
         if (ax.lbl === 'Y') {
           const triSize = G_DOT * 1.35;
           ctx.beginPath();
@@ -406,11 +496,7 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
           ctx.lineTo(p.x - triSize * 0.85, p.y + triSize * 0.65);
           ctx.lineTo(p.x + triSize * 0.85, p.y + triSize * 0.65);
           ctx.closePath();
-          ctx.fillStyle = isFront
-            ? '#38bdf8'
-            : isLight
-            ? 'rgba(0,0,0,0.3)'
-            : 'rgba(255,255,255,0.3)';
+          ctx.fillStyle = isFront ? '#38bdf8' : (isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)');
           ctx.fill();
           if (isFront) {
             ctx.strokeStyle = '#ffffff';
@@ -429,11 +515,7 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
           ctx.lineTo(p.x - triSize * 0.85, p.y - triSize * 0.65);
           ctx.lineTo(p.x + triSize * 0.85, p.y - triSize * 0.65);
           ctx.closePath();
-          ctx.fillStyle = isFront
-            ? '#475569'
-            : isLight
-            ? 'rgba(0,0,0,0.3)'
-            : 'rgba(255,255,255,0.3)';
+          ctx.fillStyle = isFront ? '#475569' : (isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)');
           ctx.fill();
           if (isFront) {
             ctx.strokeStyle = isLight ? '#0f172a' : '#94a3b8';
@@ -462,28 +544,62 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
             ctx.fill();
           }
         }
-      } else {
-        const dotR = G_DOT * (isFront ? 1.0 : 0.78);
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, dotR, 0, Math.PI * 2);
-        if (isFront) {
-          ctx.fillStyle = ax.col;
-          ctx.fill();
-          ctx.fillStyle = '#ffffff';
-          ctx.font = 'bold 9px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(ax.lbl, p.x, p.y + 0.5);
-        } else {
-          ctx.fillStyle = isLight ? 'rgba(0,0,0,0.22)' : 'rgba(255,255,255,0.22)';
-          ctx.fill();
-        }
-      }
-      ctx.restore();
-    });
+        ctx.restore();
+      });
+    }
+
+    // Center disc (Draggable interactive joystick)
+    const stick = stickPosRef.current;
+    const centerDrawX = GW / 2 + (activeSector === 'center' ? stick.x : 0);
+    const centerDrawY = GH / 2 + (activeSector === 'center' ? stick.y : 0);
+
+    ctx.save();
+    // Subtle track boundary when dragging center
+    if (activeSector === 'center') {
+      ctx.beginPath();
+      ctx.arc(GW / 2, GH / 2, 28, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.25)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    // Joystick disc
+    ctx.fillStyle = activeSector === 'center'
+      ? 'rgba(56, 189, 248, 0.45)'
+      : isLight
+      ? 'rgba(56, 189, 248, 0.22)'
+      : 'rgba(56, 189, 248, 0.18)';
+    ctx.beginPath();
+    ctx.arc(centerDrawX, centerDrawY, 20, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 1.8;
+    ctx.stroke();
+
+    // Center pinpoint dot and 4-way ticks
+    ctx.fillStyle = '#38bdf8';
+    ctx.beginPath();
+    ctx.arc(centerDrawX, centerDrawY, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 4 small crosshair tick marks
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(centerDrawX, centerDrawY - 14);
+    ctx.lineTo(centerDrawX, centerDrawY - 7);
+    ctx.moveTo(centerDrawX, centerDrawY + 7);
+    ctx.lineTo(centerDrawX, centerDrawY + 14);
+    ctx.moveTo(centerDrawX - 14, centerDrawY);
+    ctx.lineTo(centerDrawX - 7, centerDrawY);
+    ctx.moveTo(centerDrawX + 7, centerDrawY);
+    ctx.lineTo(centerDrawX + 14, centerDrawY);
+    ctx.stroke();
 
     ctx.restore();
-  }, [c3Mode, isLight, projectDir, activeSector]);
+
+    ctx.restore();
+  }, [c3Mode, transformAction, isLight, projectDir, activeSector]);
 
   // Subscribe to live camera pose telemetry
   useEffect(() => {
@@ -500,16 +616,20 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     isDragging: boolean;
     pointerId: number;
     scale: number;
-    startX: number;
-    startY: number;
-    action: 'center' | 'cones' | 'sides' | 'rim';
+    originX: number;
+    originY: number;
+    lastX: number;
+    lastY: number;
+    action: 'center' | 'up' | 'down' | 'left' | 'right' | 'rim' | 'rotate';
     startAngle: number;
   }>({
     isDragging: false,
     pointerId: -1,
     scale: 1,
-    startX: 0,
-    startY: 0,
+    originX: 0,
+    originY: 0,
+    lastX: 0,
+    lastY: 0,
     action: 'center',
     startAngle: 0,
   });
@@ -523,18 +643,55 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     const r = canvas.getBoundingClientRect();
     const cx = r.left + r.width / 2;
     const cy = r.top + r.height / 2;
-    const mx = e.clientX - r.left;
-    const my = e.clientY - r.top;
-    const distFromCenter = Math.hypot(mx - r.width / 2, my - r.height / 2);
+    const scale = 184 / Math.max(1, r.width);
+    const relX = (e.clientX - cx) * scale;
+    const relY = (e.clientY - cy) * scale;
+    const distFromCenter = Math.hypot(relX, relY);
 
-    let action: 'center' | 'cones' | 'sides' | 'rim' = 'sides';
-    if (c3Mode === 'surface') {
-      if (distFromCenter < 28) {
+    let action: 'center' | 'up' | 'down' | 'left' | 'right' | 'rim' | 'rotate' = 'center';
+
+    if (distFromCenter >= 72) {
+      action = 'rim';
+    } else if (transformAction === 'rotate') {
+      action = 'rotate';
+    } else {
+      // Move mode: Determine whether touching center joystick or cardinal arrows
+      if (distFromCenter < 32) {
         action = 'center';
-      } else if (distFromCenter >= 60) {
-        action = 'rim';
+      } else if (relY < -20 && Math.abs(relX) < Math.abs(relY) * 1.3) {
+        action = 'up';
+        if (c3Mode === 'surface') {
+          engine?.beginTransform(targetScope);
+          engine?.translateScreenSpace(0, -15, targetScope, isLocked);
+        } else {
+          engine?.pan(0, -15);
+        }
+      } else if (relY > 20 && Math.abs(relX) < Math.abs(relY) * 1.3) {
+        action = 'down';
+        if (c3Mode === 'surface') {
+          engine?.beginTransform(targetScope);
+          engine?.translateScreenSpace(0, 15, targetScope, isLocked);
+        } else {
+          engine?.pan(0, 15);
+        }
+      } else if (relX < -20 && Math.abs(relY) < Math.abs(relX) * 1.3) {
+        action = 'left';
+        if (c3Mode === 'surface') {
+          engine?.beginTransform(targetScope);
+          engine?.translateScreenSpace(-15, 0, targetScope, isLocked);
+        } else {
+          engine?.pan(-15, 0);
+        }
+      } else if (relX > 20 && Math.abs(relY) < Math.abs(relX) * 1.3) {
+        action = 'right';
+        if (c3Mode === 'surface') {
+          engine?.beginTransform(targetScope);
+          engine?.translateScreenSpace(15, 0, targetScope, isLocked);
+        } else {
+          engine?.pan(15, 0);
+        }
       } else {
-        action = 'sides';
+        action = 'center';
       }
     }
 
@@ -543,9 +700,11 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     canvasDragState.current = {
       isDragging: true,
       pointerId: e.pointerId,
-      scale: 184 / Math.max(1, r.width),
-      startX: e.clientX,
-      startY: e.clientY,
+      scale,
+      originX: e.clientX,
+      originY: e.clientY,
+      lastX: e.clientX,
+      lastY: e.clientY,
       action,
       startAngle,
     };
@@ -553,19 +712,33 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     if (c3Mode === 'surface') engine?.beginTransform(targetScope);
     setActiveSector(action);
     e.currentTarget.setPointerCapture(e.pointerId);
+    drawGimbal();
   };
 
   const handleCanvasPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!canvasDragState.current.isDragging || e.pointerId !== canvasDragState.current.pointerId || !engine) return;
 
-    const dx = e.clientX - canvasDragState.current.startX;
-    const dy = e.clientY - canvasDragState.current.startY;
+    const dx = e.clientX - canvasDragState.current.lastX;
+    const dy = e.clientY - canvasDragState.current.lastY;
+    const totalDx = (e.clientX - canvasDragState.current.originX) * canvasDragState.current.scale;
+    const totalDy = (e.clientY - canvasDragState.current.originY) * canvasDragState.current.scale;
     const { action } = canvasDragState.current;
+
+    // Update center joystick elastic position
+    if (action === 'center') {
+      const maxR = 24;
+      const totalDist = Math.hypot(totalDx, totalDy);
+      const f = totalDist > maxR ? maxR / totalDist : 1;
+      stickPosRef.current = { x: totalDx * f, y: totalDy * f };
+    }
 
     if (c3Mode === 'surface') {
       if (action === 'center') {
-        // Move model/plane in screen space
         engine.translateScreenSpace(dx * 1.5, dy * 1.5, targetScope, isLocked);
+      } else if (action === 'up' || action === 'down') {
+        engine.translateScreenSpace(0, dy * 1.5, targetScope, isLocked);
+      } else if (action === 'left' || action === 'right') {
+        engine.translateScreenSpace(dx * 1.5, 0, targetScope, isLocked);
       } else if (action === 'rim') {
         const canvas = canvasRef.current;
         if (canvas) {
@@ -578,29 +751,35 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
           if (deltaAngle < -Math.PI) deltaAngle += 2 * Math.PI;
           canvasDragState.current.startAngle = currentAngle;
           rimAngleRef.current += deltaAngle;
-
-          // Flat screen-space roll: rotates object/canvas in one direction around view axis
           engine.rotateScreenSpace(-deltaAngle, targetScope, isLocked);
         }
       } else {
-        // Trackball 3D rotation
+        // action === 'rotate'
         engine.rotateTrackball(dx * 1.7, dy * 1.7, targetScope);
       }
     } else {
-      // Camera mode uses the entire sphere, including every axis node, as one
-      // continuous diagonal orbit surface.
-      const scale = canvasDragState.current.scale * (e.shiftKey ? 0.25 : 1);
-      engine.orbitNavigator(dx * scale, dy * scale);
+      // Camera mode
+      if (action === 'center') {
+        engine.pan(dx * 1.5, dy * 1.5);
+      } else if (action === 'up' || action === 'down') {
+        engine.pan(0, dy * 1.5);
+      } else if (action === 'left' || action === 'right') {
+        engine.pan(dx * 1.5, 0);
+      } else {
+        const scale = canvasDragState.current.scale * (e.shiftKey ? 0.25 : 1);
+        engine.orbitNavigator(dx * scale, dy * scale);
+      }
     }
 
-    canvasDragState.current.startX = e.clientX;
-    canvasDragState.current.startY = e.clientY;
-    if (c3Mode === 'surface') drawGimbal();
+    canvasDragState.current.lastX = e.clientX;
+    canvasDragState.current.lastY = e.clientY;
+    drawGimbal();
   };
 
   const handleCanvasPointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!canvasDragState.current.isDragging || e.pointerId !== canvasDragState.current.pointerId) return;
     canvasDragState.current.isDragging = false;
+    stickPosRef.current = { x: 0, y: 0 };
     setActiveSector(null);
     if (c3Mode === 'surface') engine?.endTransform();
     try {
@@ -706,6 +885,36 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
         >
           <Minus className="w-3.5 h-3.5" />
         </button>
+      </div>
+
+      {/* Move vs Rotate Mode Switch */}
+      <div style={{ padding: '0 8px 6px 8px' }}>
+        <div className="seg-pill-wrap" style={{ minHeight: '28px', height: '28px' }}>
+          <button
+            type="button"
+            className={`seg-choice flex items-center justify-center gap-1 ${transformAction === 'move' ? 'active' : ''}`}
+            onClick={() => {
+              setTransformAction('move');
+              drawGimbal();
+            }}
+            title="Move (Up, Down, Left, Right)"
+          >
+            <Move className="w-3 h-3 shrink-0" />
+            <span>Move</span>
+          </button>
+          <button
+            type="button"
+            className={`seg-choice flex items-center justify-center gap-1 ${transformAction === 'rotate' ? 'active' : ''}`}
+            onClick={() => {
+              setTransformAction('rotate');
+              drawGimbal();
+            }}
+            title="Rotate (3D Trackball & Orbit)"
+          >
+            <RotateCw className="w-3 h-3 shrink-0" />
+            <span>Rotate</span>
+          </button>
+        </div>
       </div>
 
       {/* Sphere Gimbal Canvas Area */}
