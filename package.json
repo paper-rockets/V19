@@ -21,7 +21,8 @@
     "lint": "tsc --noEmit",
     "test:robot": "node scripts/robot-tester.mjs",
     "capture:all": "node scripts/robot-tester.mjs",
-    "dev:remote": "node scripts/remote-server.mjs"
+    "dev:remote": "node scripts/remote-server.mjs",
+    "nav:server": "node Navigator/server.js 8003"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

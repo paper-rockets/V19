@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Unified Navigator Sandbox</title>
+  <title>Navigator Tools Sandbox</title>
   <style>
     * {
       box-sizing: border-box;
@@ -16,248 +16,411 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background: #000000;
+      background: #0a0a0a;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace, sans-serif;
-      color: #ffffff;
+      color: #eeeeee;
     }
 
-    /* Floating Picker Header */
-    #picker-bar {
+    /* Utilitarian Plain Header */
+    #top-control-bar {
       position: fixed;
       top: 0;
       left: 0;
       right: 0;
-      z-index: 9999;
-      background: #111111;
-      border-bottom: 2px solid #333333;
+      z-index: 10000;
+      background: #161616;
+      border-bottom: 2px solid #2e2e2e;
       padding: 6px 10px;
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       gap: 6px;
-      touch-action: pan-x;
     }
 
-    #picker-bar.collapsed {
+    #top-control-bar.hidden {
       display: none;
     }
 
-    .brand-title {
+    .title-tag {
       font-size: 11px;
       font-weight: 700;
-      letter-spacing: 1px;
+      letter-spacing: 0.8px;
       text-transform: uppercase;
       color: #888888;
-      padding: 0 8px;
+      padding: 0 6px;
+      white-space: nowrap;
     }
 
-    .picker-items {
+    .tool-btn-group {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
+      gap: 4px;
       align-items: center;
       flex: 1;
     }
 
-    .nav-btn {
-      min-height: 44px;
-      min-width: 44px;
-      padding: 8px 14px;
-      font-size: 13px;
+    .t-btn {
+      min-height: 38px;
+      padding: 6px 12px;
+      font-size: 12px;
       font-weight: 600;
-      background: #222222;
+      background: #242424;
       color: #cccccc;
-      border: 1px solid #444444;
+      border: 1px solid #3c3c3c;
       border-radius: 4px;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       white-space: nowrap;
+      font-family: inherit;
     }
 
-    .nav-btn:hover {
+    .t-btn:hover {
       background: #333333;
       color: #ffffff;
+      border-color: #555555;
     }
 
-    .nav-btn:active {
+    .t-btn:active {
       background: #444444;
     }
 
-    .nav-btn.active {
+    .t-btn.active {
       background: #ffffff;
       color: #000000;
       border-color: #ffffff;
       font-weight: 700;
     }
 
-    .picker-actions {
+    .util-btn-group {
       display: flex;
-      gap: 6px;
+      gap: 4px;
       align-items: center;
       margin-left: auto;
     }
 
-    .util-btn {
-      min-height: 44px;
-      padding: 8px 12px;
-      font-size: 12px;
+    .u-btn {
+      min-height: 38px;
+      padding: 6px 10px;
+      font-size: 11px;
       font-weight: 600;
-      background: #1a1a1a;
+      background: #1c1c1c;
       color: #aaaaaa;
-      border: 1px solid #444444;
+      border: 1px solid #3c3c3c;
       border-radius: 4px;
       cursor: pointer;
+      font-family: inherit;
     }
 
-    .util-btn:hover {
+    .u-btn:hover {
       background: #2a2a2a;
       color: #ffffff;
     }
 
-    /* Floating toggle button when picker is collapsed */
-    #toggle-picker-btn {
+    /* Floating show bar button when header is hidden */
+    #show-bar-btn {
       position: fixed;
-      top: 8px;
-      right: 8px;
-      z-index: 10000;
-      min-height: 44px;
-      padding: 8px 14px;
+      top: 6px;
+      right: 6px;
+      z-index: 10001;
+      padding: 8px 12px;
       font-size: 11px;
       font-weight: 700;
-      background: #111111;
+      background: #161616;
       color: #ffffff;
-      border: 1px solid #555555;
+      border: 1px solid #444444;
       border-radius: 4px;
       cursor: pointer;
+      display: none;
     }
 
-    /* Iframe viewport filling the entire area */
-    #tool-frame {
+    /* Viewport Area */
+    #viewport-container {
       position: fixed;
       inset: 0;
+      top: 52px;
+      height: calc(100% - 52px);
+      width: 100%;
+      background: #000000;
+    }
+
+    body.bar-hidden #viewport-container {
+      top: 0;
+      height: 100%;
+    }
+
+    /* Single Tool Frame */
+    .single-frame {
       width: 100%;
       height: 100%;
       border: none;
-      background: #000000;
       display: block;
+      background: #000000;
     }
 
-    /* Push iframe down slightly when picker is visible to keep full view */
-    body.with-picker-offset #tool-frame {
-      top: 56px;
-      height: calc(100% - 56px);
+    /* Multi-grid container */
+    #grid-view {
+      display: none;
+      width: 100%;
+      height: 100%;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      grid-auto-rows: minmax(300px, 1fr);
+      gap: 4px;
+      background: #1e1e1e;
+      padding: 4px;
+      overflow-y: auto;
+    }
+
+    #grid-view.active {
+      display: grid;
+    }
+
+    .grid-cell {
+      position: relative;
+      background: #000000;
+      border: 1px solid #333333;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .grid-cell-hdr {
+      background: #181818;
+      border-bottom: 1px solid #2a2a2a;
+      padding: 3px 8px;
+      font-size: 10px;
+      font-weight: 700;
+      color: #999999;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex: 0 0 24px;
+    }
+
+    .grid-cell-hdr a {
+      color: #55aaff;
+      text-decoration: none;
+      font-size: 10px;
+    }
+
+    .grid-cell iframe {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    /* Dual Side-by-Side view */
+    #split-view {
+      display: none;
+      width: 100%;
+      height: 100%;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      background: #1e1e1e;
+      padding: 4px;
+    }
+
+    #split-view.active {
+      display: grid;
     }
   </style>
 </head>
-<body class="with-picker-offset">
+<body>
 
-  <!-- Floating Utilitarian Picker Header -->
-  <header id="picker-bar">
-    <span class="brand-title">NAV SANDBOX</span>
-    <div class="picker-items">
-      <button class="nav-btn active" data-id="1" data-url="1/index.html">1: Tabbed Deck</button>
-      <button class="nav-btn" data-id="2" data-url="2/index.html">2: Slider Rails</button>
-      <button class="nav-btn" data-id="3" data-url="3/index.html">3: Sphere Gimbal</button>
-      <button class="nav-btn" data-id="4" data-url="4/index.html">4: Lexical UI</button>
-      <button class="nav-btn" data-id="unified" data-url="unified_plane_navigator.html">Unified Controller</button>
-      <button class="nav-btn" data-id="compare" data-url="sandbox_comparison_backup.html">All Modals</button>
+  <!-- Utilitarian Navigation Bar -->
+  <header id="top-control-bar">
+    <span class="title-tag">NAV TOOLS</span>
+    <div class="tool-btn-group">
+      <button class="t-btn active" data-id="1" data-url="tool1-instrument.html">1: Instrument (Brass/HUD)</button>
+      <button class="t-btn" data-id="2" data-url="tool2-play.html">2: Move It (Kids/Tour)</button>
+      <button class="t-btn" data-id="3" data-url="tool3-dock.html">3: Dock (Host CAD Overlay)</button>
+      <button class="t-btn" data-id="4" data-url="tool4-minimal.html">4: Minimal (Grayscale S/M/L)</button>
+      <button class="t-btn" data-id="5" data-url="tool5-reactive-test.html">5: Reactiveness Test (Dual)</button>
+      <button class="t-btn" data-id="grid">Compare: All 5 (Grid)</button>
+      <button class="t-btn" data-id="split">Compare: Side-by-Side</button>
     </div>
-    <div class="picker-actions">
-      <button class="util-btn" id="btn-reload" title="Reload active navigator tool">Reload</button>
-      <button class="util-btn" id="btn-popout" title="Open active tool in full new tab">Popout</button>
-      <button class="util-btn" id="btn-collapse" title="Hide picker bar">Hide Bar</button>
+    <div class="util-btn-group">
+      <button class="u-btn" id="btn-reload" title="Reload active frame (Key: R)">Reload</button>
+      <button class="u-btn" id="btn-popout" title="Open active tool full window">Popout</button>
+      <button class="u-btn" id="btn-hide-bar" title="Hide navigation bar (Key: H)">Hide Bar</button>
     </div>
   </header>
 
-  <!-- Restore Button when collapsed -->
-  <button id="toggle-picker-btn" style="display: none;">PICKER &#9660;</button>
+  <!-- Restore Bar Button -->
+  <button id="show-bar-btn">&#9660; SHOW BAR</button>
 
-  <!-- Fullscreen Tool Sandbox Iframe -->
-  <iframe id="tool-frame" src="1/index.html"></iframe>
+  <!-- Viewport Area -->
+  <main id="viewport-container">
+    <!-- Single Tool View -->
+    <iframe id="main-frame" class="single-frame" src="tool1-instrument.html"></iframe>
+
+    <!-- 5-Tool Grid Comparison View -->
+    <div id="grid-view">
+      <div class="grid-cell">
+        <div class="grid-cell-hdr">
+          <span>Tool 1: Instrument (Precision HUD)</span>
+          <a href="tool1-instrument.html" target="_blank">&#x2197; Open</a>
+        </div>
+        <iframe src="tool1-instrument.html"></iframe>
+      </div>
+      <div class="grid-cell">
+        <div class="grid-cell-hdr">
+          <span>Tool 2: Move It Around (Kids / Tour)</span>
+          <a href="tool2-play.html" target="_blank">&#x2197; Open</a>
+        </div>
+        <iframe src="tool2-play.html"></iframe>
+      </div>
+      <div class="grid-cell">
+        <div class="grid-cell-hdr">
+          <span>Tool 3: Navigator Dock (CAD Overlay / FAB)</span>
+          <a href="tool3-dock.html" target="_blank">&#x2197; Open</a>
+        </div>
+        <iframe src="tool3-dock.html"></iframe>
+      </div>
+      <div class="grid-cell">
+        <div class="grid-cell-hdr">
+          <span>Tool 4: Minimal Navigator (Grayscale)</span>
+          <a href="tool4-minimal.html" target="_blank">&#x2197; Open</a>
+        </div>
+        <iframe src="tool4-minimal.html"></iframe>
+      </div>
+      <div class="grid-cell">
+        <div class="grid-cell-hdr">
+          <span>Tool 5: Reactiveness Test (Dual Modals)</span>
+          <a href="tool5-reactive-test.html" target="_blank">&#x2197; Open</a>
+        </div>
+        <iframe src="tool5-reactive-test.html"></iframe>
+      </div>
+    </div>
+
+    <!-- Side-by-Side Dual View -->
+    <div id="split-view">
+      <div class="grid-cell">
+        <div class="grid-cell-hdr">
+          <span>Tool 1: Instrument</span>
+          <a href="tool1-instrument.html" target="_blank">&#x2197; Open</a>
+        </div>
+        <iframe src="tool1-instrument.html"></iframe>
+      </div>
+      <div class="grid-cell">
+        <div class="grid-cell-hdr">
+          <span>Tool 5: Reactiveness Test (Surface & Camera)</span>
+          <a href="tool5-reactive-test.html" target="_blank">&#x2197; Open</a>
+        </div>
+        <iframe src="tool5-reactive-test.html"></iframe>
+      </div>
+    </div>
+  </main>
 
   <script>
-    const frame = document.getElementById('tool-frame');
-    const pickerBar = document.getElementById('picker-bar');
-    const toggleBtn = document.getElementById('toggle-picker-btn');
-    const navButtons = document.querySelectorAll('.nav-btn');
+    const mainFrame = document.getElementById('main-frame');
+    const gridView = document.getElementById('grid-view');
+    const splitView = document.getElementById('split-view');
+    const topBar = document.getElementById('top-control-bar');
+    const showBarBtn = document.getElementById('show-bar-btn');
+    const toolBtns = document.querySelectorAll('.t-btn');
     const reloadBtn = document.getElementById('btn-reload');
     const popoutBtn = document.getElementById('btn-popout');
-    const collapseBtn = document.getElementById('btn-collapse');
+    const hideBarBtn = document.getElementById('btn-hide-bar');
 
     const TOOLS = {
-      '1': '1/index.html',
-      '2': '2/index.html',
-      '3': '3/index.html',
-      '4': '4/index.html',
-      'unified': 'unified_plane_navigator.html',
-      'compare': 'sandbox_comparison_backup.html'
+      '1': 'tool1-instrument.html',
+      '2': 'tool2-play.html',
+      '3': 'tool3-dock.html',
+      '4': 'tool4-minimal.html',
+      '5': 'tool5-reactive-test.html',
+      'grid': 'grid',
+      'split': 'split'
     };
 
-    function selectTool(id) {
+    function setView(id) {
       if (!TOOLS[id]) id = '1';
-      const url = TOOLS[id];
-      frame.src = url;
 
-      navButtons.forEach(btn => {
-        const match = btn.getAttribute('data-id') === id;
-        btn.classList.toggle('active', match);
+      toolBtns.forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-id') === id);
       });
 
-      // Update URL hash without reload
+      if (id === 'grid') {
+        mainFrame.style.display = 'none';
+        splitView.classList.remove('active');
+        gridView.classList.add('active');
+      } else if (id === 'split') {
+        mainFrame.style.display = 'none';
+        gridView.classList.remove('active');
+        splitView.classList.add('active');
+      } else {
+        gridView.classList.remove('active');
+        splitView.classList.remove('active');
+        mainFrame.style.display = 'block';
+        mainFrame.src = TOOLS[id];
+      }
+
       window.location.hash = '#' + id;
       try {
-        localStorage.setItem('nav_sandbox_last_tool', id);
+        localStorage.setItem('nav_tools_sandbox_active', id);
       } catch (e) {}
     }
 
-    navButtons.forEach(btn => {
+    toolBtns.forEach(btn => {
       btn.addEventListener('click', () => {
-        const id = btn.getAttribute('data-id');
-        selectTool(id);
+        setView(btn.getAttribute('data-id'));
       });
     });
 
     reloadBtn.addEventListener('click', () => {
-      frame.contentWindow.location.reload();
+      if (gridView.classList.contains('active')) {
+        gridView.querySelectorAll('iframe').forEach(f => f.contentWindow.location.reload());
+      } else if (splitView.classList.contains('active')) {
+        splitView.querySelectorAll('iframe').forEach(f => f.contentWindow.location.reload());
+      } else {
+        mainFrame.contentWindow.location.reload();
+      }
     });
 
     popoutBtn.addEventListener('click', () => {
-      window.open(frame.src, '_blank');
+      const activeBtn = document.querySelector('.t-btn.active');
+      const id = activeBtn ? activeBtn.getAttribute('data-id') : '1';
+      if (id === 'grid' || id === 'split') {
+        window.open(window.location.href, '_blank');
+      } else {
+        window.open(TOOLS[id], '_blank');
+      }
     });
 
-    function setPickerCollapsed(collapsed) {
-      if (collapsed) {
-        pickerBar.classList.add('collapsed');
-        document.body.classList.remove('with-picker-offset');
-        toggleBtn.style.display = 'block';
+    function setBarHidden(hidden) {
+      if (hidden) {
+        topBar.classList.add('hidden');
+        document.body.classList.add('bar-hidden');
+        showBarBtn.style.display = 'block';
       } else {
-        pickerBar.classList.remove('collapsed');
-        document.body.classList.add('with-picker-offset');
-        toggleBtn.style.display = 'none';
+        topBar.classList.remove('hidden');
+        document.body.classList.remove('bar-hidden');
+        showBarBtn.style.display = 'none';
       }
       try {
-        localStorage.setItem('nav_sandbox_picker_collapsed', collapsed ? 'true' : 'false');
+        localStorage.setItem('nav_tools_sandbox_bar_hidden', hidden ? 'true' : 'false');
       } catch (e) {}
     }
 
-    collapseBtn.addEventListener('click', () => setPickerCollapsed(true));
-    toggleBtn.addEventListener('click', () => setPickerCollapsed(false));
+    hideBarBtn.addEventListener('click', () => setBarHidden(true));
+    showBarBtn.addEventListener('click', () => setBarHidden(false));
 
-    // Keyboard Shortcuts
+    // Keyboard Shortcuts (1-5 for tools, 6 for grid, 7 for split, R for reload, H for hide)
     window.addEventListener('keydown', (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-      if (e.key === '1') selectTool('1');
-      if (e.key === '2') selectTool('2');
-      if (e.key === '3') selectTool('3');
-      if (e.key === '4') selectTool('4');
-      if (e.key === '5') selectTool('unified');
-      if (e.key === '6') selectTool('compare');
-      if (e.key === 'r' || e.key === 'R') frame.contentWindow.location.reload();
+      if (e.key === '1') setView('1');
+      if (e.key === '2') setView('2');
+      if (e.key === '3') setView('3');
+      if (e.key === '4') setView('4');
+      if (e.key === '5') setView('5');
+      if (e.key === '6') setView('grid');
+      if (e.key === '7') setView('split');
+      if (e.key === 'r' || e.key === 'R') reloadBtn.click();
       if (e.key === 'h' || e.key === 'H') {
-        const isCollapsed = pickerBar.classList.contains('collapsed');
-        setPickerCollapsed(!isCollapsed);
+        const isHidden = topBar.classList.contains('hidden');
+        setBarHidden(!isHidden);
       }
     });
 
@@ -268,16 +431,16 @@
       initialId = hash;
     } else {
       try {
-        const saved = localStorage.getItem('nav_sandbox_last_tool');
+        const saved = localStorage.getItem('nav_tools_sandbox_active');
         if (saved && TOOLS[saved]) initialId = saved;
       } catch (e) {}
     }
 
-    selectTool(initialId);
+    setView(initialId);
 
     try {
-      if (localStorage.getItem('nav_sandbox_picker_collapsed') === 'true') {
-        setPickerCollapsed(true);
+      if (localStorage.getItem('nav_tools_sandbox_bar_hidden') === 'true') {
+        setBarHidden(true);
       }
     } catch (e) {}
   </script>

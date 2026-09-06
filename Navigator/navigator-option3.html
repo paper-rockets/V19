@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Navigator · Surface & Camera</title>
+  <!-- Three.js r128, MIT license, bundled for offline use. -->
+  <script src="js/three.min.js"></script>
+  <script>if (typeof THREE === "undefined") document.write('<script src="../js/three.min.js"><\/script>');</script>
+  <script>if (typeof THREE === "undefined") document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>');</script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+    :root {
+      --bg: #0d0f14;
+      --card-bg: #14171d;
+      --panel-bg: #1b1f27;
+      --panel-elev: #242934;
+      --panel-hover: #2e3543;
+      --ink: #f1f5f9;
+      --ink-bright: #ffffff;
+      --mut: #8b95a5;
+      --accent: #38bdf8;
+      --accent-ink: #0f172a;
+      --bdr: rgba(255, 255, 255, 0.07);
+      --shadow-card: 0 16px 44px rgba(0, 0, 0, 0.6);
+      --shadow-knob: 0 2px 8px rgba(0, 0, 0, 0.4);
+      --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body.theme-light {
+      --bg: #f3f4f6;
+      --card-bg: #ffffff;
+      --panel-bg: #f0f2f5;
+      --panel-elev: #e4e7eb;
+      --panel-hover: #d8dce2;
+      --ink: #111827;
+      --ink-bright: #000000;
+      --mut: #6b7280;
+      --accent: #0284c7;
+      --accent-ink: #ffffff;
+      --bdr: rgba(0, 0, 0, 0.08);
+      --shadow-card: 0 16px 40px rgba(15, 23, 42, 0.1);
+      --shadow-knob: 0 2px 6px rgba(15, 23, 42, 0.15);
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      font-family: var(--font-main);
+      color: var(--ink);
+      touch-action: none;
+      transition: background 0.25s ease;
+    }
+    #viewport-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+      z-index: 1;
+    }
+
+    /* Top HUD Readout Bar */
+    #top-bar {
+      position: fixed;
+      top: 14px;
+      left: 16px;
+      right: 16px;
+      z-index: 100;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+    }
+    .top-pill {
+      background: var(--card-bg);
+      border: 1px solid var(--bdr);
+      border-radius: 18px;
+      padding: 6px 16px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--mut);
+      box-shadow: var(--shadow-card);
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .top-pill span {
+      color: var(--ink);
+      font-weight: 600;
+    }
+    .top-pill span.val-accent {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .top-actions {
+      display: flex;
+      gap: 8px;
+      pointer-events: auto;
+    }
+    .top-btn {
+      height: 30px;
+      padding: 0 14px;
+      border-radius: 15px;
+      background: var(--card-bg);
+      border: 1px solid var(--bdr);
+      color: var(--ink);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: var(--shadow-card);
+      transition: all 0.15s ease;
+    }
+    .top-btn:hover { background: var(--panel-hover); }
+    .top-btn.on {
+      background: var(--accent);
+      color: var(--accent-ink);
+      border-color: transparent;
+    }
+
+    /* DRAGGABLE MODAL FLOATING CARDS & SCOPED THEMES */
+    #modals-container {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 200;
+    }
+
+    .controller-card.modal-card {
+      position: fixed;
+      z-index: 100;
+      box-shadow: var(--shadow-card);
+      border: 1px solid var(--bdr);
+      border-radius: 14px;
+      touch-action: none;
+      pointer-events: auto;
+      user-select: none;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    .controller-card.modal-card.dragging {
+      opacity: 0.95;
+      box-shadow: 0 24px 56px rgba(0, 0, 0, 0.7);
+      cursor: grabbing;
+    }
+
+    .card-ref-header {
+      font-size: 8.5px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      color: var(--mut);
+      padding: 6px 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      user-select: none;
+      border-bottom: 1px solid var(--bdr);
+      font-family: var(--font-main);
+      background: var(--panel-elev);
+      cursor: grab;
+      touch-action: none;
+    }
+    .card-ref-header:active {
+      cursor: grabbing;
+    }
+    .card-title-text {
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+    .card-badge {
+      font-size: 7.5px;
+      font-weight: 800;
+      padding: 1px 5px;
+      border-radius: 3px;
+      letter-spacing: 0.4px;
+    }
+    .badge-dark {
+      background: rgba(56, 189, 248, 0.18);
+      color: #38bdf8;
+    }
+    .badge-light {
+      background: rgba(2, 132, 199, 0.15);
+      color: #0284c7;
+    }
+    .card-drag-grip {
+      font-size: 7px;
+      opacity: 0.5;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    .card-theme-dark {
+      --card-bg: #14171d;
+      --panel-bg: #1b1f27;
+      --panel-elev: #242934;
+      --panel-hover: #2e3543;
+      --ink: #f1f5f9;
+      --ink-bright: #ffffff;
+      --mut: #8b95a5;
+      --accent: #38bdf8;
+      --accent-ink: #0f172a;
+      --bdr: rgba(255, 255, 255, 0.08);
+      --shadow-card: 0 16px 44px rgba(0, 0, 0, 0.6);
+      --shadow-knob: 0 2px 8px rgba(0, 0, 0, 0.4);
+      background: #14171d;
+      color: #f1f5f9;
+      border-color: rgba(255, 255, 255, 0.08);
+    }
+    .card-theme-dark .card-ref-header {
+      background: #1b1f27;
+      border-bottom-color: rgba(255, 255, 255, 0.08);
+      color: #94a3b8;
+    }
+    .card-theme-dark .c3-gimbal-wrap {
+      background: #1c202a !important;
+    }
+
+    .card-theme-light {
+      --card-bg: #ffffff;
+      --panel-bg: #f0f2f5;
+      --panel-elev: #e4e7eb;
+      --panel-hover: #d8dce2;
+      --ink: #111827;
+      --ink-bright: #000000;
+      --mut: #6b7280;
+      --accent: #0284c7;
+      --accent-ink: #ffffff;
+      --bdr: rgba(0, 0, 0, 0.10);
+      --shadow-card: 0 16px 40px rgba(15, 23, 42, 0.16);
+      --shadow-knob: 0 2px 6px rgba(15, 23, 42, 0.15);
+      background: #ffffff;
+      color: #111827;
+      border-color: rgba(0, 0, 0, 0.10);
+    }
+    .card-theme-light .card-ref-header {
+      background: #f0f2f5;
+      border-bottom-color: rgba(0, 0, 0, 0.08);
+      color: #374151;
+    }
+    .card-theme-light .c3-gimbal-wrap {
+      background: #f0f2f5 !important;
+    }
+    .card-theme-light .c3-hint-bar {
+      background: rgba(0, 0, 0, 0.06);
+      color: #6b7280;
+    }
+
+    .c3-mode-pill {
+      height: 22px;
+      padding: 0 10px;
+      border-radius: 11px;
+      background: var(--panel-bg);
+      border: 1px solid var(--bdr);
+      color: var(--ink);
+      font-size: 8.5px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.2s ease;
+      font-family: var(--font-main);
+    }
+    .controller-card.surface-mode .c3-mode-pill {
+      background: var(--accent);
+      color: var(--accent-ink);
+      border-color: transparent;
+      box-shadow: 0 2px 8px rgba(56, 189, 248, 0.35);
+    }
+    .c3-gimbal-wrap {
+      width: 100%;
+      height: 160px;
+      border-radius: 8px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+    .gimbal-canvas-3 {
+      width: 156px;
+      height: 156px;
+      border-radius: 50%;
+      cursor: grab;
+      display: block;
+    }
+    .c3-hint-bar {
+      width: 100%;
+      min-height: 17px;
+      font-size: 7.8px;
+      font-weight: 600;
+      color: var(--mut);
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1px 4px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+      margin: 2px 0;
+      letter-spacing: 0.2px;
+      transition: color 0.15s ease, background 0.15s ease;
+      font-family: var(--font-main);
+    }
+    .c3-hint-bar.active {
+      color: var(--accent);
+      background: rgba(56, 189, 248, 0.15);
+      font-weight: 700;
+    }
+    .c3-bottom-ctrls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      height: 22px;
+      margin-top: 3px;
+      padding-top: 2px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .fc-panels {
+      display: flex;
+      flex-direction: column;
+      padding: 3px 6px 6px 6px;
+      width: 100%;
+      gap: 5px;
+    }
+    .c2-actions-row {
+      display: flex;
+      gap: 2.5px;
+      width: 100%;
+      height: 22px;
+      margin-top: 0;
+      background: transparent;
+    }
+    .preset-btn {
+      flex: 1;
+      height: 22px;
+      padding: 0 2px;
+      border-radius: 5px;
+      background: var(--panel-bg);
+      border: none;
+      color: var(--ink);
+      font-size: 7.5px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      letter-spacing: 0.01em;
+      font-family: var(--font-main);
+      transition: all 0.15s ease;
+    }
+    .preset-btn:hover { background: var(--panel-hover); }
+
+    .fc-hdr-btn {
+      height: 24px;
+      padding: 0 9px;
+      border-radius: 12px;
+      border: none;
+      background: var(--panel-bg);
+      color: var(--mut);
+      font-size: 9.5px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: var(--font-main);
+      transition: all 0.15s ease;
+    }
+    .fc-hdr-btn:hover {
+      background: var(--panel-hover);
+      color: var(--ink);
+    }
+
+    #toast {
+      position: fixed;
+      bottom: 96px;
+      left: 50%;
+      transform: translateX(-50%) translateY(6px);
+      background: var(--card-bg);
+      color: var(--ink);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      padding: 7px 16px;
+      border-radius: 20px;
+      border: 1px solid var(--bdr);
+      box-shadow: var(--shadow-card);
+      z-index: 500;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s, transform 0.15s;
+      white-space: nowrap;
+    }
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    :root { --bg:#232629; --card-bg:#282b2f; --panel-bg:#303338; --panel-elev:#303338; --panel-hover:#393d42; --ink:#f1f2f3; --mut:#b5b9bf; --accent:#55bfd1; --accent-ink:#122025; --shadow-card:0 6px 20px rgba(0,0,0,.14); --shadow-knob:none; }
+    body.theme-light { --bg:#eeefed; --card-bg:#f6f6f3; --panel-bg:#e6e7e5; --panel-elev:#e6e7e5; --panel-hover:#dedfdd; --ink:#242629; --mut:#626970; --accent:#187f93; --accent-ink:#fff; --shadow-card:0 6px 20px rgba(0,0,0,.07); }
+    .card-theme-dark { --card-bg:#272a2e; --panel-bg:#303439; --panel-elev:#303439; --panel-hover:#373c41; --ink:#f0f1f2; --mut:#adb3b9; --accent:#66bdcc; --accent-ink:#172226; --bdr:#41464b; background:#272a2e; color:#f0f1f2; }
+    .card-theme-light { --card-bg:#f3f3f0; --panel-bg:#e4e5e2; --panel-elev:#e4e5e2; --panel-hover:#e0e1de; --ink:#25282b; --mut:#656d73; --accent:#258398; --accent-ink:#fff; --bdr:#d5d8d4; background:#f3f3f0; color:#25282b; }
+    .controller-card.modal-card { border-radius:18px; box-shadow:0 5px 18px rgba(0,0,0,.10); }
+    .card-theme-dark .card-ref-header,.card-theme-light .card-ref-header { background:transparent; color:var(--mut); border-bottom:1px solid var(--bdr); }
+    .card-ref-header { padding:10px 10px; font-size:12px; letter-spacing:0; text-transform:none; }
+    .card-badge { font-size:11px; padding:0; background:none; color:var(--mut); font-weight:500; }
+    .card-drag-grip { font-size:11px; letter-spacing:0; }
+    .fc-panels { padding:8px; }
+    .card-theme-dark .c3-gimbal-wrap,.card-theme-light .c3-gimbal-wrap { background:transparent!important; height:auto; aspect-ratio:1; }
+    .gimbal-canvas-3 { width:100%; height:auto; aspect-ratio:1; touch-action:none; }
+    .c3-hint-bar,.card-theme-light .c3-hint-bar { color:var(--mut); background:none; font-size:12px; font-weight:400; line-height:1.45; min-height:38px; letter-spacing:0; margin:5px 0; padding:0 2px; }
+    .c3-hint-bar.active { color:var(--accent); background:none; font-weight:500; }
+    .c2-actions-row { display:grid; grid-template-columns:1fr 1fr; gap:2px; height:auto; padding:4px 0; }
+    .c2-actions-row .preset-btn { height:32px; font-size:13px; border:0; border-radius:6px; background:transparent; color:var(--ink); padding:4px; box-shadow:none; }
+    .c2-actions-row .preset-btn:hover { background:var(--panel-hover); }
+    .c3-bottom-ctrls { min-height:40px; height:auto; border-color:var(--bdr); gap:2px; }
+    .c3-mode-pill,.controller-card.surface-mode .c3-mode-pill { color:var(--ink); background:none; box-shadow:none; border:0; border-bottom:2px solid var(--mut); border-radius:0; font-size:12px; padding:0 2px; height:34px; font-weight:600; }
+    .controller-card.surface-mode .c3-mode-pill { border-bottom-color:var(--accent); }
+    .fc-hdr-btn { color:var(--mut); background:none; border:0; box-shadow:none; font-size:12px; height:34px; padding:0 4px; }
+    #top-bar { flex-wrap:wrap; gap:8px; }
+    .top-pill { flex-wrap:wrap; gap:10px; font-size:12px; padding:9px 12px; border-radius:12px; }
+    .top-actions { flex-wrap:wrap; gap:6px; }
+    .top-btn { height:36px; font-size:12px; border-radius:8px; padding:0 10px; box-shadow:none; }
+    #btn-download-sandbox { background:var(--card-bg)!important; color:var(--ink)!important; border-color:var(--bdr)!important; }
+    button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+    @media(max-width:680px){#top-bar{left:8px;right:8px;top:max(8px,env(safe-area-inset-top));}.top-pill{gap:6px;font-size:11px;width:100%;padding:7px 9px;}.top-pill>div:first-child{width:100%;}.top-btn{font-size:12px;height:32px;padding:0 8px;}.card-ref-header{font-size:11px;padding:8px}.card-drag-grip{display:none}.c3-hint-bar{font-size:11px}.c2-actions-row .preset-btn{font-size:12px}}
+  </style>
+</head>
+<body>
+
+  <canvas id="viewport-canvas"></canvas>
+
+  <!-- Top Readout Bar -->
+  <div id="top-bar">
+    <div class="top-pill"><div style="font-weight:700;color:var(--accent);margin-right:6px;">NAVIGATOR · Refined</div>
+      <div>Cam Dist: <span id="readout-cam-dist" class="val-accent">10.0m</span></div>
+      <div>Elevation: <span id="readout-elevation">0.00</span></div>
+      <div>Pitch: <span id="readout-pitch">0°</span></div>
+      <div>Roll: <span id="readout-roll">0°</span></div>
+      <div>Yaw: <span id="readout-yaw">0°</span></div>
+    </div>
+    <div class="top-actions">
+      <button class="top-btn" id="btn-toggle-grid">Grid: On</button>
+      <button class="top-btn" id="btn-toggle-theme">Theme: Dark</button>
+      <button class="top-btn" id="btn-arrange-modals" title="Center cards side-by-side">Center Cards</button>
+      <button class="top-btn" id="btn-download-sandbox" style="background:#0284c7;color:#fff;border-color:#0284c7;font-weight:700;cursor:pointer;">Download HTML</button>
+    </div>
+  </div>
+
+  <!-- MODALS CONTAINER (DRAGGABLE SIDE-BY-SIDE MODALS) -->
+  <div id="modals-container">
+
+    <!-- ── OPTION 3 (DARK) ── -->
+    <div class="controller-card modal-card card-theme-dark surface-mode" id="card-c3-dark" style="width: 176px;">
+      <div class="card-ref-header">
+        <span class="card-title-text">Navigator</span>
+        <span class="card-badge badge-dark">Dark</span>
+        <span class="card-drag-grip">Move</span>
+      </div>
+      <div class="fc-panels">
+        <div class="c3-gimbal-wrap">
+          <canvas class="gimbal-canvas-3" id="gimbal-canvas-3-dark" width="156" height="156"></canvas>
+        </div>
+        <div class="c3-hint-bar" id="c3-hint-bar-dark">
+          Arrows: lift · Centre: move<br>Rim: spin · Sides: tilt
+        </div>
+        <div class="c2-actions-row">
+          <button class="preset-btn btn-opt-align" title="Align camera to plane">Align</button>
+          <button class="preset-btn btn-opt-ground" title="Snap to flat ground">Ground</button>
+          <button class="preset-btn btn-opt-wall" title="Snap to vertical wall">Wall</button>
+          <button class="preset-btn btn-opt-45slant" title="Snap to 45° slant">45°</button>
+        </div>
+        <div class="c3-bottom-ctrls">
+          <button class="c3-mode-pill btn-c3-mode-toggle" title="Toggle Surface / Camera Mode">
+            <span class="c3-mode-text">Gizmo: Surface</span>
+          </button>
+          <button class="fc-hdr-btn btn-opt-reset" title="Reset View or Plane">Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── OPTION 3 (LIGHT) ── -->
+    <div class="controller-card modal-card card-theme-light surface-mode" id="card-c3-light" style="width: 176px;">
+      <div class="card-ref-header">
+        <span class="card-title-text">Navigator</span>
+        <span class="card-badge badge-light">Light</span>
+        <span class="card-drag-grip">Move</span>
+      </div>
+      <div class="fc-panels">
+        <div class="c3-gimbal-wrap">
+          <canvas class="gimbal-canvas-3" id="gimbal-canvas-3-light" width="156" height="156"></canvas>
+        </div>
+        <div class="c3-hint-bar" id="c3-hint-bar-light">
+          Arrows: lift · Centre: move<br>Rim: spin · Sides: tilt
+        </div>
+        <div class="c2-actions-row">
+          <button class="preset-btn btn-opt-align" title="Align camera to plane">Align</button>
+          <button class="preset-btn btn-opt-ground" title="Snap to flat ground">Ground</button>
+          <button class="preset-btn btn-opt-wall" title="Snap to vertical wall">Wall</button>
+          <button class="preset-btn btn-opt-45slant" title="Snap to 45° slant">45°</button>
+        </div>
+        <div class="c3-bottom-ctrls">
+          <button class="c3-mode-pill btn-c3-mode-toggle" title="Toggle Surface / Camera Mode">
+            <span class="c3-mode-text">Gizmo: Surface</span>
+          </button>
+          <button class="fc-hdr-btn btn-opt-reset" title="Reset View or Plane">Reset</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast"></div>
+
+  <script>
+    // ── Global State & Compatibility ──
+    window.isDirty = false;
+    window.markDirty = function() { window.isDirty = true; };
+    window.syncSurf = function() { updatePlaneTransform(); };
+
+    let toastTimer = null;
+    function toast(msg) {
+      const el = document.getElementById('toast');
+      if (!el) return;
+      el.textContent = msg;
+      el.classList.add('show');
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { el.classList.remove('show'); }, 1400);
+    }
+    window.toast = toast;
+
+    // ── 1. Three.js Scene Setup ──
+    const canvas = document.getElementById('viewport-canvas');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0d0f14);
+    scene.fog = new THREE.Fog(0x0d0f14, 16, 50);
+
+    let W = window.innerWidth;
+    let H = window.innerHeight;
+    const camera = new THREE.PerspectiveCamera(50, W / H, 0.1, 1000);
+    camera.position.set(6, 5, 8);
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setSize(W, H);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    const ambLight = new THREE.AmbientLight(0xffffff, 0.95);
+    scene.add(ambLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.4);
+    dirLight.position.set(10, 16, 10);
+    dirLight.castShadow = true;
+    scene.add(dirLight);
+
+    const gridHelper = new THREE.GridHelper(24, 24, 0x38bdf8, 0x1f242e);
+    gridHelper.position.y = -0.01;
+    scene.add(gridHelper);
+
+    const pillarGeo = new THREE.BoxGeometry(0.8, 1.6, 0.8);
+    const pillarMat = new THREE.MeshStandardMaterial({ color: 0x1f242e, roughness: 0.4 });
+    const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+    pillar.position.set(0, 0.8, 0);
+    pillar.castShadow = true;
+    scene.add(pillar);
+
+    // ── 2. Interactive 3D Drawing Plane ──
+    const planeGroup = new THREE.Group();
+    planeGroup.position.set(0, 0, 0);
+    scene.add(planeGroup);
+
+    const planeSize = 3.6;
+    const planeGeo = new THREE.PlaneGeometry(planeSize, planeSize);
+    planeGeo.rotateX(-Math.PI / 2);
+
+    const planeFillMat = new THREE.MeshBasicMaterial({
+      color: 0x0284c7,
+      transparent: true,
+      opacity: 0.16,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    });
+    const planeFillMesh = new THREE.Mesh(planeGeo, planeFillMat);
+    planeGroup.add(planeFillMesh);
+
+    function createGridTexture() {
+      const cvs = document.createElement('canvas');
+      cvs.width = 256; cvs.height = 256;
+      const ctx = cvs.getContext('2d');
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(1, 1, 254, 254);
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
+      ctx.lineWidth = 1;
+      for (let i = 32; i < 256; i += 32) {
+        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 256); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(256, i); ctx.stroke();
+      }
+      const tex = new THREE.CanvasTexture(cvs);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      return tex;
+    }
+
+    const planeGridMat = new THREE.MeshBasicMaterial({
+      map: createGridTexture(),
+      transparent: true,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    });
+    const planeGridMesh = new THREE.Mesh(planeGeo, planeGridMat);
+    planeGridMesh.renderOrder = 2;
+    planeGroup.add(planeGridMesh);
+
+    // Plane Transform State
+    const planeState = {
+      x: 0, y: 0, z: 0,
+      pitch: 0, roll: 0, yaw: 0
+    };
+    window.planeState = planeState;
+
+    function updatePlaneTransform() {
+      planeGroup.position.set(planeState.x, planeState.y, planeState.z);
+      const euler = new THREE.Euler(
+        THREE.MathUtils.degToRad(planeState.pitch),
+        THREE.MathUtils.degToRad(planeState.yaw),
+        THREE.MathUtils.degToRad(planeState.roll),
+        'YXZ'
+      );
+      planeGroup.rotation.copy(euler);
+
+      document.getElementById('readout-elevation').textContent = planeState.y.toFixed(2);
+      document.getElementById('readout-pitch').textContent = Math.round(planeState.pitch) + '°';
+      document.getElementById('readout-roll').textContent = Math.round(planeState.roll) + '°';
+      document.getElementById('readout-yaw').textContent = Math.round(planeState.yaw) + '°';
+
+      if (typeof drawGimbal3 === 'function') drawGimbal3();
+    }
+    window.updatePlaneTransform = updatePlaneTransform;
+
+    // ── 3. Spherical Camera Model ──
+    const camState = {
+      radius: 10,
+      theta: 0.85,
+      phi: 1.05,
+      target: new THREE.Vector3(0, 0.8, 0)
+    };
+    window.camState = camState;
+    window.cam = camState;
+
+    function updateCamera() {
+      const sinP = Math.sin(camState.phi), cosP = Math.cos(camState.phi);
+      const sinT = Math.sin(camState.theta), cosT = Math.cos(camState.theta);
+
+      const eyeX = camState.target.x + camState.radius * sinP * sinT;
+      const eyeY = camState.target.y + camState.radius * cosP;
+      const eyeZ = camState.target.z + camState.radius * sinP * cosT;
+
+      camera.position.set(eyeX, eyeY, eyeZ);
+      camera.lookAt(camState.target);
+
+      document.getElementById('readout-cam-dist').textContent = camState.radius.toFixed(1) + 'm';
+      if (typeof drawGimbal3 === 'function') drawGimbal3();
+    }
+    window.updateCamera = updateCamera;
+    window.updCam = updateCamera;
+
+    // ── 4. Gimbal Math & Projection Helpers ──
+    const AXES = [
+      { dir: [0, 1, 0], col: '#0284c7', lbl: 'Y', name: 'Top', snapPhi: 0.01, snapTheta: 0 },
+      { dir: [0, -1, 0], col: '#0284c7', lbl: '-Y', name: 'Bottom', snapPhi: Math.PI - 0.01, snapTheta: 0 },
+      { dir: [-1, 0, 0], col: '#ef4444', lbl: 'X', name: 'Left', snapPhi: Math.PI / 2, snapTheta: -Math.PI / 2 },
+      { dir: [1, 0, 0], col: '#ef4444', lbl: '-X', name: 'Right', snapPhi: Math.PI / 2, snapTheta: Math.PI / 2 },
+      { dir: [0, 0, 1], col: '#10b981', lbl: 'Z', name: 'Front', snapPhi: Math.PI / 2, snapTheta: 0 },
+      { dir: [0, 0, -1], col: '#10b981', lbl: '-Z', name: 'Back', snapPhi: Math.PI / 2, snapTheta: Math.PI }
+    ];
+
+    function projectDir(dx, dy, dz, GW, GH, G_ARM) {
+      const GCX = GW / 2, GCY = GH / 2;
+      const sinT = Math.sin(camState.theta), cosT = Math.cos(camState.theta);
+      const sinP = Math.sin(camState.phi), cosP = Math.cos(camState.phi);
+
+      const rx = cosT, ry = 0, rz = -sinT;
+      const ux = -cosP * sinT, uy = sinP, uz = -cosP * cosT;
+      const fx = sinP * sinT, fy = cosP, fz = sinP * cosT;
+
+      const sx = dx * rx + dy * ry + dz * rz;
+      const sy = dx * ux + dy * uy + dz * uz;
+      const depth = dx * fx + dy * fy + dz * fz;
+
+      return { x: GCX + sx * G_ARM, y: GCY - sy * G_ARM, depth };
+    }
+
+    function projectedAxes3(GW, GH, arm) {
+      const surface = c3Mode === 'surface';
+      const quaternion = surface ? new THREE.Quaternion().setFromEuler(new THREE.Euler(
+        THREE.MathUtils.degToRad(planeState.pitch), THREE.MathUtils.degToRad(planeState.yaw),
+        THREE.MathUtils.degToRad(planeState.roll), 'YXZ')) : null;
+      return AXES.map((ax,i)=>{
+        const v = new THREE.Vector3(...ax.dir);
+        if (quaternion) v.applyQuaternion(quaternion);
+        let p = projectDir(v.x,v.y,v.z,GW,GH,arm);
+        if (surface && (ax.lbl === 'Y' || ax.lbl === '-Y')) {
+          p = {x:GW/2,y:GH/2+(ax.lbl==='Y'?-arm:arm),depth:1.1};
+        } else if(surface) {
+          const cx=GW/2,cy=GH/2,clearance=GW*.19;
+          for(const arrowY of [cy-arm,cy+arm]) {
+            if(Math.hypot(p.x-cx,p.y-arrowY)<clearance) {
+              p.y=Math.max(cy-arm*.6,Math.min(cy+arm*.6,p.y));
+              const minX=Math.sqrt(Math.max(0,clearance**2-(p.y-arrowY)**2));
+              const side=p.x<cx?-1:1;
+              p.x=cx+side*Math.max(Math.abs(p.x-cx),minX);
+            }
+          }
+        }
+        return {ax,i,p,depth:p.depth};
+      }).sort((a,b)=>a.depth-b.depth);
+    }
+    function hitAxisHelper(mx,my,GW,GH,arm,dot) {
+      let best=-1,bestDistance=Infinity,bestDepth=-Infinity;
+      projectedAxes3(GW,GH,arm).forEach(({i,p,depth})=>{
+        const distance=Math.hypot(mx-p.x,my-p.y);
+        if(distance<dot*1.8&&(distance<bestDistance-.5||(Math.abs(distance-bestDistance)<=.5&&depth>bestDepth))){
+          best=i;bestDistance=distance;bestDepth=depth;
+        }
+      });
+      return best;
+    }
+
+    // ── 7. Gimbal 3 Multi-Instance Drawing & Interaction ──
+    let c3Mode = 'surface';
+    function resetHintBar3() {
+      document.querySelectorAll('.c3-hint-bar').forEach(hb => {
+        hb.classList.remove('active');
+        if (c3Mode === 'surface') {
+          hb.innerHTML = 'Arrows: lift · Centre: move<br>Rim: spin · Sides: tilt';
+        } else {
+          hb.textContent = 'Drag: Orbit Camera | Dots: Snap Perspective';
+        }
+      });
+    }
+
+    let g3Feedback = {action:null,axis:-1};
+    function drawGimbal3() {
+      document.querySelectorAll('.gimbal-canvas-3').forEach(canvas=>{
+        const ctx=canvas.getContext('2d'); if(!ctx)return;
+        const GW=156,GH=156,arm=GW*.36,dot=GW*.095,cx=GW/2,cy=GH/2;
+        const ratio=Math.min(window.devicePixelRatio||1,3);
+        if(canvas.width!==Math.round(GW*ratio)){canvas.width=Math.round(GW*ratio);canvas.height=Math.round(GH*ratio);}
+        ctx.setTransform(canvas.width/GW,0,0,canvas.height/GH,0,0);
+        ctx.clearRect(0,0,GW,GH);
+        const light=canvas.closest('.card-theme-light')!==null,surface=c3Mode==='surface';
+        const ink=light?'#25282b':'#f0f1f2',muted=light?'#a6abae':'#666d74';
+        const rear=light?'#d0d3d1':'#454c53',accent=light?'#228397':'#68becd';
+        const circle=light?'#c2c6c9':'#a3aab1',label=light?'#3b4247':'#20262b';
+        const projected=projectedAxes3(GW,GH,arm);
+        ctx.lineCap='round';ctx.lineJoin='round';
+        if(surface){
+          ctx.strokeStyle=g3Feedback.action==='rim-dial'?accent:muted;
+          ctx.lineWidth=g3Feedback.action==='rim-dial'?1.8:1;
+          ctx.beginPath();ctx.arc(cx,cy,arm+dot,0,Math.PI*2);ctx.stroke();
+          ctx.strokeStyle=g3Feedback.action==='roll-skew'?accent:muted;ctx.lineWidth=2;
+          for(const a of [Math.PI,0]){ctx.beginPath();ctx.arc(cx,cy,arm+dot-4,a-.35,a+.35);ctx.stroke();}
+        }
+        projected.forEach(({ax,i,p,depth})=>{
+          const front=depth>=-.05,active=g3Feedback.axis===i;
+          ctx.save();ctx.strokeStyle=active?accent:front?(ax.lbl==='Y'||ax.lbl==='-Y'?ink:muted):rear;
+          ctx.lineWidth=active?2.2:front?1.5:1;
+          if(!front)ctx.setLineDash([2,3]);
+          ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(p.x,p.y);ctx.stroke();ctx.restore();
+        });
+        projected.forEach(({ax,i,p,depth})=>{
+          const front=depth>=-.05,active=g3Feedback.axis===i,hover=canvas._hovAxis===i;
+          ctx.save();ctx.fillStyle=active?accent:front?circle:rear;
+          ctx.font='600 10px Arial, sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+          if(surface&&(ax.lbl==='Y'||ax.lbl==='-Y')){
+            const direction=ax.lbl==='Y'?-1:1,r=12;
+            ctx.fillStyle=active?accent:ink;
+            ctx.beginPath();ctx.moveTo(p.x,p.y+direction*r);
+            ctx.lineTo(p.x-r*.82,p.y-direction*r*.62);ctx.lineTo(p.x+r*.82,p.y-direction*r*.62);ctx.closePath();ctx.fill();
+          }else{
+            const radius=dot*(front?1:.72);
+            if(!surface&&ax.lbl==='Y'&&front)ctx.fillStyle=ink;
+            ctx.beginPath();ctx.arc(p.x,p.y,radius,0,Math.PI*2);ctx.fill();
+            if(active||hover){ctx.strokeStyle=accent;ctx.lineWidth=1.4;ctx.stroke();}
+            if(front){ctx.fillStyle=!surface&&ax.lbl==='Y'? (light?'#fff':'#202326'):label;ctx.fillText(ax.lbl.replace('-','−'),p.x,p.y+.4);}
+          }
+          ctx.restore();
+        });
+        ctx.fillStyle=light?'#f3f3f0':'#272a2e';
+        if(surface){
+          ctx.beginPath();ctx.arc(cx,cy,13,0,Math.PI*2);ctx.fill();
+          ctx.strokeStyle=g3Feedback.action==='center-move'?accent:muted;ctx.lineWidth=1.3;ctx.stroke();
+        }
+        ctx.fillStyle=g3Feedback.action==='center-move'?accent:ink;
+        ctx.beginPath();ctx.arc(cx,cy,surface?2.7:2.4,0,Math.PI*2);ctx.fill();
+      });
+    }
+
+    document.querySelectorAll('.gimbal-canvas-3').forEach(canvas => {
+      let isDragging = false, startX = 0, startY = 0, moved = false;
+      let origPitch = 0, origYaw = 0, origRoll = 0, origElev = 0, origX = 0, origZ = 0;
+      let startAngle = 0, g3Action = 'orient';
+
+      canvas.addEventListener('pointerdown', (e) => {
+        e.stopPropagation(); isDragging = true; moved = false;
+        const r = canvas.getBoundingClientRect();
+        const G3W = 156, G3H = 156;
+        startX = (e.clientX - r.left) * (G3W / r.width);
+        startY = (e.clientY - r.top) * (G3H / r.height);
+        origPitch = planeState.pitch; origYaw = planeState.yaw; origRoll = planeState.roll;
+        origElev = planeState.y; origX = planeState.x; origZ = planeState.z;
+        startAngle = Math.atan2(startY - G3H / 2, startX - G3W / 2);
+
+        if (c3Mode === 'surface') {
+          const G3_ARM = G3W * 0.36, G3_DOT = G3W * 0.095;
+          const hit = hitAxisHelper(startX, startY, G3W, G3H, G3_ARM, G3_DOT);
+          const distFromCenter = Math.hypot(startX - G3W / 2, startY - G3H / 2);
+          const isSideRim = distFromCenter >= G3W * 0.36 && Math.abs(startX - G3W / 2) > Math.abs(startY - G3H / 2) * 1.5;
+
+          if (hit > -1) {
+            const hitAx = AXES[hit];
+            if (hitAx.lbl === 'Y' || hitAx.lbl === '-Y') g3Action = 'elev';
+            else if (hitAx.lbl === 'X' || hitAx.lbl === '-X') g3Action = 'move-x';
+            else if (hitAx.lbl === 'Z' || hitAx.lbl === '-Z') g3Action = 'move-z';
+            else g3Action = 'orient';
+          } else if (isSideRim) {
+            g3Action = 'roll-skew';
+          } else if (distFromCenter <= 18) {
+            g3Action = 'center-move';
+          } else if (distFromCenter >= G3W * 0.38 && distFromCenter <= G3W * 0.52) {
+            g3Action = 'rim-dial';
+          } else {
+            g3Action = 'orient';
+          }
+        } else {
+          g3Action = 'camera-orbit';
+        }
+        g3Feedback={action:g3Action,axis:hitAxisHelper(startX,startY,G3W,G3H,G3W*.36,G3W*.095)};
+        drawGimbal3();
+        canvas.setPointerCapture(e.pointerId);
+      });
+
+      canvas.addEventListener('pointermove', (e) => {
+        const r = canvas.getBoundingClientRect();
+        const G3W = 156, G3H = 156;
+        const mx = (e.clientX - r.left) * (G3W / r.width);
+        const my = (e.clientY - r.top) * (G3H / r.height);
+
+        if (isDragging) {
+          const dx = mx - startX, dy = my - startY;
+          if (Math.hypot(dx, dy) > 2) moved = true;
+
+          if (c3Mode === 'surface') {
+            document.querySelectorAll('.c3-hint-bar').forEach(hb => hb.classList.add('active'));
+
+            if (g3Action === 'elev') {
+              planeState.y = Math.max(-4, Math.min(6, origElev - (dy / (G3H * 0.35)) * 1.8));
+              document.querySelectorAll('.c3-hint-bar').forEach(hb => hb.textContent = 'Elevating: ' + (planeState.y >= 0 ? '+' : '') + planeState.y.toFixed(2) + 'm');
+              updatePlaneTransform();
+            } else if (g3Action === 'roll-skew') {
+              const sign = startX > G3W / 2 ? 1 : -1;
+              planeState.roll = origRoll + (dy / (G3H * 0.35)) * 90 * sign;
+              document.querySelectorAll('.c3-hint-bar').forEach(hb => hb.textContent = 'Tilt: ' + Math.round(planeState.roll) + '°');
+              updatePlaneTransform();
+            } else if (g3Action === 'rim-dial') {
+              const curAngle = Math.atan2(my - G3H / 2, mx - G3W / 2);
+              let deltaAngle = curAngle - startAngle;
+              while (deltaAngle > Math.PI) deltaAngle -= Math.PI * 2;
+              while (deltaAngle < -Math.PI) deltaAngle += Math.PI * 2;
+              planeState.yaw = origYaw + THREE.MathUtils.radToDeg(deltaAngle);
+              document.querySelectorAll('.c3-hint-bar').forEach(hb => hb.textContent = 'Spinning Yaw: ' + Math.round(planeState.yaw) + '°');
+              updatePlaneTransform();
+            } else if (g3Action === 'move-x') {
+              planeState.x = origX + (dx / (G3W * 0.35)) * 2.0;
+              document.querySelectorAll('.c3-hint-bar').forEach(hb => hb.textContent = 'Moving X: ' + planeState.x.toFixed(2));
+              updatePlaneTransform();
+            } else if (g3Action === 'move-z') {
+              planeState.z = origZ + (dy / (G3H * 0.35)) * 2.0;
+              document.querySelectorAll('.c3-hint-bar').forEach(hb => hb.textContent = 'Moving Z: ' + planeState.z.toFixed(2));
+              updatePlaneTransform();
+            } else if (g3Action === 'center-move') {
+              planeState.x = origX + (dx / (G3W * 0.35)) * 2.5;
+              planeState.z = origZ + (dy / (G3H * 0.35)) * 2.5;
+              document.querySelectorAll('.c3-hint-bar').forEach(hb => hb.textContent = 'Translating Surface X/Z');
+              updatePlaneTransform();
+            } else {
+              planeState.pitch = origPitch - (dy / (G3H * 0.35)) * 90;
+              planeState.yaw = origYaw + (dx / (G3W * 0.35)) * 90;
+              document.querySelectorAll('.c3-hint-bar').forEach(hb => hb.textContent = 'Free Orient: Pitch ' + Math.round(planeState.pitch) + '° | Yaw ' + Math.round(planeState.yaw) + '°');
+              updatePlaneTransform();
+            }
+          } else {
+            startX = mx; startY = my;
+            camState.theta -= dx * 0.007;
+            camState.phi = Math.max(0.05, Math.min(Math.PI - 0.05, camState.phi - dy * 0.007));
+            updateCamera();
+          }
+        } else {
+          const G3_ARM = G3W * 0.36, G3_DOT = G3W * 0.095;
+          const hit = hitAxisHelper(mx, my, G3W, G3H, G3_ARM, G3_DOT);
+          if (hit !== canvas._hovAxis) {
+            canvas._hovAxis = hit;
+            canvas.style.cursor = hit > -1 ? 'pointer' : 'grab';
+            drawGimbal3();
+          }
+        }
+      });
+
+      canvas.addEventListener('pointerup', (e) => {
+        if (isDragging) {
+          const r = canvas.getBoundingClientRect();
+          const G3W = 156, G3H = 156;
+          const mx = (e.clientX - r.left) * (G3W / r.width);
+          const my = (e.clientY - r.top) * (G3H / r.height);
+          if (!moved) {
+            const G3_ARM = G3W * 0.36, G3_DOT = G3W * 0.095;
+            const hit = hitAxisHelper(mx, my, G3W, G3H, G3_ARM, G3_DOT);
+            if (hit > -1) {
+              const targetAx = AXES[hit];
+              if (c3Mode === 'surface') {
+                if (targetAx.lbl === 'Y') { planeState.pitch = 0; planeState.roll = 0; }
+                else if (targetAx.lbl === '-Y') { planeState.pitch = 180; planeState.roll = 0; }
+                else if (targetAx.lbl === 'X') { planeState.pitch = 90; planeState.yaw = 90; planeState.roll = 0; }
+                else if (targetAx.lbl === '-X') { planeState.pitch = 90; planeState.yaw = -90; planeState.roll = 0; }
+                else if (targetAx.lbl === 'Z') { planeState.pitch = 90; planeState.yaw = 0; planeState.roll = 0; }
+                else if (targetAx.lbl === '-Z') { planeState.pitch = 90; planeState.yaw = 180; planeState.roll = 0; }
+                updatePlaneTransform();
+                toast('Surface Snapped: ' + targetAx.name);
+              } else {
+                camState.phi = targetAx.snapPhi;
+                camState.theta = targetAx.snapTheta;
+                updateCamera();
+                toast('Snap View: ' + targetAx.name);
+              }
+            }
+          }
+          isDragging = false;
+          try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+        }
+        g3Feedback={action:null,axis:-1};
+        resetHintBar3();
+        drawGimbal3();
+      });
+      canvas.addEventListener('pointercancel',()=>{isDragging=false;g3Feedback={action:null,axis:-1};resetHintBar3();drawGimbal3();});
+    });
+
+    // Draggable Modals System
+    let highestZIndex = 200;
+    function makeModalDraggable(card, header) {
+      if (!card || !header) return;
+      let isDragging = false, startX = 0, startY = 0, startLeft = 0, startTop = 0;
+
+      header.addEventListener('pointerdown', (e) => {
+        if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
+        e.stopPropagation(); isDragging = true;
+        card.classList.add('dragging');
+        highestZIndex++;
+        card.style.zIndex = highestZIndex;
+
+        const r = card.getBoundingClientRect();
+        startX = e.clientX; startY = e.clientY;
+        startLeft = r.left; startTop = r.top;
+        header.setPointerCapture(e.pointerId);
+      });
+
+      header.addEventListener('pointermove', (e) => {
+        if (!isDragging) return;
+        const dx = e.clientX - startX, dy = e.clientY - startY;
+        let newLeft = startLeft + dx, newTop = startTop + dy;
+
+        const maxLeft = window.innerWidth - card.offsetWidth - 4;
+        const maxTop = window.innerHeight - card.offsetHeight - 4;
+        newLeft = Math.max(4, Math.min(maxLeft, newLeft));
+        newTop = Math.max(50, Math.min(maxTop, newTop));
+
+        card.style.left = `${newLeft}px`;
+        card.style.top = `${newTop}px`;
+        card.style.bottom = 'auto';
+        card.style.right = 'auto';
+      });
+
+      header.addEventListener('pointerup', (e) => {
+        if (isDragging) {
+          isDragging = false;
+          card.classList.remove('dragging');
+          try { header.releasePointerCapture(e.pointerId); } catch (_) {}
+        }
+      });
+
+      card.addEventListener('pointerdown', () => {
+        highestZIndex++;
+        card.style.zIndex = highestZIndex;
+      });
+    }
+
+    document.querySelectorAll('.modal-card').forEach(card => {
+      const hdr = card.querySelector('.card-ref-header');
+      makeModalDraggable(card, hdr);
+    });
+
+    function arrangeModals() {
+      const cards=['card-c3-dark','card-c3-light'].map(id=>document.getElementById(id));
+      const width=window.innerWidth,height=window.innerHeight,gap=12;
+      const cardWidth=Math.min(232,Math.floor((width-28-gap)/2));
+      const total=cardWidth*2+gap;
+      cards.forEach((card,i)=>{
+        if (!card) return;
+        card.style.width=cardWidth+'px';card.style.transform='none';
+        card.style.left=((width-total)/2+i*(cardWidth+gap))+'px';
+        card.style.top=Math.max(document.getElementById('top-bar').getBoundingClientRect().bottom+12,height-card.offsetHeight-18)+'px';
+        card.style.bottom='auto';card.style.right='auto';
+      });
+    }
+    window.addEventListener('resize', arrangeModals);
+
+    // Download Sandbox HTML to disk
+    const btnDownload = document.getElementById('btn-download-sandbox');
+    if (btnDownload) {
+      btnDownload.addEventListener('click', () => {
+        toast('Downloading HTML file...');
+        function triggerDownload(htmlText) {
+          try {
+            const blob = new Blob([htmlText], { type: 'text/html;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'navigator-option3.html';
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            setTimeout(() => {
+              document.body.removeChild(link);
+              URL.revokeObjectURL(url);
+            }, 1000);
+            toast('Downloaded navigator-option3.html');
+          } catch (e) {
+            console.error('Blob download failed:', e);
+            window.open(window.location.href, '_blank');
+          }
+        }
+
+        if (window.location.protocol.startsWith('http')) {
+          fetch(window.location.href, { cache: 'no-store' })
+            .then(res => {
+              if (!res.ok) throw new Error('HTTP ' + res.status);
+              return res.text();
+            })
+            .then(text => triggerDownload(text))
+            .catch(err => {
+              console.warn('Fetch fallback:', err);
+              triggerDownload('<!DOCTYPE html>\n' + document.documentElement.outerHTML);
+            });
+        } else {
+          triggerDownload('<!DOCTYPE html>\n' + document.documentElement.outerHTML);
+        }
+      });
+    }
+
+    document.getElementById('btn-arrange-modals').addEventListener('click', () => {
+      arrangeModals();
+      toast('Modals Arranged Side-by-Side');
+    });
+
+    document.querySelectorAll('.btn-c3-mode-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        c3Mode = c3Mode === 'surface' ? 'cam' : 'surface';
+        document.querySelectorAll('#card-c3-dark, #card-c3-light').forEach(c => c.classList.toggle('surface-mode', c3Mode === 'surface'));
+        document.querySelectorAll('.c3-mode-text').forEach(t => t.textContent = c3Mode === 'surface' ? 'Gizmo: Surface' : 'Gizmo: Camera');
+        resetHintBar3();
+        drawGimbal3();
+        toast(c3Mode === 'surface' ? 'Option 3: Surface 3D Mode' : 'Option 3: Camera Mode');
+      });
+    });
+
+    document.querySelectorAll('.btn-opt-ground').forEach(btn => {
+      btn.addEventListener('click', () => {
+        planeState.pitch = 0; planeState.roll = 0; planeState.yaw = 0;
+        updatePlaneTransform();
+        toast('Preset: Ground');
+      });
+    });
+    document.querySelectorAll('.btn-opt-wall').forEach(btn => {
+      btn.addEventListener('click', () => {
+        planeState.pitch = 90; planeState.roll = 0;
+        updatePlaneTransform();
+        toast('Preset: Wall');
+      });
+    });
+    document.querySelectorAll('.btn-opt-45slant').forEach(btn => {
+      btn.addEventListener('click', () => {
+        planeState.pitch = 45; planeState.roll = 0;
+        updatePlaneTransform();
+        toast('Preset: 45° Slant');
+      });
+    });
+    document.querySelectorAll('.btn-opt-align').forEach(btn => {
+      btn.addEventListener('click', () => {
+        camState.phi = Math.PI / 2 - THREE.MathUtils.degToRad(planeState.pitch);
+        camState.theta = THREE.MathUtils.degToRad(planeState.yaw);
+        updateCamera();
+        toast('Camera Aligned to Plane');
+      });
+    });
+    document.querySelectorAll('.btn-opt-reset').forEach(btn => {
+      btn.addEventListener('click', () => {
+        planeState.x = 0; planeState.y = 0; planeState.z = 0;
+        planeState.pitch = 0; planeState.yaw = 0; planeState.roll = 0;
+        updatePlaneTransform();
+        toast('Plane Reset');
+      });
+    });
+
+    function setBg(col, isLight) {
+      scene.background.set(col);
+      scene.fog.color.set(col);
+      document.body.classList.toggle('theme-light', isLight);
+      if (typeof drawGimbal3 === 'function') drawGimbal3();
+    }
+
+    const btnToggleGrid = document.getElementById('btn-toggle-grid');
+    btnToggleGrid.addEventListener('click', () => {
+      gridHelper.visible = !gridHelper.visible;
+      btnToggleGrid.textContent = 'Grid: ' + (gridHelper.visible ? 'On' : 'Off');
+      btnToggleGrid.classList.toggle('on', gridHelper.visible);
+    });
+
+    const btnToggleTheme = document.getElementById('btn-toggle-theme');
+    let isThemeDark = true;
+    btnToggleTheme.addEventListener('click', () => {
+      isThemeDark = !isThemeDark;
+      if (isThemeDark) {
+        setBg(0x0d0f14, false);
+        btnToggleTheme.textContent = 'Theme: Dark';
+      } else {
+        setBg(0xf3f4f6, true);
+        btnToggleTheme.textContent = 'Theme: Light';
+      }
+    });
+
+    let isVpDragging = false, vpStartX = 0, vpStartY = 0, vpStartTheta = 0, vpStartPhi = 0, vpMode = 'orbit';
+
+    canvas.addEventListener('pointerdown', (e) => {
+      isVpDragging = true;
+      vpMode = e.button === 2 || e.shiftKey ? 'pan' : 'orbit';
+      vpStartX = e.clientX; vpStartY = e.clientY;
+      vpStartTheta = camState.theta; vpStartPhi = camState.phi;
+      canvas.setPointerCapture(e.pointerId);
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+      if (!isVpDragging) return;
+      const dx = e.clientX - vpStartX, dy = e.clientY - vpStartY;
+      if (vpMode === 'orbit') {
+        camState.theta = vpStartTheta - dx * 0.004;
+        camState.phi = Math.max(0.05, Math.min(Math.PI - 0.05, vpStartPhi - dy * 0.004));
+      } else {
+        const sinT = Math.sin(camState.theta), cosT = Math.cos(camState.theta);
+        const speed = camState.radius * 0.0012;
+        camState.target.x -= dx * cosT * speed;
+        camState.target.z += dx * sinT * speed;
+        camState.target.y += dy * speed;
+      }
+      updateCamera();
+    });
+
+    canvas.addEventListener('pointerup', (e) => {
+      isVpDragging = false;
+      try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+    });
+
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const factor = e.deltaY > 0 ? 1.08 : 0.92;
+      camState.radius = Math.max(2.5, Math.min(40, camState.radius * factor));
+      updateCamera();
+    }, { passive: false });
+
+    window.addEventListener('resize', () => {
+      W = window.innerWidth; H = window.innerHeight;
+      renderer.setSize(W, H);
+      camera.aspect = W / H;
+      camera.updateProjectionMatrix();
+      updateCamera();
+    });
+
+    function animate() {
+      requestAnimationFrame(animate);
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    arrangeModals();
+    updateCamera();
+    updatePlaneTransform();
+  </script>
+</body>
+</html>

@@ -847,7 +847,7 @@ function startTour() {
 function stopTour() {
   if (!tour) return;
   const s = tour.save;
-  obj.pos.copy(s.pos); obj.quat.copy(s.q);
+  obj.pos.copy(s.pos); obj.quat.copy(s.quat);
   cam.phi = s.phi; cam.theta = s.theta;
   flight = null;
   gz.ring = null;
