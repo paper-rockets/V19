@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>Move it around</title>
+<script src="js/three.min.js"></script>
+<script>if (typeof THREE === "undefined") document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>');</script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  :root{
+    --paper:#eeeeec;
+    --ink:#111111;
+    --ink-60:rgba(17,17,17,.62);
+    --ink-38:rgba(17,17,17,.40);
+    --ink-16:rgba(17,17,17,.16);
+    --ink-09:rgba(17,17,17,.10);
+    --glass:rgba(255,255,255,.55);
+    --up:#ec8a2c;
+    --side:#2f7fd0;
+    --front:#3f9e63;
+    --font:ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  html,body{width:100%;height:100%;overflow:hidden;background:var(--paper);
+    font-family:var(--font);color:var(--ink);touch-action:none;overscroll-behavior:none}
+  #view{position:fixed;inset:0;display:block;touch-action:none;z-index:1}
+
+  #readout{position:fixed;top:calc(14px + env(safe-area-inset-top));left:18px;z-index:20;
+    display:flex;gap:18px;font-size:14px;line-height:1;color:var(--ink-60);
+    font-variant-numeric:tabular-nums;pointer-events:none}
+  #readout b{font-weight:600;color:var(--ink)}
+
+  #utils{position:fixed;top:calc(9px + env(safe-area-inset-top));right:12px;z-index:20;display:flex;gap:6px}
+  .t{font:inherit;font-size:14px;line-height:1;color:var(--ink-60);cursor:pointer;
+    background:var(--glass);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    border:1px solid var(--ink-09);border-radius:11px;padding:11px 13px;min-height:42px}
+  .t:hover{color:var(--ink);border-color:var(--ink-16)}
+  .t:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  .t[aria-pressed="true"]{color:var(--ink);border-color:var(--ink);background:rgba(255,255,255,.8)}
+  #u-tour{color:var(--ink);border-color:var(--ink-16)}
+
+  #bar{position:fixed;left:12px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:20;
+    display:flex;flex-wrap:wrap;gap:6px;max-width:min(calc(100vw - 24px),640px)}
+  .b{font:inherit;font-size:15px;line-height:1;color:var(--ink);cursor:pointer;min-height:48px;
+    background:var(--glass);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    border:1px solid var(--ink-09);border-radius:13px;padding:14px 15px}
+  .b:hover{border-color:var(--ink-16)}
+  .b:active{background:rgba(255,255,255,.85);transform:translateY(1px)}
+  .b:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  .b:disabled{opacity:.34;cursor:default}
+
+  #gizmo{position:fixed;z-index:30;right:12px;bottom:calc(104px + env(safe-area-inset-bottom));
+    touch-action:none;user-select:none;-webkit-user-select:none}
+  #gz-canvas{display:block;cursor:grab;touch-action:none}
+  #gizmo.dragging #gz-canvas{cursor:grabbing}
+  #grip{position:absolute;top:0;left:0;width:30px;height:30px;border-radius:15px;cursor:move;
+    display:grid;place-items:center;color:var(--ink-38);opacity:.5;transition:opacity .18s}
+  #gizmo:hover #grip{opacity:1}
+  #modes{display:flex;gap:6px;justify-content:center;margin-top:4px}
+  .m{font:inherit;font-size:15px;line-height:1;padding:12px 16px;border-radius:12px;cursor:pointer;
+    border:1px solid transparent;background:none;color:var(--ink-38);min-height:44px}
+  .m[aria-pressed="true"]{color:var(--ink);border-color:var(--ink);background:rgba(255,255,255,.72);
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+  .m:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  #hint{margin-top:8px;text-align:center;font-size:14px;line-height:1.4;color:var(--ink-60);
+    font-variant-numeric:tabular-nums;min-height:38px;width:246px;margin-left:auto;margin-right:auto;
+    pointer-events:none}
+  #hint.live{color:var(--ink);font-weight:600}
+
+  #caption{position:fixed;left:50%;transform:translateX(-50%);top:calc(58px + env(safe-area-inset-top));
+    z-index:40;font-size:18px;line-height:1.35;text-align:center;max-width:min(84vw,420px);
+    padding:14px 18px;border-radius:14px;border:1px solid var(--ink-09);color:var(--ink);
+    background:rgba(255,255,255,.78);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+    display:none}
+  #caption.on{display:block}
+  #caption small{display:block;margin-top:6px;font-size:13px;color:var(--ink-38)}
+
+  @media (max-width:560px){
+    #readout{gap:14px;font-size:13px}
+    #readout .wide{display:none}
+    .t{font-size:13px;padding:10px 11px}
+    #gizmo{right:8px;bottom:calc(132px + env(safe-area-inset-bottom))}
+  }
+</style>
+</head>
+<body>
+
+<canvas id="view"></canvas>
+
+<div id="readout">
+  <span>Height <b id="r-h">1.1</b></span>
+  <span>Tilt <b id="r-t">0°</b></span>
+  <span class="wide">Spin <b id="r-y">0°</b></span>
+</div>
+
+<div id="utils">
+  <button class="t" id="u-tour">Show me how</button>
+  <button class="t" id="u-grid" aria-pressed="true">Grid</button>
+  <button class="t" id="u-save">Save</button>
+</div>
+
+<div id="caption"></div>
+
+<div id="gizmo">
+  <div id="grip" title="Drag to move this control">
+    <svg width="11" height="11" viewBox="0 0 10 10" aria-hidden="true">
+      <circle cx="2" cy="2" r="1.2" fill="currentColor"/><circle cx="8" cy="2" r="1.2" fill="currentColor"/>
+      <circle cx="2" cy="8" r="1.2" fill="currentColor"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/>
+    </svg>
+  </div>
+  <canvas id="gz-canvas"></canvas>
+  <div id="modes">
+    <button class="m" id="m-move" aria-pressed="true">Move</button>
+    <button class="m" id="m-rot" aria-pressed="false">Turn</button>
+    <button class="m" id="m-look" aria-pressed="false">Look</button>
+  </div>
+  <div id="hint"></div>
+</div>
+
+<div id="bar">
+  <button class="b" id="p-flat">Lay flat</button>
+  <button class="b" id="p-wall">Stand up</button>
+  <button class="b" id="p-45">Lean</button>
+  <button class="b" id="p-face">Look at it</button>
+  <button class="b" id="p-undo" disabled>Undo</button>
+  <button class="b" id="p-reset">Start over</button>
+</div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const DEG = Math.PI / 180;
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ══════════════════════════════════════════════════════════════════
+   Scene
+   ══════════════════════════════════════════════════════════════════ */
+const PAPER = 0xeeeeec;
+const viewCanvas = $('view');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(PAPER);
+scene.fog = new THREE.Fog(PAPER, 20, 58);
+
+let W = window.innerWidth, H = window.innerHeight;
+const FOV = 46;
+const camera = new THREE.PerspectiveCamera(FOV, W / H, 0.1, 400);
+
+const renderer = new THREE.WebGLRenderer({ canvas: viewCanvas, antialias: true });
+renderer.setSize(W, H);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.72));
+const key = new THREE.DirectionalLight(0xffffff, 0.95);
+key.position.set(9, 15, 7);
+key.castShadow = true;
+key.shadow.mapSize.set(1024, 1024);
+key.shadow.camera.near = 1; key.shadow.camera.far = 46;
+key.shadow.camera.left = -14; key.shadow.camera.right = 14;
+key.shadow.camera.top = 14; key.shadow.camera.bottom = -14;
+scene.add(key);
+scene.add(new THREE.HemisphereLight(0xffffff, 0xd6d6d2, 0.45));
+
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(80, 80).rotateX(-Math.PI / 2),
+  new THREE.ShadowMaterial({ opacity: 0.11 })
+);
+ground.receiveShadow = true;
+scene.add(ground);
+
+const grid = new THREE.GridHelper(28, 28, 0xb9b9b5, 0xdcdcd8);
+grid.position.y = 0.002;
+grid.material.transparent = true;
+grid.material.opacity = 0.9;
+scene.add(grid);
+
+const block = new THREE.Mesh(
+  new THREE.BoxGeometry(0.9, 1.7, 0.9),
+  new THREE.MeshLambertMaterial({ color: 0xfafaf8 })
+);
+block.position.set(-2.6, 0.85, 1.6);
+block.castShadow = true;
+scene.add(block);
+const blockEdges = new THREE.LineSegments(
+  new THREE.EdgesGeometry(block.geometry),
+  new THREE.LineBasicMaterial({ color: 0x111111, transparent: true, opacity: 0.28 })
+);
+blockEdges.position.copy(block.position);
+scene.add(blockEdges);
+
+/* ── the thing you move ──────────────────────────────────────────── */
+const SIZE = 3.4;
+const surface = new THREE.Group();
+scene.add(surface);
+const planeGeo = new THREE.PlaneGeometry(SIZE, SIZE).rotateX(-Math.PI / 2);
+
+function hatchTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const x = c.getContext('2d');
+  x.clearRect(0, 0, 256, 256);
+  x.strokeStyle = 'rgba(17,17,17,0.22)';
+  x.lineWidth = 1;
+  for (let i = 32; i < 256; i += 32) {
+    x.beginPath(); x.moveTo(i + .5, 0); x.lineTo(i + .5, 256); x.stroke();
+    x.beginPath(); x.moveTo(0, i + .5); x.lineTo(256, i + .5); x.stroke();
+  }
+  x.strokeStyle = 'rgba(17,17,17,0.85)';
+  x.lineWidth = 4;
+  x.strokeRect(2, 2, 252, 252);
+  const t = new THREE.CanvasTexture(c);
+  t.anisotropy = 4;
+  return t;
+}
+surface.add(new THREE.Mesh(planeGeo, new THREE.MeshBasicMaterial({
+  color: 0xffffff, transparent: true, opacity: 0.62, side: THREE.DoubleSide, depthWrite: false
+})));
+const skin = new THREE.Mesh(planeGeo, new THREE.MeshBasicMaterial({
+  map: hatchTexture(), transparent: true, side: THREE.DoubleSide, depthWrite: false
+}));
+skin.renderOrder = 2;
+surface.add(skin);
+
+// a little flag, so which way is up is never a guess
+const flagPole = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0.72, 0)]),
+  new THREE.LineBasicMaterial({ color: 0x111111, transparent: true, opacity: 0.5 })
+);
+surface.add(flagPole);
+const flag = new THREE.Mesh(
+  new THREE.ConeGeometry(0.11, 0.26, 16),
+  new THREE.MeshBasicMaterial({ color: 0xec8a2c })
+);
+flag.position.y = 0.78;
+surface.add(flag);
+
+/* ── state ───────────────────────────────────────────────────────── */
+const obj = { pos: new THREE.Vector3(0, 1.1, 0), quat: new THREE.Quaternion() };
+const cam = { radius: 11, theta: 0.78, phi: 1.06, target: new THREE.Vector3(0, 1.1, 0) };
+
+function applyObject() {
+  surface.position.copy(obj.pos);
+  surface.quaternion.copy(obj.quat);
+  const e = new THREE.Euler().setFromQuaternion(obj.quat, 'YXZ');
+  $('r-h').textContent = obj.pos.y.toFixed(1);
+  $('r-t').textContent = Math.round(e.x / DEG) + '°';
+  $('r-y').textContent = Math.round(e.y / DEG) + '°';
+  drawGizmo();
+}
+function applyCamera() {
+  const sp = Math.sin(cam.phi), cp = Math.cos(cam.phi);
+  const st = Math.sin(cam.theta), ct = Math.cos(cam.theta);
+  camera.position.set(
+    cam.target.x + cam.radius * sp * st,
+    cam.target.y + cam.radius * cp,
+    cam.target.z + cam.radius * sp * ct
+  );
+  camera.lookAt(cam.target);
+  drawGizmo();
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   The control
+   ══════════════════════════════════════════════════════════════════ */
+const gz = { size: 214, mode: 'move', snap: true, active: null, hover: null, ring: null };
+const gzc = $('gz-canvas');
+const gctx = gzc.getContext('2d');
+
+// one colour and one word per direction — no letters to decode
+const AXES = [
+  { key: 'y', dir: [0, 1, 0], lbl: 'Up', back: 'Down', tone: '#ec8a2c', word: 'up' },
+  { key: 'x', dir: [1, 0, 0], lbl: 'Side', back: 'Side', tone: '#2f7fd0', word: 'sideways' },
+  { key: 'z', dir: [0, 0, 1], lbl: 'Front', back: 'Back', tone: '#3f9e63', word: 'forward' }
+];
+const GHOST = 'rgba(17,17,17,0.20)';
+const HAIR = 'rgba(17,17,17,0.13)';
+
+function gzMetrics() {
+  const S = gz.size;
+  return { S, c: S / 2, arm: S * 0.26, hand: S * 0.105, hub: S * 0.12, ring: S * 0.455 };
+}
+function sizeGizmo() {
+  const dpr = Math.min(window.devicePixelRatio, 2);
+  gzc.style.width = gz.size + 'px';
+  gzc.style.height = gz.size + 'px';
+  gzc.width = Math.round(gz.size * dpr);
+  gzc.height = Math.round(gz.size * dpr);
+  gctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawGizmo();
+}
+
+function axisDir(a) {
+  const v = new THREE.Vector3(a.dir[0], a.dir[1], a.dir[2]);
+  if (gz.mode !== 'look') v.applyQuaternion(obj.quat);
+  return v.normalize();
+}
+function project(v) {
+  const sp = Math.sin(cam.phi), cp = Math.cos(cam.phi);
+  const st = Math.sin(cam.theta), ct = Math.cos(cam.theta);
+  const sx = v.x * ct + v.z * -st;
+  const sy = v.x * (-cp * st) + v.y * sp + v.z * (-cp * ct);
+  const depth = v.x * (sp * st) + v.y * cp + v.z * (sp * ct);
+  const m = gzMetrics();
+  return { x: m.c + sx * m.arm, y: m.c - sy * m.arm, depth, len: Math.hypot(sx, sy) };
+}
+function handles() {
+  const out = [];
+  AXES.forEach((a, i) => {
+    const d = axisDir(a);
+    out.push({ a, i, sign: 1, dir: d, p: project(d) });
+    const n = d.clone().negate();
+    out.push({ a, i, sign: -1, dir: n, p: project(n) });
+  });
+  return out;
+}
+
+function drawGizmo(now) {
+  const m = gzMetrics();
+  const g = gctx;
+  g.clearRect(0, 0, m.S, m.S);
+
+  g.beginPath();
+  g.arc(m.c, m.c, m.ring, 0, Math.PI * 2);
+  g.fillStyle = 'rgba(255,255,255,0.34)';
+  g.fill();
+  g.strokeStyle = gz.active === 'orbit' ? 'rgba(17,17,17,0.34)' : HAIR;
+  g.lineWidth = 1;
+  g.stroke();
+
+  const hs = handles().sort((p, q) => p.p.depth - q.p.depth);
+
+  hs.forEach(h => {
+    const front = h.p.depth >= -0.04;
+    g.save();
+    g.beginPath();
+    g.moveTo(m.c, m.c);
+    g.lineTo(h.p.x, h.p.y);
+    if (h.sign > 0 && front) { g.strokeStyle = h.a.tone; g.lineWidth = 3; }
+    else { g.strokeStyle = GHOST; g.lineWidth = 1.2; g.setLineDash([3, 4]); }
+    g.stroke();
+    g.restore();
+  });
+
+  hs.forEach(h => {
+    const front = h.p.depth >= -0.04;
+    const on = gz.active && gz.active.type === 'axis' && gz.active.i === h.i && gz.active.sign === h.sign;
+    const hov = gz.hover && gz.hover.i === h.i && gz.hover.sign === h.sign;
+
+    if (h.sign < 0 || !front) {
+      g.beginPath();
+      g.arc(h.p.x, h.p.y, m.hand * (h.sign < 0 ? 0.6 : 0.74), 0, Math.PI * 2);
+      g.fillStyle = (on || hov) ? 'rgba(17,17,17,0.42)' : GHOST;
+      g.fill();
+      return;
+    }
+
+    // the arrow tip always points the way a drag will send it
+    if (h.p.len > (gz.mode === 'rotate' ? 0.34 : 0.22)) {
+      const ux = (h.p.x - m.c) / (m.arm * h.p.len), uy = (h.p.y - m.c) / (m.arm * h.p.len);
+      const base = m.hand * 1.1, wide = m.hand * 0.6;
+      g.save();
+      g.translate(h.p.x, h.p.y);
+      g.rotate(Math.atan2(uy, ux));
+      g.fillStyle = h.a.tone;
+      if (gz.mode === 'rotate') {
+        g.beginPath();
+        g.arc(0, 0, m.hand * 1.48, -0.95, 0.95);
+        g.strokeStyle = h.a.tone;
+        g.lineWidth = 2.6;
+        g.stroke();
+        const ax = Math.cos(0.95) * m.hand * 1.48, ay = Math.sin(0.95) * m.hand * 1.48;
+        g.beginPath();
+        g.moveTo(ax + 4, ay + 1.4); g.lineTo(ax - 3.2, ay + 4.2); g.lineTo(ax - 1.4, ay - 3.2);
+        g.closePath(); g.fill();
+      } else {
+        g.beginPath();
+        g.moveTo(base + m.hand * 1.1, 0);
+        g.lineTo(base, -wide);
+        g.lineTo(base, wide);
+        g.closePath();
+        g.fill();
+      }
+      g.restore();
+    }
+
+    g.beginPath();
+    g.arc(h.p.x, h.p.y, m.hand * (on || hov ? 1.08 : 1), 0, Math.PI * 2);
+    g.fillStyle = h.a.tone;
+    g.fill();
+    if (on || hov) {
+      g.strokeStyle = '#111111';
+      g.lineWidth = 2;
+      g.beginPath();
+      g.arc(h.p.x, h.p.y, m.hand * 1.34, 0, Math.PI * 2);
+      g.stroke();
+    }
+    g.fillStyle = '#ffffff';
+    g.font = '600 ' + (m.hand * 0.6).toFixed(1) + 'px ' + getComputedStyle(document.body).fontFamily;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(h.a.lbl, h.p.x, h.p.y + 0.5);
+  });
+
+  g.beginPath();
+  g.arc(m.c, m.c, m.hub, 0, Math.PI * 2);
+  g.fillStyle = 'rgba(255,255,255,0.9)';
+  g.fill();
+  g.strokeStyle = gz.active && gz.active.type === 'hub' ? '#111111' : 'rgba(17,17,17,0.45)';
+  g.lineWidth = gz.active && gz.active.type === 'hub' ? 2 : 1.4;
+  g.stroke();
+  drawHubIcon(g, m.c, m.c, m.hub * 0.6);
+
+  if (gz.ring) drawPulse(g, m, now);
+}
+
+function drawHubIcon(g, cx, cy, r) {
+  g.save();
+  g.strokeStyle = '#111111';
+  g.fillStyle = '#111111';
+  g.lineWidth = 1.5;
+  if (gz.mode === 'move') {
+    for (let k = 0; k < 4; k++) {
+      g.save();
+      g.translate(cx, cy);
+      g.rotate(k * Math.PI / 2);
+      g.beginPath(); g.moveTo(0, 0); g.lineTo(r * 0.86, 0); g.stroke();
+      g.beginPath();
+      g.moveTo(r, 0); g.lineTo(r * 0.6, -r * 0.32); g.lineTo(r * 0.6, r * 0.32);
+      g.closePath(); g.fill();
+      g.restore();
+    }
+  } else if (gz.mode === 'rotate') {
+    g.beginPath();
+    g.arc(cx, cy, r * 0.82, -2.5, 1.7);
+    g.stroke();
+    const ax = cx + Math.cos(1.7) * r * 0.82, ay = cy + Math.sin(1.7) * r * 0.82;
+    g.beginPath();
+    g.moveTo(ax + 3.8, ay - 0.4); g.lineTo(ax - 1.6, ay + 3.8); g.lineTo(ax - 2.9, ay - 2.7);
+    g.closePath(); g.fill();
+  } else {
+    g.beginPath(); g.arc(cx, cy, r * 0.34, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.arc(cx, cy, r * 0.9, 0, Math.PI * 2); g.stroke();
+  }
+  g.restore();
+}
+
+// pulsing circle used by the walkthrough
+function drawPulse(g, m, now) {
+  const t = ((now || performance.now()) % 1100) / 1100;
+  let x = m.c, y = m.c, r0 = m.hub * 1.5;
+  if (gz.ring.type === 'axis') {
+    const h = handles().filter(k => k.i === gz.ring.i && k.sign === 1)[0];
+    if (h) { x = h.p.x; y = h.p.y; r0 = m.hand * 1.5; }
+  }
+  g.save();
+  g.strokeStyle = 'rgba(17,17,17,' + (0.55 * (1 - t)).toFixed(3) + ')';
+  g.lineWidth = 2.4;
+  g.beginPath();
+  g.arc(x, y, r0 + t * m.hand * 1.5, 0, Math.PI * 2);
+  g.stroke();
+  g.restore();
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Touch and drag — tap a dot to look, drag it to change
+   ══════════════════════════════════════════════════════════════════ */
+function gzPoint(e) {
+  const r = gzc.getBoundingClientRect();
+  return { x: (e.clientX - r.left) * (gz.size / r.width), y: (e.clientY - r.top) * (gz.size / r.height) };
+}
+function pickHandle(pt) {
+  const m = gzMetrics();
+  let best = null, bd = Infinity;
+  handles().forEach(h => {
+    const d = Math.hypot(pt.x - h.p.x, pt.y - h.p.y);
+    const reach = m.hand * (h.sign > 0 ? 1.8 : 1.45);
+    const score = d - (h.p.depth >= -0.04 ? m.hand * 0.5 : 0);
+    if (d < reach && score < bd) { bd = score; best = h; }
+  });
+  return best;
+}
+function unitsPerPixel() {
+  return (2 * cam.radius * Math.tan(FOV * DEG / 2)) / H;
+}
+function camBasis() {
+  const sp = Math.sin(cam.phi), cp = Math.cos(cam.phi);
+  const st = Math.sin(cam.theta), ct = Math.cos(cam.theta);
+  return {
+    right: new THREE.Vector3(ct, 0, -st),
+    up: new THREE.Vector3(-cp * st, sp, -cp * ct)
+  };
+}
+
+const history = [];
+function pushHistory() {
+  history.push({ p: obj.pos.clone(), q: obj.quat.clone() });
+  if (history.length > 40) history.shift();
+  $('p-undo').disabled = false;
+}
+function undo() {
+  const s = history.pop();
+  if (!s) return;
+  obj.pos.copy(s.p);
+  obj.quat.copy(s.q);
+  applyObject();
+  $('p-undo').disabled = history.length === 0;
+  say('Undone', true);
+}
+
+let hintTimer = null;
+function say(text, live) {
+  const el = $('hint');
+  el.textContent = text;
+  el.classList.toggle('live', !!live);
+  if (hintTimer) clearTimeout(hintTimer);
+  if (live) hintTimer = setTimeout(idleHint, 1500);
+}
+function idleHint() {
+  const el = $('hint');
+  el.classList.remove('live');
+  el.textContent = gz.mode === 'look'
+    ? 'Drag to spin around it. Tap a dot to look from there.'
+    : (gz.mode === 'move'
+      ? 'Drag an arrow to slide it. Tap a dot to look from there.'
+      : 'Drag an arrow to turn it. Tap the middle to go back to Move.');
+}
+
+let drag = null;
+gzc.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  stopTour();
+  const pt = gzPoint(e);
+  const m = gzMetrics();
+  const r = Math.hypot(pt.x - m.c, pt.y - m.c);
+  const hit = pickHandle(pt);
+
+  if (hit) gz.active = { type: 'axis', i: hit.i, sign: hit.sign };
+  else if (r <= m.hub * 1.25 && gz.mode !== 'look') gz.active = { type: 'hub' };
+  else gz.active = { type: 'orbit' };
+
+  drag = {
+    startX: e.clientX, startY: e.clientY, moved: false, hit,
+    pos: obj.pos.clone(), quat: obj.quat.clone(),
+    theta: cam.theta, phi: cam.phi,
+    startAngle: Math.atan2(pt.y - m.c, pt.x - m.c),
+    committed: false
+  };
+  gzc.setPointerCapture(e.pointerId);
+  drawGizmo();
+});
+
+gzc.addEventListener('pointermove', (e) => {
+  if (!drag) {
+    const hit = pickHandle(gzPoint(e));
+    const changed = (hit ? hit.i + ':' + hit.sign : '') !== (gz.hover ? gz.hover.i + ':' + gz.hover.sign : '');
+    gz.hover = hit ? { i: hit.i, sign: hit.sign } : null;
+    gzc.style.cursor = hit ? 'pointer' : 'grab';
+    if (changed) drawGizmo();
+    return;
+  }
+
+  const dx = e.clientX - drag.startX, dy = e.clientY - drag.startY;
+  if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+  drag.moved = true;
+
+  const act = gz.active;
+  if (act.type === 'orbit' || (act.type === 'axis' && gz.mode === 'look')) {
+    cam.theta = drag.theta - dx * 0.0062;
+    cam.phi = Math.max(0.06, Math.min(Math.PI - 0.06, drag.phi - dy * 0.0062));
+    applyCamera();
+    say('Walking around it', true);
+    return;
+  }
+
+  if (!drag.committed) { pushHistory(); drag.committed = true; }
+
+  if (act.type === 'hub') {
+    if (gz.mode === 'move') {
+      const b = camBasis(), k = unitsPerPixel();
+      obj.pos.copy(drag.pos)
+        .addScaledVector(b.right, dx * k)
+        .addScaledVector(b.up, -dy * k);
+      if (gz.snap) { obj.pos.x = snapTo(obj.pos.x, 0.5); obj.pos.y = snapTo(obj.pos.y, 0.5); obj.pos.z = snapTo(obj.pos.z, 0.5); }
+      clampPos();
+      applyObject();
+      say('Sliding it around', true);
+    } else {
+      const b = camBasis();
+      let ay = -dx * 0.5, ax = -dy * 0.5;
+      if (gz.snap) { ay = snapTo(ay, 15); ax = snapTo(ax, 15); }
+      const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), ay * DEG)
+        .multiply(new THREE.Quaternion().setFromAxisAngle(b.right, ax * DEG));
+      obj.quat.copy(drag.quat).premultiply(q);
+      applyObject();
+      say('Tumbling it', true);
+    }
+    return;
+  }
+
+  const h = drag.hit;
+  const a = AXES[h.i];
+  const worldDir = h.dir;
+  const p = project(worldDir);
+  const m = gzMetrics();
+
+  if (gz.mode === 'move') {
+    const len = Math.max(0.001, p.len);
+    const nx = (p.x - m.c) / (m.arm * len);
+    const ny = (p.y - m.c) / (m.arm * len);
+    const along = dx * nx + dy * ny;
+    let amount = along * unitsPerPixel() / Math.max(0.30, len);
+    if (gz.snap) amount = snapTo(amount, 0.5);
+    obj.pos.copy(drag.pos).addScaledVector(worldDir, amount);
+    clampPos();
+    applyObject();
+    const label = h.sign > 0 ? a.lbl : a.back;
+    say(label + '  ' + (amount >= 0 ? '' : 'back ') + Math.abs(amount).toFixed(1) + ' steps', true);
+  } else {
+    const pt = gzPoint(e);
+    let d = Math.atan2(pt.y - m.c, pt.x - m.c) - drag.startAngle;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    let deg = -(d / DEG) * (p.depth >= 0 ? 1 : -1);
+    if (gz.snap) deg = snapTo(deg, 15);
+    const q = new THREE.Quaternion().setFromAxisAngle(worldDir, deg * DEG);
+    obj.quat.copy(drag.quat).premultiply(q);
+    applyObject();
+    say('Turned ' + Math.round(Math.abs(deg)) + '°', true);
+  }
+});
+
+function endDrag(e) {
+  if (!drag) return;
+  if (!drag.moved && drag.hit) {
+    const h = drag.hit;
+    faceDirection(h.dir, h.sign > 0 ? h.a.lbl : h.a.back);
+  } else if (!drag.moved && gz.active && gz.active.type === 'hub') {
+    setMode(gz.mode === 'move' ? 'rotate' : 'move');
+  }
+  gz.active = null;
+  drag = null;
+  try { gzc.releasePointerCapture(e.pointerId); } catch (_) {}
+  drawGizmo();
+  idleHint();
+  $('p-undo').disabled = history.length === 0;
+}
+gzc.addEventListener('pointerup', endDrag);
+gzc.addEventListener('pointercancel', endDrag);
+
+function snapTo(v, step) { return Math.round(v / step) * step; }
+function clampPos() {
+  obj.pos.x = Math.max(-12, Math.min(12, obj.pos.x));
+  obj.pos.y = Math.max(-3, Math.min(9, obj.pos.y));
+  obj.pos.z = Math.max(-12, Math.min(12, obj.pos.z));
+}
+
+/* ── camera flight ───────────────────────────────────────────────── */
+let flight = null;
+function faceDirection(dir, label) {
+  const d = dir.clone().normalize();
+  const theta = Math.atan2(d.x, d.z);
+  const phi = Math.acos(Math.max(-1, Math.min(1, d.y)));
+  flyTo(phi, Math.max(0.001, Math.min(Math.PI - 0.001, theta)));
+  if (label) say('Looking from the ' + label.toLowerCase() + ' side', true);
+  if (navigator.vibrate) { try { navigator.vibrate(8); } catch (_) {} }
+}
+function flyTo(phi, theta, ms) {
+  let t = theta;
+  while (t - cam.theta > Math.PI) t -= Math.PI * 2;
+  while (t - cam.theta < -Math.PI) t += Math.PI * 2;
+  const targetPhi = Math.max(0.06, Math.min(Math.PI - 0.06, phi));
+  if (reduceMotion) { cam.phi = targetPhi; cam.theta = t; applyCamera(); return; }
+  flight = { p0: cam.phi, t0: cam.theta, p1: targetPhi, t1: t, start: performance.now(), ms: ms || 520 };
+}
+function stepFlight(now) {
+  if (!flight) return;
+  const k = Math.min(1, (now - flight.start) / flight.ms);
+  const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+  cam.phi = flight.p0 + (flight.p1 - flight.p0) * e;
+  cam.theta = flight.t0 + (flight.t1 - flight.t0) * e;
+  applyCamera();
+  if (k >= 1) flight = null;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Viewport: spin around, pinch to zoom
+   ══════════════════════════════════════════════════════════════════ */
+const pointers = new Map();
+let vp = null;
+viewCanvas.addEventListener('pointerdown', (e) => {
+  stopTour();
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  viewCanvas.setPointerCapture(e.pointerId);
+  if (pointers.size === 1) {
+    vp = { mode: (e.button === 2 || e.shiftKey) ? 'pan' : 'orbit', x: e.clientX, y: e.clientY, theta: cam.theta, phi: cam.phi, target: cam.target.clone() };
+  } else if (pointers.size === 2) {
+    const [a, b] = [...pointers.values()];
+    vp = { mode: 'pinch', dist: Math.hypot(a.x - b.x, a.y - b.y), radius: cam.radius, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, target: cam.target.clone() };
+  }
+});
+viewCanvas.addEventListener('pointermove', (e) => {
+  if (!pointers.has(e.pointerId)) return;
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (!vp) return;
+  flight = null;
+  if (vp.mode === 'pinch' && pointers.size >= 2) {
+    const [a, b] = [...pointers.values()];
+    const dist = Math.hypot(a.x - b.x, a.y - b.y);
+    cam.radius = Math.max(2.5, Math.min(44, vp.radius * (vp.dist / Math.max(1, dist))));
+    const cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
+    panBy(cx - vp.cx, cy - vp.cy, vp.target);
+    applyCamera();
+    return;
+  }
+  const dx = e.clientX - vp.x, dy = e.clientY - vp.y;
+  if (vp.mode === 'orbit') {
+    cam.theta = vp.theta - dx * 0.0042;
+    cam.phi = Math.max(0.06, Math.min(Math.PI - 0.06, vp.phi - dy * 0.0042));
+  } else {
+    panBy(dx, dy, vp.target);
+  }
+  applyCamera();
+});
+function panBy(dx, dy, base) {
+  const b = camBasis(), k = unitsPerPixel();
+  cam.target.copy(base).addScaledVector(b.right, -dx * k).addScaledVector(b.up, dy * k);
+}
+function clearPointer(e) {
+  pointers.delete(e.pointerId);
+  if (pointers.size === 0) vp = null;
+  try { viewCanvas.releasePointerCapture(e.pointerId); } catch (_) {}
+}
+viewCanvas.addEventListener('pointerup', clearPointer);
+viewCanvas.addEventListener('pointercancel', clearPointer);
+viewCanvas.addEventListener('contextmenu', (e) => e.preventDefault());
+viewCanvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  cam.radius = Math.max(2.5, Math.min(44, cam.radius * (e.deltaY > 0 ? 1.08 : 0.92)));
+  applyCamera();
+}, { passive: false });
+
+/* ══════════════════════════════════════════════════════════════════
+   Buttons
+   ══════════════════════════════════════════════════════════════════ */
+function setMode(mode) {
+  gz.mode = mode;
+  $('m-move').setAttribute('aria-pressed', String(mode === 'move'));
+  $('m-rot').setAttribute('aria-pressed', String(mode === 'rotate'));
+  $('m-look').setAttribute('aria-pressed', String(mode === 'look'));
+  idleHint();
+  drawGizmo();
+}
+$('m-move').onclick = () => { stopTour(); setMode('move'); };
+$('m-rot').onclick = () => { stopTour(); setMode('rotate'); };
+$('m-look').onclick = () => { stopTour(); setMode('look'); };
+
+function setOrient(pitchDeg, rollDeg) {
+  pushHistory();
+  const e = new THREE.Euler().setFromQuaternion(obj.quat, 'YXZ');
+  obj.quat.setFromEuler(new THREE.Euler(pitchDeg * DEG, e.y, rollDeg * DEG, 'YXZ'));
+  applyObject();
+}
+$('p-flat').onclick = () => { stopTour(); setOrient(0, 0); say('Flat like a table', true); };
+$('p-wall').onclick = () => { stopTour(); setOrient(90, 0); say('Up like a wall', true); };
+$('p-45').onclick = () => { stopTour(); setOrient(45, 0); say('Lean like a ramp', true); };
+$('p-face').onclick = () => {
+  stopTour();
+  const n = new THREE.Vector3(0, 1, 0).applyQuaternion(obj.quat);
+  cam.target.copy(obj.pos);
+  faceDirection(n, '');
+  say('Looking straight at it', true);
+};
+$('p-undo').onclick = () => { stopTour(); undo(); };
+$('p-reset').onclick = () => {
+  stopTour();
+  pushHistory();
+  obj.pos.set(0, 1.1, 0);
+  obj.quat.identity();
+  cam.target.set(0, 1.1, 0);
+  applyObject();
+  applyCamera();
+  say('Back to the start', true);
+};
+$('u-grid').onclick = () => {
+  grid.visible = !grid.visible;
+  $('u-grid').setAttribute('aria-pressed', String(grid.visible));
+};
+$('u-save').onclick = () => {
+  const html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+  const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = 'navigator-gizmo-kids.html';
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 800);
+};
+
+/* ── drag the control to a comfier spot ──────────────────────────── */
+(() => {
+  const el = $('gizmo'), grip = $('grip');
+  let g = null;
+  grip.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    stopTour();
+    const r = el.getBoundingClientRect();
+    g = { x: e.clientX, y: e.clientY, left: r.left, top: r.top };
+    el.classList.add('dragging');
+    grip.setPointerCapture(e.pointerId);
+  });
+  grip.addEventListener('pointermove', (e) => {
+    if (!g) return;
+    const left = Math.max(6, Math.min(window.innerWidth - el.offsetWidth - 6, g.left + e.clientX - g.x));
+    const top = Math.max(40, Math.min(window.innerHeight - el.offsetHeight - 6, g.top + e.clientY - g.y));
+    el.style.left = left + 'px';
+    el.style.top = top + 'px';
+    el.style.right = 'auto';
+    el.style.bottom = 'auto';
+  });
+  grip.addEventListener('pointerup', (e) => {
+    g = null;
+    el.classList.remove('dragging');
+    try { grip.releasePointerCapture(e.pointerId); } catch (_) {}
+  });
+})();
+
+/* ══════════════════════════════════════════════════════════════════
+   Show me how — a short walkthrough that drives the real controls
+   ══════════════════════════════════════════════════════════════════ */
+let tour = null;
+const TOUR = [
+  { t: 0, dur: 4200, ring: { type: 'axis', i: 0 }, cap: 'Drag the orange arrow to lift it up.', sub: 'Every arrow slides it a different way.' },
+  { t: 4200, dur: 4200, ring: { type: 'axis', i: 1 }, cap: 'Tap a dot to look from that side.', sub: 'Tapping never moves your thing.' },
+  { t: 8400, dur: 4600, ring: { type: 'hub' }, cap: 'Tap the middle circle to switch to Turn.', sub: 'Then the arrows spin it instead.' },
+  { t: 13000, dur: 2000, ring: null, cap: 'Your turn. Undo fixes anything.', sub: '' }
+];
+function startTour() {
+  stopTour();
+  tour = {
+    start: performance.now(), step: -1,
+    save: { pos: obj.pos.clone(), quat: obj.quat.clone(), phi: cam.phi, theta: cam.theta, mode: gz.mode }
+  };
+  setMode('move');
+  $('u-tour').textContent = 'Stop';
+}
+function stopTour() {
+  if (!tour) return;
+  const s = tour.save;
+  obj.pos.copy(s.pos); obj.quat.copy(s.quat);
+  cam.phi = s.phi; cam.theta = s.theta;
+  flight = null;
+  gz.ring = null;
+  tour = null;
+  $('caption').classList.remove('on');
+  $('u-tour').textContent = 'Show me how';
+  setMode(s.mode);
+  applyObject();
+  applyCamera();
+  idleHint();
+}
+function stepTour(now) {
+  if (!tour) return;
+  // a frame timestamp can predate the click that started the tour
+  const el = Math.max(0, now - tour.start);
+  let idx = 0;
+  for (let i = 0; i < TOUR.length; i++) if (el >= TOUR[i].t) idx = i;
+  const last = TOUR[TOUR.length - 1];
+  if (el > last.t + last.dur) { stopTour(); return; }
+
+  if (idx !== tour.step) {
+    tour.step = idx;
+    const s = TOUR[idx];
+    gz.ring = s.ring;
+    const cap = $('caption');
+    cap.innerHTML = s.cap + (s.sub ? '<small>' + s.sub + '</small>' : '');
+    cap.classList.add('on');
+    if (idx === 1) {
+      const h = handles().filter(k => k.i === 1 && k.sign === 1)[0];
+      if (h) faceDirection(h.dir, '');
+    }
+    if (idx === 2) setMode('rotate');
+    if (idx === 3) { setMode('move'); flyTo(tour.save.phi, tour.save.theta, 600); }
+  }
+
+  const s = TOUR[idx];
+  const k = Math.min(1, (el - s.t) / s.dur);
+  const wave = Math.sin(Math.min(1, k * 1.25) * Math.PI); // out and back
+  if (idx === 0) {
+    obj.pos.copy(tour.save.pos);
+    obj.pos.y = tour.save.pos.y + wave * 1.6;
+    applyObject();
+  } else if (idx === 2) {
+    const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), wave * 50 * DEG);
+    obj.quat.copy(tour.save.quat).premultiply(q);
+    applyObject();
+  }
+  drawGizmo(now);
+}
+$('u-tour').onclick = () => { tour ? stopTour() : startTour(); };
+
+/* ── boot ────────────────────────────────────────────────────────── */
+window.addEventListener('keydown', (e) => {
+  const k = e.key.toLowerCase();
+  if (k === 'escape') stopTour();
+  else if (k === 'z') { e.preventDefault(); undo(); }
+});
+window.addEventListener('resize', () => {
+  W = window.innerWidth; H = window.innerHeight;
+  renderer.setSize(W, H);
+  camera.aspect = W / H;
+  camera.updateProjectionMatrix();
+  applyCamera();
+});
+
+function loop(now) {
+  requestAnimationFrame(loop);
+  stepFlight(now);
+  stepTour(now);
+  renderer.render(scene, camera);
+}
+
+sizeGizmo();
+applyObject();
+applyCamera();
+idleHint();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

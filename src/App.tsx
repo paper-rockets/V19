@@ -1418,18 +1418,7 @@ export function App() {
         !isIlluminationOpen && !isColorStudioOpen && !isARViewerOpen && !isClipboardOpen &&
         !(uiMode === 'play' && (!hasOnboarded || isToyboxOpen || isPlayImporterOpen)) &&
         !(uiMode === 'pro' && isNarrowScreen && (isBentGuideOpen || isCustomMirrorOpen || isScaffoldingOpen || isDecimateOpen)) && (
-          navigatorStyle === 'opt3' ? (
-            <Option3SphereNavigator
-              engine={engine}
-              theme={theme}
-              targetScope={targetScope}
-              onSelectTargetScope={handleSelectTargetScope}
-              isLocked={isGizmoLocked}
-              onLockChange={setIsGizmoLocked}
-              onClose={() => handleControllerChange('hidden')}
-              uiScale={uiScale}
-            />
-          ) : navigatorStyle === 'opt1' ? (
+          navigatorStyle === 'opt1' ? (
             <Option1TabbedNavigator
               engine={engine}
               theme={theme}
@@ -1440,78 +1429,17 @@ export function App() {
               onClose={() => handleControllerChange('hidden')}
               uiScale={uiScale}
             />
-          ) : uiMode === 'pro' ? (
-            <TransformNavigator
-              initialMode="2d"
-              theme={theme}
-              onTranslate={handleGizmoTranslate}
-              onRotate={handleGizmoRotate}
-              onScale={handleGizmoScale}
-              onReset={handleGizmoReset}
-              isLocked={isGizmoLocked}
-              onLockChange={setIsGizmoLocked}
-              sensitivity={navigatorSensitivity}
-              onSensitivityChange={(s) => {
-                setNavigatorSensitivity(s);
-                engine?.setNavigatorSensitivity(s);
-              }}
-              onClose={() => handleControllerChange('hidden')}
-              onCopy={handleCopyStrokes}
-              onPaste={handlePasteStrokes}
-              clipboardCount={clipboardCount}
-              onInteractionStart={handleGizmoInteractionStart}
-              onInteractionEnd={handleGizmoInteractionEnd}
-              activeTargetName={activeLayer?.name || 'Main Curves'}
-              layers={layers}
-              activeLayerId={activeLayerId}
-              onSelectLayer={handleSelectLayer}
-              models={loadedModels}
-              activeModelId={activeModelId}
-              onSelectModel={handleSelectModel}
-              targetScope={targetScope}
-              onSelectTargetScope={handleSelectTargetScope}
-              accessibilityMode={fingerPenMode ? 'finger-pen' : 'standard'}
-              onAccessibilityModeChange={(accMode) => setFingerPenMode(accMode === 'finger-pen')}
-              soundEnabled={isSoundEnabled}
-              onToggleSound={handleToggleSound}
-              uiScale={uiScale}
-              engine={engine}
-            />
           ) : (
-            <PaperRocketTactileWheel
+            <Option3SphereNavigator
               engine={engine}
               theme={theme}
-              brushSettings={brushSettings}
-              onUpdateBrushSettings={setBrushSettings}
-              onReset={() => {
-                handleGizmoReset();
-                handleResetCamera();
-              }}
-              onClose={() => handleControllerChange('hidden')}
-              soundEnabled={isSoundEnabled}
-              onToggleSound={handleToggleSound}
-              isLocked={isGizmoLocked}
-              onLockChange={setIsGizmoLocked}
-              sensitivity={navigatorSensitivity}
-              onSensitivityChange={(s) => {
-                setNavigatorSensitivity(s);
-                engine?.setNavigatorSensitivity(s);
-              }}
-              activeTargetName={activeLayer?.name || 'Main Curves'}
-              layers={layers}
-              activeLayerId={activeLayerId}
-              onSelectLayer={handleSelectLayer}
-              models={loadedModels}
-              activeModelId={activeModelId}
-              onSelectModel={handleSelectModel}
               targetScope={targetScope}
               onSelectTargetScope={handleSelectTargetScope}
-              accessibilityMode={fingerPenMode ? 'finger-pen' : 'standard'}
-              onAccessibilityModeChange={(accMode) => setFingerPenMode(accMode === 'finger-pen')}
-              onCopy={handleCopyStrokes}
-              onPaste={handlePasteStrokes}
-              clipboardCount={clipboardCount}
+              isLocked={isGizmoLocked}
+              onLockChange={setIsGizmoLocked}
+              onClose={() => handleControllerChange('hidden')}
               uiScale={uiScale}
+              isSimple={uiMode === 'play'}
             />
           )
       )}

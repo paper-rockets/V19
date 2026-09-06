@@ -1,0 +1,2697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>NAVIGATOR V02 — Opt 3 & Opt 1 Comparison</title>
+  <!-- Local Offline Three.js -->
+  <script src="js/three.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+    :root {
+      --bg: #0d0f14;
+      --card-bg: #14171d;
+      --panel-bg: #1b1f27;
+      --panel-elev: #242934;
+      --panel-hover: #2e3543;
+      --ink: #f1f5f9;
+      --ink-bright: #ffffff;
+      --mut: #8b95a5;
+      --accent: #38bdf8;
+      --accent-ink: #0f172a;
+      --bdr: rgba(255, 255, 255, 0.07);
+      --shadow-card: 0 16px 44px rgba(0, 0, 0, 0.6);
+      --shadow-knob: 0 2px 8px rgba(0, 0, 0, 0.4);
+      --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body.theme-light {
+      --bg: #f3f4f6;
+      --card-bg: #ffffff;
+      --panel-bg: #f0f2f5;
+      --panel-elev: #e4e7eb;
+      --panel-hover: #d8dce2;
+      --ink: #111827;
+      --ink-bright: #000000;
+      --mut: #6b7280;
+      --accent: #0284c7;
+      --accent-ink: #ffffff;
+      --bdr: rgba(0, 0, 0, 0.08);
+      --shadow-card: 0 16px 40px rgba(15, 23, 42, 0.1);
+      --shadow-knob: 0 2px 6px rgba(15, 23, 42, 0.15);
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      font-family: var(--font-main);
+      color: var(--ink);
+      touch-action: none;
+      transition: background 0.25s ease;
+    }
+    #viewport-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+      z-index: 1;
+    }
+
+    /* Top HUD Readout Bar */
+    #top-bar {
+      position: fixed;
+      top: 14px;
+      left: 16px;
+      right: 16px;
+      z-index: 100;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+    }
+    .top-pill {
+      background: var(--card-bg);
+      border: 1px solid var(--bdr);
+      border-radius: 18px;
+      padding: 6px 16px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--mut);
+      box-shadow: var(--shadow-card);
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .top-pill span {
+      color: var(--ink);
+      font-weight: 600;
+    }
+    .top-pill span.val-accent {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .top-actions {
+      display: flex;
+      gap: 8px;
+      pointer-events: auto;
+    }
+    .top-btn {
+      height: 30px;
+      padding: 0 14px;
+      border-radius: 15px;
+      background: var(--card-bg);
+      border: 1px solid var(--bdr);
+      color: var(--ink);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: var(--shadow-card);
+      transition: all 0.15s ease;
+    }
+    .top-btn:hover { background: var(--panel-hover); }
+    .top-btn.on {
+      background: var(--accent);
+      color: var(--accent-ink);
+      border-color: transparent;
+    }
+
+    /* ═════════════════    /* ══════════════════════════════════════════════════
+       DRAGGABLE MODAL FLOATING CARDS & SCOPED THEMES
+       ══════════════════════════════════════════════════ */
+    #modals-container {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 200;
+    }
+
+    .controller-card.modal-card {
+      position: fixed;
+      z-index: 100;
+      box-shadow: var(--shadow-card);
+      border: 1px solid var(--bdr);
+      border-radius: 14px;
+      touch-action: none;
+      pointer-events: auto;
+      user-select: none;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    .controller-card.modal-card.dragging {
+      opacity: 0.95;
+      box-shadow: 0 24px 56px rgba(0, 0, 0, 0.7);
+      cursor: grabbing;
+    }
+
+    /* Modal Drag Header Bar */
+    .card-ref-header {
+      font-size: 8.5px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      color: var(--mut);
+      padding: 6px 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      user-select: none;
+      border-bottom: 1px solid var(--bdr);
+      font-family: var(--font-main);
+      background: var(--panel-elev);
+      cursor: grab;
+      touch-action: none;
+    }
+    .card-ref-header:active {
+      cursor: grabbing;
+    }
+    .card-title-text {
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+    .card-badge {
+      font-size: 7.5px;
+      font-weight: 800;
+      padding: 1px 5px;
+      border-radius: 3px;
+      letter-spacing: 0.4px;
+    }
+    .badge-dark {
+      background: rgba(56, 189, 248, 0.18);
+      color: #38bdf8;
+    }
+    .badge-light {
+      background: rgba(2, 132, 199, 0.15);
+      color: #0284c7;
+    }
+    .card-drag-grip {
+      font-size: 7px;
+      opacity: 0.5;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    /* Scoped Modal Themes (Dark & Light) */
+    .card-theme-dark {
+      --card-bg: #14171d;
+      --panel-bg: #1b1f27;
+      --panel-elev: #242934;
+      --panel-hover: #2e3543;
+      --ink: #f1f5f9;
+      --ink-bright: #ffffff;
+      --mut: #8b95a5;
+      --accent: #38bdf8;
+      --accent-ink: #0f172a;
+      --bdr: rgba(255, 255, 255, 0.08);
+      --shadow-card: 0 16px 44px rgba(0, 0, 0, 0.6);
+      --shadow-knob: 0 2px 8px rgba(0, 0, 0, 0.4);
+      background: #14171d;
+      color: #f1f5f9;
+      border-color: rgba(255, 255, 255, 0.08);
+    }
+    .card-theme-dark .card-ref-header {
+      background: #1b1f27;
+      border-bottom-color: rgba(255, 255, 255, 0.08);
+      color: #94a3b8;
+    }
+    .card-theme-dark.c2-card, #card-c2-dark {
+      background: #1c202a !important;
+    }
+    .card-theme-dark .c3-gimbal-wrap {
+      background: #1c202a !important;
+    }
+
+    .card-theme-light {
+      --card-bg: #ffffff;
+      --panel-bg: #f0f2f5;
+      --panel-elev: #e4e7eb;
+      --panel-hover: #d8dce2;
+      --ink: #111827;
+      --ink-bright: #000000;
+      --mut: #6b7280;
+      --accent: #0284c7;
+      --accent-ink: #ffffff;
+      --bdr: rgba(0, 0, 0, 0.10);
+      --shadow-card: 0 16px 40px rgba(15, 23, 42, 0.16);
+      --shadow-knob: 0 2px 6px rgba(15, 23, 42, 0.15);
+      background: #ffffff;
+      color: #111827;
+      border-color: rgba(0, 0, 0, 0.10);
+    }
+    .card-theme-light .card-ref-header {
+      background: #f0f2f5;
+      border-bottom-color: rgba(0, 0, 0, 0.08);
+      color: #374151;
+    }
+    .card-theme-light.c2-card, #card-c2-light {
+      background: #f0f2f5 !important;
+    }
+    .card-theme-light .c3-gimbal-wrap {
+      background: #f0f2f5 !important;
+    }
+    .card-theme-light .c3-hint-bar {
+      background: rgba(0, 0, 0, 0.06);
+      color: #6b7280;
+    }
+
+    /* Option 3 Specifics */
+    .c3-mode-pill {
+      height: 22px;
+      padding: 0 10px;
+      border-radius: 11px;
+      background: var(--panel-bg);
+      border: 1px solid var(--bdr);
+      color: var(--ink);
+      font-size: 8.5px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.2s ease;
+      font-family: var(--font-main);
+    }
+    .controller-card.surface-mode .c3-mode-pill {
+      background: var(--accent);
+      color: var(--accent-ink);
+      border-color: transparent;
+      box-shadow: 0 2px 8px rgba(56, 189, 248, 0.35);
+    }
+    .c3-gimbal-wrap {
+      width: 100%;
+      height: 160px;
+      border-radius: 8px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+    .gimbal-canvas-3 {
+      width: 156px;
+      height: 156px;
+      border-radius: 50%;
+      cursor: grab;
+      display: block;
+    }
+    .c3-hint-bar {
+      width: 100%;
+      min-height: 17px;
+      font-size: 7.8px;
+      font-weight: 600;
+      color: var(--ink-dim);
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1px 4px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+      margin: 2px 0;
+      letter-spacing: 0.2px;
+      transition: color 0.15s ease, background 0.15s ease;
+      font-family: var(--font-main);
+    }
+    .c3-hint-bar.active {
+      color: var(--accent);
+      background: rgba(56, 189, 248, 0.15);
+      font-weight: 700;
+    }
+    .c3-bottom-ctrls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      height: 22px;
+      margin-top: 3px;
+      padding-top: 2px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    /* Mobile Viewport Scaling (Fits Cards on Phone Screens <= 680px) */
+    @media (max-width: 680px) {
+      #card-controller-3 {
+        width: 100% !important;
+      }
+      #card-controller-3 .c3-gimbal-wrap {
+        height: 120px !important;
+      }
+      #card-controller-3 #gimbal-canvas-3 {
+        width: 116px !important;
+        height: 116px !important;
+      }
+      #top-bar {
+        top: 6px;
+        left: 6px;
+        right: 6px;
+        gap: 4px;
+      }
+      .top-pill {
+        padding: 3px 6px;
+        font-size: 8px;
+        gap: 5px;
+        border-radius: 8px;
+      }
+      .top-actions {
+        gap: 3px;
+      }
+      .top-btn {
+        height: 22px;
+        padding: 0 6px;
+        font-size: 8px;
+        border-radius: 10px;
+      }
+      #deck-container {
+        bottom: 6px;
+        left: 4px;
+        right: 4px;
+        gap: 4px;
+        display: flex;
+        overflow: visible;
+        padding-bottom: 0;
+      }
+      #left-column {
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        max-width: calc(50% - 2px) !important;
+        gap: 4px !important;
+      }
+      .controller-card {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        border-radius: 10px !important;
+      }
+      #card-controller-2 {
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        max-width: calc(50% - 2px) !important;
+        width: auto !important;
+      }
+      #card-controller-3 .c3-body-split {
+        height: 110px !important;
+      }
+      #card-controller-3 #gimbal-canvas-3 {
+        width: 80px !important;
+        height: 80px !important;
+      }
+
+      /* Card 1 Mobile Adaptations */
+      #card-controller-1 .seg-pill-wrap {
+        width: 100%;
+        height: 22px;
+      }
+      #card-controller-1 .seg-slider {
+        width: 50%;
+        height: 18px;
+      }
+      #card-controller-1 .seg-pill-wrap.surface-active .seg-slider {
+        transform: translateX(100%);
+        width: 50%;
+      }
+      #card-controller-1 .seg-label {
+        font-size: 8px;
+      }
+      #card-controller-1 .fc-hdr-btn {
+        height: 20px;
+        padding: 0 6px;
+        font-size: 8px;
+      }
+      #card-controller-1 .gimbal-wrap {
+        height: 108px;
+      }
+      #card-controller-1 #gimbal-canvas-1 {
+        width: 100px;
+        height: 100px;
+      }
+      #card-controller-1 .zoom-col {
+        right: 3px;
+        gap: 3px;
+      }
+      #card-controller-1 .zoom-btn {
+        width: 18px;
+        height: 18px;
+        font-size: 10px;
+      }
+      #card-controller-1 .bottom-status-bar {
+        font-size: 7.5px;
+      }
+      #card-controller-1 .status-label, #card-controller-1 .status-btn {
+        font-size: 7px;
+        padding: 1px 3px;
+      }
+      #card-controller-1 .deck-row {
+        height: 90px;
+      }
+      #card-controller-1 .move-knob {
+        width: 34px;
+        height: 34px;
+        font-size: 7px;
+      }
+      #card-controller-1 .move-sublabel {
+        font-size: 6px;
+        bottom: 2px;
+      }
+      #card-controller-1 .slider-rail {
+        width: 24px;
+      }
+      #card-controller-1 .rail-knob {
+        width: 20px;
+        height: 14px;
+        font-size: 6.5px;
+      }
+      #card-controller-1 .spin-strip {
+        height: 20px;
+      }
+      #card-controller-1 .spin-step-btn {
+        height: 16px;
+        padding: 0 4px;
+        font-size: 7px;
+      }
+      #card-controller-1 .spin-label-track {
+        font-size: 6.5px;
+      }
+      #card-controller-1 .presets-row .preset-btn {
+        height: 18px;
+        font-size: 6.5px;
+        padding: 0 1px;
+      }
+
+      /* Card 2 Mobile Adaptations */
+      #card-controller-2 .c2-body-split {
+        height: 120px !important;
+      }
+      #card-controller-2 #gimbal-canvas-2 {
+        width: 86px !important;
+        height: 86px !important;
+      }
+      #card-controller-2 .c2-move-knob {
+        width: 30px !important;
+        height: 30px !important;
+        font-size: 6.5px !important;
+      }
+      #card-controller-2 .c2-move-sub {
+        font-size: 5.5px !important;
+        bottom: 1px !important;
+      }
+      #card-controller-2 .c2-rail-knob {
+        width: 18px !important;
+        height: 13px !important;
+        font-size: 6px !important;
+      }
+      #card-controller-2 .rail-tag {
+        font-size: 6px !important;
+      }
+      #card-controller-2 .c2-actions-row {
+        height: 18px !important;
+        gap: 1.5px !important;
+      }
+      #card-controller-2 .c2-actions-row .c2-footer-toggle {
+        height: 18px !important;
+        font-size: 6px !important;
+        padding: 0 2px !important;
+      }
+      #card-controller-2 .c2-actions-row .c2-footer-reset {
+        height: 18px !important;
+        font-size: 6px !important;
+        padding: 0 1px !important;
+      }
+      #card-controller-2 .c2-actions-row .preset-btn {
+        height: 18px !important;
+        font-size: 5.5px !important;
+        padding: 0 !important;
+      }
+    }
+
+    /* Card Header Bar (Option 1) */
+    .fc-hdr {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 8px 4px 8px;
+      gap: 6px;
+    }
+
+    /* Segmented Switch Pill (Card 1) */
+    .seg-pill-wrap {
+      width: 148px;
+      height: 26px;
+      border-radius: 13px;
+      background: var(--panel-bg);
+      position: relative;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      padding: 2px;
+    }
+    .seg-slider {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 70px;
+      height: 22px;
+      border-radius: 11px;
+      background: var(--accent);
+      box-shadow: var(--shadow-knob);
+      transform: translateX(0px);
+      transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1), width 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 1;
+    }
+    .seg-pill-wrap.surface-active .seg-slider {
+      transform: translateX(72px);
+      width: 72px;
+    }
+
+    .seg-label {
+      flex: 1;
+      text-align: center;
+      font-size: 9.5px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      position: relative;
+      z-index: 2;
+      transition: color 0.18s ease;
+      pointer-events: none;
+    }
+    .seg-label.lbl-cam {
+      color: var(--accent-ink);
+      font-weight: 700;
+    }
+    .seg-label.lbl-surf {
+      color: var(--mut);
+    }
+    .seg-pill-wrap.surface-active .seg-label.lbl-cam {
+      color: var(--mut);
+      font-weight: 600;
+    }
+    .seg-pill-wrap.surface-active .seg-label.lbl-surf {
+      color: var(--accent-ink);
+      font-weight: 700;
+    }
+
+    .fc-hdr-btns {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .fc-hdr-btn {
+      height: 24px;
+      padding: 0 9px;
+      border-radius: 12px;
+      border: none;
+      background: var(--panel-bg);
+      color: var(--mut);
+      font-size: 9.5px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: var(--font-main);
+      transition: all 0.15s ease;
+    }
+    .fc-hdr-btn:hover {
+      background: var(--panel-hover);
+      color: var(--ink);
+    }
+
+    /* Panels Container */
+    .fc-panels {
+      display: flex;
+      flex-direction: column;
+      padding: 3px 6px 6px 6px;
+      width: 100%;
+      gap: 5px;
+    }
+    .pb-panel {
+      width: 100%;
+      display: none;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .pb-panel.active {
+      display: flex;
+    }
+
+    /* Option 1 Gimbal Container */
+    .gimbal-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 140px;
+      position: relative;
+      background: var(--panel-bg);
+      border-radius: 14px;
+      padding: 4px;
+    }
+    .gimbal-canvas-el {
+      width: 132px;
+      height: 132px;
+      border-radius: 50%;
+      cursor: grab;
+      display: block;
+    }
+    .gimbal-canvas-el:active { cursor: grabbing; }
+
+    .zoom-col {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .zoom-btn {
+      width: 24px;
+      height: 24px;
+      border-radius: 12px;
+      background: var(--panel-elev);
+      border: 1px solid var(--bdr);
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: var(--shadow-knob);
+      transition: all 0.15s ease;
+    }
+    .zoom-btn:hover { background: var(--panel-hover); }
+    .zoom-btn:active { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+
+    .bottom-status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      width: 100%;
+      padding: 0 2px;
+    }
+    .status-group {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      background: var(--panel-bg);
+      border-radius: 8px;
+      padding: 2px 4px;
+    }
+    .status-label {
+      font-size: 8.5px;
+      font-weight: 600;
+      color: var(--mut);
+      margin-right: 2px;
+      padding-left: 2px;
+    }
+    .status-btn {
+      padding: 2px 4px;
+      border-radius: 5px;
+      border: none;
+      background: transparent;
+      color: var(--mut);
+      font-size: 8.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-family: var(--font-main);
+    }
+    .status-btn:hover { background: var(--panel-hover); color: var(--ink); }
+    .status-btn.on {
+      background: var(--accent);
+      color: var(--accent-ink);
+      font-weight: 700;
+    }
+
+    /* Option 1 Surface Controls Deck */
+    .deck-row {
+      display: flex;
+      gap: 5px;
+      height: 118px;
+      width: 100%;
+    }
+
+    .move-pad {
+      flex: 1;
+      height: 100%;
+      background: var(--panel-bg);
+      border-radius: 12px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: crosshair;
+      overflow: hidden;
+      touch-action: none;
+    }
+    .move-knob {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      background: var(--panel-elev);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 8.5px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      position: absolute;
+      pointer-events: none;
+      color: var(--accent);
+      box-shadow: var(--shadow-knob);
+      border: 1.5px solid var(--accent);
+      transform: translate(0, 0);
+    }
+    .move-sublabel {
+      position: absolute;
+      bottom: 5px;
+      font-size: 7.5px;
+      font-weight: 600;
+      color: var(--mut);
+      pointer-events: none;
+    }
+
+    .sliders-col {
+      display: flex;
+      gap: 4px;
+      height: 100%;
+    }
+
+    .slider-rail {
+      width: 32px;
+      height: 100%;
+      background: var(--panel-bg);
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 2px;
+      position: relative;
+      cursor: ns-resize;
+      touch-action: none;
+    }
+    .rail-tag {
+      font-size: 7px;
+      font-weight: 700;
+      color: var(--mut);
+      pointer-events: none;
+    }
+    .rail-knob {
+      width: 26px;
+      height: 18px;
+      border-radius: 5px;
+      background: var(--panel-elev);
+      color: var(--accent);
+      border: 1.2px solid var(--accent);
+      font-size: 7.5px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: absolute;
+      top: calc(50% - 9px);
+      pointer-events: none;
+      box-shadow: var(--shadow-knob);
+    }
+
+    .spin-strip {
+      background: var(--panel-bg);
+      border-radius: 8px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 2px 4px;
+    }
+    .spin-step-btn {
+      height: 18px;
+      padding: 0 6px;
+      border-radius: 5px;
+      background: transparent;
+      border: none;
+      color: var(--ink);
+      font-size: 8.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .spin-step-btn:hover { background: var(--panel-hover); }
+    .spin-step-btn:active { background: var(--accent); color: var(--accent-ink); }
+
+    .spin-label-track {
+      flex: 1;
+      text-align: center;
+      font-size: 8px;
+      font-weight: 600;
+      color: var(--mut);
+      letter-spacing: 0.02em;
+      cursor: ew-resize;
+      padding: 2px 0;
+    }
+
+    .presets-row {
+      display: flex;
+      gap: 3px;
+      width: 100%;
+    }
+    .preset-btn {
+      flex: 1;
+      height: 22px;
+      padding: 0 2px;
+      border-radius: 5px;
+      background: var(--panel-bg);
+      border: none;
+      color: var(--ink);
+      font-size: 7.5px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      letter-spacing: 0.01em;
+      font-family: var(--font-main);
+      transition: all 0.15s ease;
+    }
+    .preset-btn:hover { background: var(--panel-hover); }
+    .preset-btn.on {
+      background: var(--accent);
+      color: var(--accent-ink);
+      font-weight: 700;
+    }
+
+    /* Option 2 Panels Container - Clean Unified Layout */
+    #card-controller-2 .fc-panels {
+      display: flex;
+      flex-direction: column;
+      padding: 6px;
+      width: 100%;
+      gap: 6px;
+      background: transparent;
+    }
+
+    /* Bottom Footer Bar: Surface Toggle on Bottom-Left, Reset Next to It */
+    .c2-footer-row {
+      display: flex;
+      gap: 3px;
+      width: 100%;
+      height: 22px;
+      background: transparent;
+    }
+    .c2-footer-toggle {
+      flex: 1.25;
+      height: 22px;
+      border-radius: 5px;
+      background: #242934;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      color: var(--ink-bright);
+      font-size: 8px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      box-shadow: var(--shadow-knob);
+      transition: all 0.2s ease;
+      font-family: var(--font-main);
+    }
+    .c2-footer-toggle.surface-active {
+      background: var(--accent);
+      color: var(--accent-ink);
+      border-color: transparent;
+      box-shadow: 0 2px 8px rgba(56, 189, 248, 0.35);
+    }
+    .c2-footer-reset {
+      flex: 0.75;
+      height: 22px;
+      padding: 0 4px;
+      border-radius: 5px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: #242934;
+      color: var(--mut);
+      font-size: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+      font-family: var(--font-main);
+    }
+    .c2-footer-reset:hover {
+      background: #2e3543;
+      color: var(--ink);
+    }
+
+    /* Taller Body Split with Zero Excess Spacing - Seamless Unified Gray */
+    .c2-body-split {
+      display: flex;
+      gap: 0;
+      width: 100%;
+      height: 164px;
+      background: transparent;
+    }
+
+    /* Left Side: Large Gimbal on Unified Background */
+    .c2-gimbal-side {
+      flex: 1.2;
+      height: 100%;
+      background: transparent;
+      border-radius: 0;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+    #gimbal-canvas-2 {
+      width: 156px;
+      height: 156px;
+      border-radius: 50%;
+      cursor: grab;
+      display: block;
+    }
+    #gimbal-canvas-2:active { cursor: grabbing; }
+
+    /* Right Side: Surface Controls Cluster on Unified Background */
+    .c2-surface-side {
+      flex: 0.82;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      height: 100%;
+      background: transparent;
+      transition: opacity 0.2s ease, filter 0.2s ease;
+    }
+
+    /* Active Surface Controls */
+    .c2-move-pad {
+      flex: 1.15;
+      background: transparent;
+      border-radius: 0;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: crosshair;
+      overflow: hidden;
+      touch-action: none;
+    }
+    .c2-move-knob {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: #242934;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      position: absolute;
+      pointer-events: none;
+      color: var(--accent);
+      box-shadow: var(--shadow-knob);
+      border: 1.5px solid var(--accent);
+      transform: translate(0, 0);
+    }
+    .c2-move-sub {
+      position: absolute;
+      bottom: 2px;
+      font-size: 6.5px;
+      font-weight: 600;
+      color: var(--mut);
+      pointer-events: none;
+      transition: color 0.2s ease;
+    }
+
+    .c2-sliders-row {
+      flex: 0.95;
+      display: flex;
+      gap: 4px;
+      height: 100%;
+      background: transparent;
+    }
+    .c2-slider-rail {
+      flex: 1;
+      height: 100%;
+      background: transparent;
+      border-radius: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 2px 1px;
+      position: relative;
+      cursor: ns-resize;
+      touch-action: none;
+    }
+    .c2-rail-knob {
+      width: 24px;
+      height: 16px;
+      border-radius: 4px;
+      background: #242934;
+      color: var(--accent);
+      border: 1.2px solid var(--accent);
+      font-size: 7px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: absolute;
+      top: calc(50% - 8px);
+      pointer-events: none;
+      box-shadow: var(--shadow-knob);
+    }
+
+    /* Unified Single Bottom Action Row (Surface On + Reset + Presets) */
+    .c2-actions-row {
+      display: flex;
+      gap: 2.5px;
+      width: 100%;
+      height: 22px;
+      margin-top: 0;
+      background: transparent;
+    }
+    .c2-actions-row .c2-footer-toggle {
+      flex: 1.35;
+      height: 22px;
+      border-radius: 5px;
+      background: #242934;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      color: var(--ink-bright);
+      font-size: 7.5px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow-knob);
+      transition: all 0.2s ease;
+      font-family: var(--font-main);
+      white-space: nowrap;
+    }
+    .c2-actions-row .c2-footer-toggle.surface-active {
+      background: var(--accent);
+      color: var(--accent-ink);
+      border-color: transparent;
+      box-shadow: 0 2px 8px rgba(56, 189, 248, 0.35);
+    }
+    .c2-actions-row .c2-footer-reset {
+      flex: 0.85;
+      height: 22px;
+      padding: 0 2px;
+      border-radius: 5px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: #242934;
+      color: var(--mut);
+      font-size: 7.5px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+      font-family: var(--font-main);
+    }
+    .c2-actions-row .c2-footer-reset:hover {
+      background: #2e3543;
+      color: var(--ink);
+    }
+    .c2-actions-row .preset-btn {
+      flex: 0.95;
+      height: 22px;
+      padding: 0 1px;
+      border-radius: 5px;
+      background: #242934;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      color: #e2e8f0;
+      font-size: 7.5px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      letter-spacing: 0.01em;
+      font-family: var(--font-main);
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    body.theme-light .c2-actions-row .c2-footer-toggle,
+    body.theme-light .c2-move-knob,
+    body.theme-light .c2-rail-knob {
+      background: #e4e7eb;
+      border-color: rgba(0, 0, 0, 0.06);
+    }
+    body.theme-light .c2-actions-row .c2-footer-reset,
+    body.theme-light .c2-actions-row .preset-btn {
+      color: #1e293b;
+      background: #e4e7eb;
+      border-color: rgba(0, 0, 0, 0.06);
+    }
+    body.theme-light .c2-actions-row .preset-btn:hover,
+    body.theme-light .c2-actions-row .c2-footer-reset:hover {
+      background: #d8dce2;
+    }
+
+    /* ── STRENGTHENED DISABLED STATE ── */
+    .c2-surface-side.disabled {
+      opacity: 0.22;
+      pointer-events: none;
+      filter: grayscale(1);
+    }
+    .c2-surface-side.disabled .c2-move-knob,
+    .c2-surface-side.disabled .c2-rail-knob {
+      border: none !important;
+      box-shadow: none !important;
+      background: var(--panel-bg) !important;
+      color: var(--mut) !important;
+    }
+    .c2-surface-side.disabled .c2-move-sub,
+    .c2-surface-side.disabled .rail-tag {
+      color: rgba(139, 149, 165, 0.3) !important;
+    }
+
+    .c2-actions-row.disabled .preset-btn {
+      opacity: 0.2;
+      pointer-events: none;
+      background: var(--panel-bg) !important;
+      color: var(--mut) !important;
+      box-shadow: none !important;
+      border: none !important;
+    }
+
+    /* Toast Notification */
+    #toast {
+      position: fixed;
+      bottom: 96px;
+      left: 50%;
+      transform: translateX(-50%) translateY(6px);
+      background: var(--card-bg);
+      color: var(--ink);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      padding: 7px 16px;
+      border-radius: 20px;
+      border: 1px solid var(--bdr);
+      box-shadow: var(--shadow-card);
+      z-index: 500;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s, transform 0.15s;
+      white-space: nowrap;
+    }
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="viewport-canvas"></canvas>
+
+  <!-- Top Readout Bar -->
+  <div id="top-bar">
+    <div class="top-pill">
+      <div>Cam Dist: <span id="readout-cam-dist" class="val-accent">10.0m</span></div>
+      <div>Elevation: <span id="readout-elevation">0.00</span></div>
+      <div>Pitch: <span id="readout-pitch">0°</span></div>
+      <div>Roll: <span id="readout-roll">0°</span></div>
+      <div>Yaw: <span id="readout-yaw">0°</span></div>
+    </div>
+    <div class="top-actions">
+      <button class="top-btn" id="btn-toggle-grid">Grid: On</button>
+      <button class="top-btn" id="btn-toggle-theme">Theme: Dark</button>
+      <button class="top-btn" id="btn-arrange-modals" title="Arrange all 6 cards neatly across screen">Arrange Modals</button>
+    </div>
+  </div>
+
+  <!-- MODALS CONTAINER (6 DRAGGABLE SIDE-BY-SIDE MODALS) -->
+  <div id="modals-container">
+
+    <!-- ── OPTION 3 (DARK) ── -->
+    <div class="controller-card modal-card card-theme-dark surface-mode" id="card-c3-dark" style="width: 176px;">
+      <div class="card-ref-header">
+        <span class="card-title-text">Opt 3: Sphere</span>
+        <span class="card-badge badge-dark">Dark</span>
+        <span class="card-drag-grip">Move</span>
+      </div>
+      <div class="fc-panels">
+        <div class="c3-gimbal-wrap">
+          <canvas class="gimbal-canvas-3" id="gimbal-canvas-3-dark" width="156" height="156"></canvas>
+        </div>
+        <div class="c3-hint-bar" id="c3-hint-bar-dark">
+          Cones: Elev | Sides: Skew | Center: Move | Rim: Spin
+        </div>
+        <div class="c2-actions-row">
+          <button class="preset-btn btn-opt-align" title="Align camera to plane">Align</button>
+          <button class="preset-btn btn-opt-ground" title="Snap to flat ground">Ground</button>
+          <button class="preset-btn btn-opt-wall" title="Snap to vertical wall">Wall</button>
+          <button class="preset-btn btn-opt-45slant" title="Snap to 45° slant">45°</button>
+        </div>
+        <div class="c3-bottom-ctrls">
+          <button class="c3-mode-pill btn-c3-mode-toggle" title="Toggle Surface / Camera Mode">
+            <span class="c3-mode-text">Gizmo: Surface</span>
+          </button>
+          <button class="fc-hdr-btn btn-opt-reset" title="Reset View or Plane">Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── OPTION 3 (LIGHT) ── -->
+    <div class="controller-card modal-card card-theme-light surface-mode" id="card-c3-light" style="width: 176px;">
+      <div class="card-ref-header">
+        <span class="card-title-text">Opt 3: Sphere</span>
+        <span class="card-badge badge-light">Light</span>
+        <span class="card-drag-grip">Move</span>
+      </div>
+      <div class="fc-panels">
+        <div class="c3-gimbal-wrap">
+          <canvas class="gimbal-canvas-3" id="gimbal-canvas-3-light" width="156" height="156"></canvas>
+        </div>
+        <div class="c3-hint-bar" id="c3-hint-bar-light">
+          Cones: Elev | Sides: Skew | Center: Move | Rim: Spin
+        </div>
+        <div class="c2-actions-row">
+          <button class="preset-btn btn-opt-align" title="Align camera to plane">Align</button>
+          <button class="preset-btn btn-opt-ground" title="Snap to flat ground">Ground</button>
+          <button class="preset-btn btn-opt-wall" title="Snap to vertical wall">Wall</button>
+          <button class="preset-btn btn-opt-45slant" title="Snap to 45° slant">45°</button>
+        </div>
+        <div class="c3-bottom-ctrls">
+          <button class="c3-mode-pill btn-c3-mode-toggle" title="Toggle Surface / Camera Mode">
+            <span class="c3-mode-text">Gizmo: Surface</span>
+          </button>
+          <button class="fc-hdr-btn btn-opt-reset" title="Reset View or Plane">Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── OPTION 1 (DARK) ── -->
+    <div class="controller-card modal-card card-theme-dark" id="card-c1-dark" style="width: 276px;">
+      <div class="card-ref-header">
+        <span class="card-title-text">Opt 1: Tabbed Deck</span>
+        <span class="card-badge badge-dark">Dark</span>
+        <span class="card-drag-grip">Move</span>
+      </div>
+      <div class="fc-hdr">
+        <div class="seg-pill-wrap" title="Toggle Camera / Surface">
+          <div class="seg-slider"></div>
+          <span class="seg-label lbl-cam">Camera</span>
+          <span class="seg-label lbl-surf">Surface</span>
+        </div>
+        <div class="fc-hdr-btns">
+          <button class="fc-hdr-btn btn-opt-reset" title="Reset View or Plane">Reset</button>
+        </div>
+      </div>
+      <div class="fc-panels">
+        <div class="pb-panel active panel-nav">
+          <div class="gimbal-wrap">
+            <canvas class="gimbal-canvas-1 gimbal-canvas-el" id="gimbal-canvas-1-dark" width="132" height="132"></canvas>
+            <div class="zoom-col">
+              <button class="zoom-btn btn-zoom-in" title="Zoom In">+</button>
+              <button class="zoom-btn btn-zoom-out" title="Zoom Out">-</button>
+            </div>
+          </div>
+        </div>
+        <div class="pb-panel panel-gizmo">
+          <div class="deck-row">
+            <div class="move-pad pad-plane-move">
+              <div class="move-knob knob-plane-move">Move</div>
+              <div class="move-sublabel">X / Z Move</div>
+            </div>
+            <div class="sliders-col">
+              <div class="slider-rail rail-plane-tilt" title="Drag to adjust pitch tilt">
+                <span class="rail-tag">Up</span>
+                <div class="rail-knob knob-plane-tilt">Tilt</div>
+                <span class="rail-tag">Down</span>
+              </div>
+              <div class="slider-rail rail-plane-elev" title="Drag to adjust height elevation">
+                <span class="rail-tag">Up</span>
+                <div class="rail-knob knob-plane-elev">Elev</div>
+                <span class="rail-tag">Down</span>
+              </div>
+            </div>
+          </div>
+          <div class="spin-strip strip-plane-yaw">
+            <button class="spin-step-btn btn-spin-ccw">-45°</button>
+            <div class="spin-label-track track-spin-yaw">Swipe to Spin Yaw</div>
+            <button class="spin-step-btn btn-spin-cw">+45°</button>
+          </div>
+          <div class="presets-row">
+            <button class="preset-btn on btn-opt-ground">Ground</button>
+            <button class="preset-btn btn-opt-wall">Wall</button>
+            <button class="preset-btn btn-opt-45slant">45° Slant</button>
+            <button class="preset-btn btn-opt-align">Align View</button>
+            <button class="preset-btn btn-opt-reset">Reset</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── OPTION 1 (LIGHT) ── -->
+    <div class="controller-card modal-card card-theme-light" id="card-c1-light" style="width: 276px;">
+      <div class="card-ref-header">
+        <span class="card-title-text">Opt 1: Tabbed Deck</span>
+        <span class="card-badge badge-light">Light</span>
+        <span class="card-drag-grip">Move</span>
+      </div>
+      <div class="fc-hdr">
+        <div class="seg-pill-wrap" title="Toggle Camera / Surface">
+          <div class="seg-slider"></div>
+          <span class="seg-label lbl-cam">Camera</span>
+          <span class="seg-label lbl-surf">Surface</span>
+        </div>
+        <div class="fc-hdr-btns">
+          <button class="fc-hdr-btn btn-opt-reset" title="Reset View or Plane">Reset</button>
+        </div>
+      </div>
+      <div class="fc-panels">
+        <div class="pb-panel active panel-nav">
+          <div class="gimbal-wrap">
+            <canvas class="gimbal-canvas-1 gimbal-canvas-el" id="gimbal-canvas-1-light" width="132" height="132"></canvas>
+            <div class="zoom-col">
+              <button class="zoom-btn btn-zoom-in" title="Zoom In">+</button>
+              <button class="zoom-btn btn-zoom-out" title="Zoom Out">-</button>
+            </div>
+          </div>
+        </div>
+        <div class="pb-panel panel-gizmo">
+          <div class="deck-row">
+            <div class="move-pad pad-plane-move">
+              <div class="move-knob knob-plane-move">Move</div>
+              <div class="move-sublabel">X / Z Move</div>
+            </div>
+            <div class="sliders-col">
+              <div class="slider-rail rail-plane-tilt" title="Drag to adjust pitch tilt">
+                <span class="rail-tag">Up</span>
+                <div class="rail-knob knob-plane-tilt">Tilt</div>
+                <span class="rail-tag">Down</span>
+              </div>
+              <div class="slider-rail rail-plane-elev" title="Drag to adjust height elevation">
+                <span class="rail-tag">Up</span>
+                <div class="rail-knob knob-plane-elev">Elev</div>
+                <span class="rail-tag">Down</span>
+              </div>
+            </div>
+          </div>
+          <div class="spin-strip strip-plane-yaw">
+            <button class="spin-step-btn btn-spin-ccw">-45°</button>
+            <div class="spin-label-track track-spin-yaw">Swipe to Spin Yaw</div>
+            <button class="spin-step-btn btn-spin-cw">+45°</button>
+          </div>
+          <div class="presets-row">
+            <button class="preset-btn on btn-opt-ground">Ground</button>
+            <button class="preset-btn btn-opt-wall">Wall</button>
+            <button class="preset-btn btn-opt-45slant">45° Slant</button>
+            <button class="preset-btn btn-opt-align">Align View</button>
+            <button class="preset-btn btn-opt-reset">Reset</button>
+          </div>
+        </div>
+      </div>
+    </div>
+</div>
+
+  <!-- Toast Notification -->
+  <div id="toast"></div>
+
+  <script>
+    // ── Global State & Compatibility ──
+    window.isDirty = false;
+    window.markDirty = function() { window.isDirty = true; };
+    window.syncSurf = function() { updatePlaneTransform(); };
+
+    let toastTimer = null;
+    function toast(msg) {
+      const el = document.getElementById('toast');
+      if (!el) return;
+      el.textContent = msg;
+      el.classList.add('show');
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { el.classList.remove('show'); }, 1400);
+    }
+    window.toast = toast;
+
+    // ── 1. Three.js Scene Setup ──
+    const canvas = document.getElementById('viewport-canvas');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0d0f14);
+    scene.fog = new THREE.Fog(0x0d0f14, 16, 50);
+
+    let W = window.innerWidth;
+    let H = window.innerHeight;
+    const camera = new THREE.PerspectiveCamera(50, W / H, 0.1, 1000);
+    camera.position.set(6, 5, 8);
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setSize(W, H);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    const ambLight = new THREE.AmbientLight(0xffffff, 0.95);
+    scene.add(ambLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.4);
+    dirLight.position.set(10, 16, 10);
+    dirLight.castShadow = true;
+    scene.add(dirLight);
+
+    const gridHelper = new THREE.GridHelper(24, 24, 0x38bdf8, 0x1f242e);
+    gridHelper.position.y = -0.01;
+    scene.add(gridHelper);
+
+    const pillarGeo = new THREE.BoxGeometry(0.8, 1.6, 0.8);
+    const pillarMat = new THREE.MeshStandardMaterial({ color: 0x1f242e, roughness: 0.4 });
+    const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+    pillar.position.set(0, 0.8, 0);
+    pillar.castShadow = true;
+    scene.add(pillar);
+
+    // ── 2. Interactive 3D Drawing Plane ──
+    const planeGroup = new THREE.Group();
+    planeGroup.position.set(0, 0, 0);
+    scene.add(planeGroup);
+
+    const planeSize = 3.6;
+    const planeGeo = new THREE.PlaneGeometry(planeSize, planeSize);
+    planeGeo.rotateX(-Math.PI / 2);
+
+    const planeFillMat = new THREE.MeshBasicMaterial({
+      color: 0x0284c7,
+      transparent: true,
+      opacity: 0.16,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    });
+    const planeFillMesh = new THREE.Mesh(planeGeo, planeFillMat);
+    planeGroup.add(planeFillMesh);
+
+    function createGridTexture() {
+      const cvs = document.createElement('canvas');
+      cvs.width = 256; cvs.height = 256;
+      const ctx = cvs.getContext('2d');
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(1, 1, 254, 254);
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
+      ctx.lineWidth = 1;
+      for (let i = 32; i < 256; i += 32) {
+        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 256); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(256, i); ctx.stroke();
+      }
+      const tex = new THREE.CanvasTexture(cvs);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      return tex;
+    }
+
+    const planeGridMat = new THREE.MeshBasicMaterial({
+      map: createGridTexture(),
+      transparent: true,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    });
+    const planeGridMesh = new THREE.Mesh(planeGeo, planeGridMat);
+    planeGridMesh.renderOrder = 2;
+    planeGroup.add(planeGridMesh);
+
+    // Plane Transform State
+    const planeState = {
+      x: 0, y: 0, z: 0,
+      pitch: 0, roll: 0, yaw: 0
+    };
+    window.planeState = planeState;
+
+    function updatePlaneTransform() {
+      planeGroup.position.set(planeState.x, planeState.y, planeState.z);
+      const euler = new THREE.Euler(
+        THREE.MathUtils.degToRad(planeState.pitch),
+        THREE.MathUtils.degToRad(planeState.yaw),
+        THREE.MathUtils.degToRad(planeState.roll),
+        'YXZ'
+      );
+      planeGroup.rotation.copy(euler);
+
+      document.getElementById('readout-elevation').textContent = planeState.y.toFixed(2);
+      document.getElementById('readout-pitch').textContent = Math.round(planeState.pitch) + '°';
+      document.getElementById('readout-roll').textContent = Math.round(planeState.roll) + '°';
+      document.getElementById('readout-yaw').textContent = Math.round(planeState.yaw) + '°';
+
+      drawGimbal1();
+      drawGimbal2();
+      if (typeof drawGimbal3 === 'function') drawGimbal3();
+    }
+    window.updatePlaneTransform = updatePlaneTransform;
+
+    // ── 3. Spherical Camera Model ──
+    const camState = {
+      radius: 10,
+      theta: 0.85,
+      phi: 1.05,
+      target: new THREE.Vector3(0, 0.8, 0)
+    };
+    window.camState = camState;
+    window.cam = camState;
+
+    function updateCamera() {
+      const sinP = Math.sin(camState.phi), cosP = Math.cos(camState.phi);
+      const sinT = Math.sin(camState.theta), cosT = Math.cos(camState.theta);
+
+      const eyeX = camState.target.x + camState.radius * sinP * sinT;
+      const eyeY = camState.target.y + camState.radius * cosP;
+      const eyeZ = camState.target.z + camState.radius * sinP * cosT;
+
+      camera.position.set(eyeX, eyeY, eyeZ);
+      camera.lookAt(camState.target);
+
+      document.getElementById('readout-cam-dist').textContent = camState.radius.toFixed(1) + 'm';
+      drawGimbal1();
+      drawGimbal2();
+      if (typeof drawGimbal3 === 'function') drawGimbal3();
+    }
+    window.updateCamera = updateCamera;
+    window.updCam = updateCamera;
+
+    // ── 4. Gimbal Math & Projection Helpers ──
+    const AXES = [
+      { dir: [0, 1, 0], col: '#0284c7', lbl: 'Y', name: 'Top', snapPhi: 0.01, snapTheta: 0 },
+      { dir: [0, -1, 0], col: '#0284c7', lbl: '-Y', name: 'Bottom', snapPhi: Math.PI - 0.01, snapTheta: 0 },
+      { dir: [-1, 0, 0], col: '#ef4444', lbl: 'X', name: 'Left', snapPhi: Math.PI / 2, snapTheta: -Math.PI / 2 },
+      { dir: [1, 0, 0], col: '#ef4444', lbl: '-X', name: 'Right', snapPhi: Math.PI / 2, snapTheta: Math.PI / 2 },
+      { dir: [0, 0, 1], col: '#10b981', lbl: 'Z', name: 'Front', snapPhi: Math.PI / 2, snapTheta: 0 },
+      { dir: [0, 0, -1], col: '#10b981', lbl: '-Z', name: 'Back', snapPhi: Math.PI / 2, snapTheta: Math.PI }
+    ];
+
+    function projectDir(dx, dy, dz, GW, GH, G_ARM) {
+      const GCX = GW / 2, GCY = GH / 2;
+      const sinT = Math.sin(camState.theta), cosT = Math.cos(camState.theta);
+      const sinP = Math.sin(camState.phi), cosP = Math.cos(camState.phi);
+
+      const rx = cosT, ry = 0, rz = -sinT;
+      const ux = -cosP * sinT, uy = sinP, uz = -cosP * cosT;
+      const fx = sinP * sinT, fy = cosP, fz = sinP * cosT;
+
+      const sx = dx * rx + dy * ry + dz * rz;
+      const sy = dx * ux + dy * uy + dz * uz;
+      const depth = dx * fx + dy * fy + dz * fz;
+
+      return { x: GCX + sx * G_ARM, y: GCY - sy * G_ARM, depth };
+    }
+
+    function hitAxisHelper(mx, my, GW, GH, G_ARM, G_DOT) {
+      let best = -1, bestD = Infinity;
+      AXES.forEach((ax, i) => {
+        const p = projectDir(ax.dir[0], ax.dir[1], ax.dir[2], GW, GH, G_ARM);
+        const d = Math.hypot(mx - p.x, my - p.y);
+        if (d < G_DOT * 1.8 && d < bestD) {
+          bestD = d;
+          best = i;
+        }
+      });
+      return best;
+    }
+
+    // ── 5. Gimbal 1 Multi-Instance Drawing & Interaction ──
+    function drawGimbal1() {
+      document.querySelectorAll('.gimbal-canvas-1').forEach(canvas => {
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        const GW = canvas.width, GH = canvas.height;
+        const G_ARM = 40, G_DOT = 11;
+        ctx.clearRect(0, 0, GW, GH);
+        const isLight = canvas.closest('.card-theme-light') !== null;
+
+        ctx.save();
+        ctx.fillStyle = isLight ? '#f0f2f5' : '#1b1f27';
+        ctx.beginPath();
+        ctx.arc(GW / 2, GH / 2, GW / 2 - 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.08)';
+        ctx.stroke();
+        ctx.restore();
+
+        const projected = AXES.map((ax, i) => {
+          const p = projectDir(ax.dir[0], ax.dir[1], ax.dir[2], GW, GH, G_ARM);
+          return { ax, i, p, depth: p.depth };
+        }).sort((a, b) => a.depth - b.depth);
+
+        projected.forEach(({ ax, i, p, depth }) => {
+          const isFront = depth >= -0.05;
+          const isHov = canvas._hovAxis === i;
+
+          ctx.save();
+          ctx.strokeStyle = isFront ? ax.col : (isLight ? 'rgba(0,0,0,0.18)' : 'rgba(255, 255, 255, 0.16)');
+          ctx.lineWidth = isFront ? 2.2 : 1.0;
+          if (!isFront) ctx.setLineDash([2, 2]);
+          ctx.beginPath();
+          ctx.moveTo(GW / 2, GH / 2);
+          ctx.lineTo(p.x, p.y);
+          ctx.stroke();
+          ctx.restore();
+
+          ctx.save();
+          const dotR = G_DOT * (isFront ? 1.0 : 0.75);
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, dotR, 0, Math.PI * 2);
+
+          if (isFront) {
+            ctx.fillStyle = ax.col;
+            ctx.fill();
+            if (isHov) {
+              ctx.strokeStyle = '#ffffff';
+              ctx.lineWidth = 2;
+              ctx.stroke();
+            }
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 9px ' + getComputedStyle(document.body).fontFamily;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(ax.lbl, p.x, p.y + 0.5);
+          } else {
+            ctx.fillStyle = isHov ? (isLight ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.4)') : (isLight ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.2)');
+            ctx.fill();
+          }
+          ctx.restore();
+        });
+
+        ctx.save();
+        ctx.fillStyle = isLight ? 'rgba(0,0,0,0.4)' : 'rgba(255, 255, 255, 0.5)';
+        ctx.beginPath();
+        ctx.arc(GW / 2, GH / 2, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+    }
+
+    document.querySelectorAll('.gimbal-canvas-1').forEach(canvas => {
+      let isDragging = false, startX = 0, startY = 0, moved = false;
+      canvas.addEventListener('pointerdown', (e) => {
+        e.stopPropagation(); isDragging = true; moved = false;
+        const r = canvas.getBoundingClientRect();
+        startX = (e.clientX - r.left) * (canvas.width / r.width);
+        startY = (e.clientY - r.top) * (canvas.height / r.height);
+        canvas.setPointerCapture(e.pointerId);
+      });
+      canvas.addEventListener('pointermove', (e) => {
+        const r = canvas.getBoundingClientRect();
+        const mx = (e.clientX - r.left) * (canvas.width / r.width);
+        const my = (e.clientY - r.top) * (canvas.height / r.height);
+        if (isDragging) {
+          const dx = mx - startX, dy = my - startY;
+          if (Math.hypot(dx, dy) > 2) moved = true;
+          startX = mx; startY = my;
+          camState.theta -= dx * 0.007;
+          camState.phi = Math.max(0.05, Math.min(Math.PI - 0.05, camState.phi - dy * 0.007));
+          updateCamera();
+        } else {
+          const hit = hitAxisHelper(mx, my, canvas.width, canvas.height, 40, 11);
+          if (hit !== canvas._hovAxis) {
+            canvas._hovAxis = hit;
+            canvas.style.cursor = hit > -1 ? 'pointer' : 'grab';
+            drawGimbal1();
+          }
+        }
+      });
+      canvas.addEventListener('pointerup', (e) => {
+        if (isDragging) {
+          const r = canvas.getBoundingClientRect();
+          const mx = (e.clientX - r.left) * (canvas.width / r.width);
+          const my = (e.clientY - r.top) * (canvas.height / r.height);
+          if (!moved) {
+            const hit = hitAxisHelper(mx, my, canvas.width, canvas.height, 40, 11);
+            if (hit > -1) {
+              const targetAx = AXES[hit];
+              camState.phi = targetAx.snapPhi;
+              camState.theta = targetAx.snapTheta;
+              updateCamera();
+              toast('Snap to ' + targetAx.name + ' View');
+            }
+          }
+          isDragging = false;
+          try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+        }
+        drawGimbal1();
+      });
+    });
+
+    // ── 6. Gimbal 2 Multi-Instance Drawing & Interaction ──
+    let c2GlobalSurfaceActive = true;
+    function drawGimbal2() {
+      document.querySelectorAll('.gimbal-canvas-2').forEach(canvas => {
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        const G2W = canvas.width, G2H = canvas.height;
+        const G2_ARM = G2W * 0.32, G2_DOT = G2W * 0.085;
+        ctx.clearRect(0, 0, G2W, G2H);
+        const isLight = canvas.closest('.card-theme-light') !== null;
+        const card = canvas.closest('.controller-card');
+        const isSurfActive = card ? !card.querySelector('.c2-surface-cluster.disabled') : c2GlobalSurfaceActive;
+
+        const snugRadius = G2W * 0.44;
+        ctx.save();
+        ctx.fillStyle = isLight ? '#f0f2f5' : '#1c202a';
+        ctx.beginPath();
+        ctx.arc(G2W / 2, G2H / 2, snugRadius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.06)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        const ringR = snugRadius - 4;
+        const ringActive = canvas._isDragging && canvas._g2Action === 'surface-rotate';
+        const ringHov = canvas._isHovRing && isSurfActive;
+
+        ctx.beginPath();
+        ctx.arc(G2W / 2, G2H / 2, ringR, 0, Math.PI * 2);
+        if (ringActive) {
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 2.4;
+          ctx.shadowColor = '#38bdf8';
+          ctx.shadowBlur = 8;
+          ctx.stroke();
+        } else if (ringHov) {
+          ctx.strokeStyle = 'rgba(56, 189, 248, 0.85)';
+          ctx.lineWidth = 2.0;
+          ctx.stroke();
+        } else {
+          ctx.strokeStyle = isSurfActive ? 'rgba(56, 189, 248, 0.35)' : 'rgba(255, 255, 255, 0.12)';
+          ctx.lineWidth = 1.2;
+          ctx.setLineDash([3, 3]);
+          ctx.stroke();
+        }
+        ctx.setLineDash([]);
+        ctx.shadowBlur = 0;
+
+        for (let a = 0; a < Math.PI * 2; a += Math.PI / 2) {
+          const cosA = Math.cos(a), sinA = Math.sin(a);
+          ctx.beginPath();
+          ctx.moveTo(G2W / 2 + cosA * (ringR - 3), G2H / 2 + sinA * (ringR - 3));
+          ctx.lineTo(G2W / 2 + cosA * (ringR + 3), G2H / 2 + sinA * (ringR + 3));
+          ctx.strokeStyle = ringActive || ringHov ? '#38bdf8' : (isSurfActive ? 'rgba(56, 189, 248, 0.5)' : 'rgba(255, 255, 255, 0.2)');
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        const projected = AXES.map((ax, i) => {
+          const p = projectDir(ax.dir[0], ax.dir[1], ax.dir[2], G2W, G2H, G2_ARM);
+          return { ax, i, p, depth: p.depth };
+        }).sort((a, b) => a.depth - b.depth);
+
+        projected.forEach(({ ax, i, p, depth }) => {
+          const isFront = depth >= -0.05;
+          const isHov = canvas._hovAxis === i;
+
+          ctx.save();
+          ctx.strokeStyle = isFront ? ax.col : (isLight ? 'rgba(0,0,0,0.22)' : 'rgba(255, 255, 255, 0.18)');
+          ctx.lineWidth = isFront ? 2.2 : 1.1;
+          if (!isFront) ctx.setLineDash([2, 2]);
+          ctx.beginPath();
+          ctx.moveTo(G2W / 2, G2H / 2);
+          ctx.lineTo(p.x, p.y);
+          ctx.stroke();
+          ctx.restore();
+
+          ctx.save();
+          const dotR = G2_DOT * (isFront ? 1.0 : 0.78);
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, dotR, 0, Math.PI * 2);
+
+          if (isFront) {
+            ctx.fillStyle = ax.col;
+            ctx.fill();
+            if (isHov) {
+              ctx.strokeStyle = '#ffffff';
+              ctx.lineWidth = 2.2;
+              ctx.stroke();
+            }
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 8.5px ' + getComputedStyle(document.body).fontFamily;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(ax.lbl, p.x, p.y + 0.5);
+          } else {
+            ctx.fillStyle = isHov ? (isLight ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.45)') : (isLight ? 'rgba(0,0,0,0.22)' : 'rgba(255,255,255,0.22)');
+            ctx.fill();
+          }
+          ctx.restore();
+        });
+
+        ctx.save();
+        ctx.fillStyle = isLight ? 'rgba(0,0,0,0.5)' : 'rgba(255, 255, 255, 0.6)';
+        ctx.beginPath();
+        ctx.arc(G2W / 2, G2H / 2, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+    }
+
+    document.querySelectorAll('.gimbal-canvas-2').forEach(canvas => {
+      let isDragging = false, startX = 0, startY = 0, moved = false;
+      let startAngle = 0, origYaw = 0, g2Action = 'camera-orbit';
+
+      canvas.addEventListener('pointerdown', (e) => {
+        e.stopPropagation(); isDragging = true; moved = false;
+        canvas._isDragging = true;
+        const r = canvas.getBoundingClientRect();
+        startX = (e.clientX - r.left) * (canvas.width / r.width);
+        startY = (e.clientY - r.top) * (canvas.height / r.height);
+        origYaw = planeState.yaw;
+        startAngle = Math.atan2(startY - canvas.height / 2, startX - canvas.width / 2);
+
+        const dist = Math.hypot(startX - canvas.width / 2, startY - canvas.height / 2);
+        const card = canvas.closest('.controller-card');
+        const isSurfActive = card ? !card.querySelector('.c2-surface-cluster.disabled') : c2GlobalSurfaceActive;
+
+        if (isSurfActive && dist >= 44 && dist <= canvas.width * 0.52) {
+          g2Action = 'surface-rotate';
+        } else {
+          g2Action = 'camera-orbit';
+        }
+        canvas._g2Action = g2Action;
+        canvas.setPointerCapture(e.pointerId);
+        drawGimbal2();
+      });
+
+      canvas.addEventListener('pointermove', (e) => {
+        const r = canvas.getBoundingClientRect();
+        const mx = (e.clientX - r.left) * (canvas.width / r.width);
+        const my = (e.clientY - r.top) * (canvas.height / r.height);
+
+        if (isDragging) {
+          const dx = mx - startX, dy = my - startY;
+          if (Math.hypot(dx, dy) > 2) moved = true;
+
+          if (g2Action === 'surface-rotate') {
+            const curAngle = Math.atan2(my - canvas.height / 2, mx - canvas.width / 2);
+            let deltaAngle = curAngle - startAngle;
+            while (deltaAngle > Math.PI) deltaAngle -= Math.PI * 2;
+            while (deltaAngle < -Math.PI) deltaAngle += Math.PI * 2;
+            planeState.yaw = origYaw + THREE.MathUtils.radToDeg(deltaAngle);
+            updatePlaneTransform();
+          } else {
+            startX = mx; startY = my;
+            camState.theta -= dx * 0.007;
+            camState.phi = Math.max(0.05, Math.min(Math.PI - 0.05, camState.phi - dy * 0.007));
+            updateCamera();
+          }
+        } else {
+          const dist = Math.hypot(mx - canvas.width / 2, my - canvas.height / 2);
+          const G2_ARM = canvas.width * 0.32, G2_DOT = canvas.width * 0.085;
+          const card = canvas.closest('.controller-card');
+          const isSurfActive = card ? !card.querySelector('.c2-surface-cluster.disabled') : c2GlobalSurfaceActive;
+
+          if (isSurfActive && dist >= 44 && dist <= canvas.width * 0.52) {
+            if (!canvas._isHovRing || canvas._hovAxis !== -1) {
+              canvas._isHovRing = true;
+              canvas._hovAxis = -1;
+              canvas.style.cursor = 'grab';
+              drawGimbal2();
+            }
+          } else if (dist < 44) {
+            canvas._isHovRing = false;
+            const hit = hitAxisHelper(mx, my, canvas.width, canvas.height, G2_ARM, G2_DOT);
+            if (hit !== canvas._hovAxis) {
+              canvas._hovAxis = hit;
+              canvas.style.cursor = hit > -1 ? 'pointer' : 'grab';
+              drawGimbal2();
+            }
+          } else {
+            if (canvas._isHovRing || canvas._hovAxis !== -1) {
+              canvas._isHovRing = false;
+              canvas._hovAxis = -1;
+              canvas.style.cursor = 'default';
+              drawGimbal2();
+            }
+          }
+        }
+      });
+
+      canvas.addEventListener('pointerup', (e) => {
+        if (isDragging) {
+          const r = canvas.getBoundingClientRect();
+          const mx = (e.clientX - r.left) * (canvas.width / r.width);
+          const my = (e.clientY - r.top) * (canvas.height / r.height);
+          if (!moved && g2Action === 'camera-orbit') {
+            const G2_ARM = canvas.width * 0.32, G2_DOT = canvas.width * 0.085;
+            const hit = hitAxisHelper(mx, my, canvas.width, canvas.height, G2_ARM, G2_DOT);
+            if (hit > -1) {
+              const targetAx = AXES[hit];
+              camState.phi = targetAx.snapPhi;
+              camState.theta = targetAx.snapTheta;
+              updateCamera();
+              toast('Snap View: ' + targetAx.name);
+            }
+          }
+          isDragging = false;
+          canvas._isDragging = false;
+          try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+        }
+        drawGimbal2();
+      });
+    });
+
+    // ── 7. Gimbal 3 Multi-Instance Drawing & Interaction ──
+    let c3Mode = 'surface'; // 'surface' or 'cam'
+    function resetHintBar3() {
+      document.querySelectorAll('.c3-hint-bar').forEach(hb => {
+        hb.classList.remove('active');
+        if (c3Mode === 'surface') {
+          hb.textContent = 'Cones: Elev | Sides: Skew | Center: Move | Rim: Spin';
+        } else {
+          hb.textContent = 'Drag: Orbit Camera | Dots: Snap Perspective';
+        }
+      });
+    }
+
+    function drawGimbal3() {
+      document.querySelectorAll('.gimbal-canvas-3').forEach(canvas => {
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        const G3W = canvas.width, G3H = canvas.height;
+        const G3_ARM = G3W * 0.36, G3_DOT = G3W * 0.095;
+        ctx.clearRect(0, 0, G3W, G3H);
+        const isLight = canvas.closest('.card-theme-light') !== null;
+        const isSurface = c3Mode === 'surface';
+
+        const snugRadius = G3_ARM + G3_DOT;
+        ctx.save();
+        ctx.fillStyle = isLight ? '#f0f2f5' : '#1c202a';
+        ctx.beginPath();
+        ctx.arc(G3W / 2, G3H / 2, snugRadius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = isSurface ? '#38bdf8' : (isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.06)');
+        ctx.lineWidth = isSurface ? 2 : 1;
+        ctx.stroke();
+
+        if (isSurface) {
+          ctx.strokeStyle = 'rgba(56, 189, 248, 0.28)';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([3, 4]);
+          ctx.beginPath();
+          ctx.arc(G3W / 2, G3H / 2, snugRadius - 4, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 2.4;
+          ctx.beginPath();
+          ctx.arc(G3W / 2, G3H / 2, snugRadius - 4, Math.PI * 0.85, Math.PI * 1.15);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(G3W / 2, G3H / 2, snugRadius - 4, -Math.PI * 0.15, Math.PI * 0.15);
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        let projected;
+        if (isSurface) {
+          const planeEuler = new THREE.Euler(
+            THREE.MathUtils.degToRad(planeState.pitch),
+            THREE.MathUtils.degToRad(planeState.yaw),
+            THREE.MathUtils.degToRad(planeState.roll),
+            'YXZ'
+          );
+          const planeQuat = new THREE.Quaternion().setFromEuler(planeEuler);
+
+          projected = AXES.map((ax, i) => {
+            const v = new THREE.Vector3(ax.dir[0], ax.dir[1], ax.dir[2]).applyQuaternion(planeQuat);
+            const p = projectDir(v.x, v.y, v.z, G3W, G3H, G3_ARM);
+            return { ax, i, p, depth: p.depth };
+          }).sort((a, b) => a.depth - b.depth);
+        } else {
+          projected = AXES.map((ax, i) => {
+            const p = projectDir(ax.dir[0], ax.dir[1], ax.dir[2], G3W, G3H, G3_ARM);
+            return { ax, i, p, depth: p.depth };
+          }).sort((a, b) => a.depth - b.depth);
+        }
+
+        projected.forEach(({ ax, i, p, depth }) => {
+          const isFront = depth >= -0.05;
+          ctx.save();
+          ctx.strokeStyle = isFront ? ax.col : (isLight ? 'rgba(0,0,0,0.22)' : 'rgba(255, 255, 255, 0.18)');
+          ctx.lineWidth = isFront ? 2.4 : 1.2;
+          if (!isFront) ctx.setLineDash([2, 2]);
+          ctx.beginPath();
+          ctx.moveTo(G3W / 2, G3H / 2);
+          ctx.lineTo(p.x, p.y);
+          ctx.stroke();
+          ctx.restore();
+        });
+
+        if (isSurface) {
+          ctx.save();
+          ctx.fillStyle = isLight ? 'rgba(56, 189, 248, 0.18)' : 'rgba(56, 189, 248, 0.14)';
+          ctx.beginPath();
+          ctx.arc(G3W / 2, G3H / 2, 16, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 1.4;
+          ctx.stroke();
+
+          ctx.fillStyle = '#38bdf8';
+          ctx.beginPath();
+          ctx.arc(G3W / 2, G3H / 2, 3, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        } else {
+          ctx.save();
+          ctx.fillStyle = isLight ? 'rgba(0,0,0,0.5)' : 'rgba(255, 255, 255, 0.6)';
+          ctx.beginPath();
+          ctx.arc(G3W / 2, G3H / 2, 2.8, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        projected.forEach(({ ax, i, p, depth }) => {
+          const isFront = depth >= -0.05;
+          const isHov = canvas._hovAxis === i;
+          ctx.save();
+          if (isSurface) {
+            if (ax.lbl === 'Y') {
+              const triSize = G3_DOT * 1.3;
+              ctx.beginPath();
+              ctx.moveTo(p.x, p.y - triSize);
+              ctx.lineTo(p.x - triSize * 0.85, p.y + triSize * 0.65);
+              ctx.lineTo(p.x + triSize * 0.85, p.y + triSize * 0.65);
+              ctx.closePath();
+              ctx.fillStyle = isFront ? '#38bdf8' : (isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)');
+              ctx.fill();
+              if (isHov || isFront) { ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.8; ctx.stroke(); }
+              ctx.fillStyle = '#ffffff';
+              ctx.font = 'bold 7.5px ' + getComputedStyle(document.body).fontFamily;
+              ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+              ctx.fillText('Up', p.x, p.y + triSize * 0.1);
+            } else if (ax.lbl === '-Y') {
+              const triSize = G3_DOT * 1.3;
+              ctx.beginPath();
+              ctx.moveTo(p.x, p.y + triSize);
+              ctx.lineTo(p.x - triSize * 0.85, p.y - triSize * 0.65);
+              ctx.lineTo(p.x + triSize * 0.85, p.y - triSize * 0.65);
+              ctx.closePath();
+              ctx.fillStyle = isFront ? '#475569' : (isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)');
+              ctx.fill();
+              if (isHov || isFront) { ctx.strokeStyle = isLight ? '#0f172a' : '#94a3b8'; ctx.lineWidth = 1.5; ctx.stroke(); }
+              ctx.fillStyle = '#ffffff';
+              ctx.font = 'bold 7px ' + getComputedStyle(document.body).fontFamily;
+              ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+              ctx.fillText('Dn', p.x, p.y - triSize * 0.1);
+            } else {
+              const dotR = G3_DOT * (isFront ? 1.0 : 0.75);
+              ctx.beginPath();
+              ctx.arc(p.x, p.y, dotR, 0, Math.PI * 2);
+              if (isFront) {
+                ctx.fillStyle = ax.col;
+                ctx.fill();
+                if (isHov) { ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.2; ctx.stroke(); }
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 8.5px ' + getComputedStyle(document.body).fontFamily;
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(ax.lbl, p.x, p.y + 0.5);
+              } else {
+                ctx.fillStyle = isHov ? (isLight ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.45)') : (isLight ? 'rgba(0,0,0,0.22)' : 'rgba(255,255,255,0.22)');
+                ctx.fill();
+              }
+            }
+          } else {
+            const dotR = G3_DOT * (isFront ? 1.0 : 0.78);
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, dotR, 0, Math.PI * 2);
+            if (isFront) {
+              ctx.fillStyle = ax.col;
+              ctx.fill();
+              if (isHov) { ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.2; ctx.stroke(); }
+              ctx.fillStyle = '#ffffff';
+              ctx.font = 'bold 8.5px ' + getComputedStyle(document.body).fontFamily;
+              ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+              ctx.fillText(ax.lbl, p.x, p.y + 0.5);
+            } else {
+              ctx.fillStyle = isHov ? (isLight ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.45)') : (isLight ? 'rgba(0,0,0,0.22)' : 'rgba(255,255,255,0.22)');
+              ctx.fill();
+            }
+          }
+          ctx.restore();
+        });
+      });
+    }
+
+    document.querySelectorAll('.gimbal-canvas-3').forEach(canvas => {
+      let isDragging = false, startX = 0, startY = 0, moved = false;
+      let origPitch = 0, origYaw = 0, origRoll = 0, origElev = 0, origX = 0, origZ = 0;
+      let startAngle = 0, g3Action = 'orient';
+
+      canvas.addEventListener('pointerdown', (e) => {
+        e.stopPropagation(); isDragging = true; moved = false;
+        const r = canvas.getBoundingClientRect();
+        const G3W = canvas.width, G3H = canvas.height;
+        startX = (e.clientX - r.left) * (G3W / r.width);
+        startY = (e.clientY - r.top) * (G3H / r.height);
+        origPitch = planeState.pitch; origYaw = planeState.yaw; origRoll = planeState.roll;
+        origElev = planeState.y; origX = planeState.x; origZ = planeState.z;
+        startAngle = Math.atan2(startY - G3H / 2, startX - G3W / 2);
+
+        if (c3Mode === 'surface') {
+          const G3_ARM = G3W * 0.36, G3_DOT = G3W * 0.095;
+          const hit = hitAxisHelper(startX, startY, G3W, G3H, G3_ARM, G3_DOT);
+          const distFromCenter = Math.hypot(startX - G3W / 2, startY - G3H / 2);
+          const isSideRim = distFromCenter >= G3W * 0.36 && Math.abs(startX - G3W / 2) > Math.abs(startY - G3H / 2) * 1.5;
+
+          if (hit > -1) {
+            const hitAx = AXES[hit];
+            if (hitAx.lbl === 'Y' || hitAx.lbl === '-Y') g3Action = 'elev';
+            else if (hitAx.lbl === 'X' || hitAx.lbl === '-X') g3Action = 'move-x';
+            else if (hitAx.lbl === 'Z' || hitAx.lbl === '-Z') g3Action = 'move-z';
+            else g3Action = 'orient';
+          } else if (isSideRim) {
+            g3Action = 'roll-skew';
+          } else if (distFromCenter <= 18) {
+            g3Action = 'center-move';
+          } else if (distFromCenter >= G3W * 0.38 && distFromCenter <= G3W * 0.52) {
+            g3Action = 'rim-dial';
+          } else {
+            g3Action = 'orient';
+          }
+        } else {
+          g3Action = 'camera-orbit';
+        }
+        canvas.setPointerCapture(e.pointerId);
+      });
+
+      canvas.addEventListener('pointermove', (e) => {
+        const r = canvas.getBoundingClientRect();
+        const G3W = canvas.width, G3H = canvas.height;
+        const mx = (e.clientX - r.left) * (G3W / r.width);
+        const my = (e.clientY - r.top) * (G3H / r.height);
+
+        if (isDragging) {
+          const dx = mx - startX, dy = my - startY;
+          if (Math.hypot(dx, dy) > 2) moved = true;
+
+          if (c3Mode === 'surface') {
+            document.querySelectorAll('.c3-hint-bar').forEach(hb => hb.classList.add('active'));
+
+            if (g3Action === 'elev') {
+              planeState.y = Math.max(-4, Math.min(6, origElev - (dy / (G3H * 0.35)) * 1.8));
+              document.querySelectorAll('.c3-hint-bar').forEach(hb => hb.textContent = 'Elevating: ' + (planeState.y >= 0 ? '+' : '') + planeState.y.toFixed(2) + 'm');
+              updatePlaneTransform();
+            } else if (g3Action === 'roll-skew') {
+              const sign = startX > G3W / 2 ? 1 : -1;
+              planeState.roll = origRoll + (dy / (G3H * 0.35)) * 90 * sign;
+              document.querySelectorAll('.c3-hint-bar').forEach(hb => hb.textContent = 'Banking / Skew: ' + Math.round(planeState.roll) + '°');
+              updatePlaneTransform();
+            } else if (g3Action === 'rim-dial') {
+              const curAngle = Math.atan2(my - G3H / 2, mx - G3W / 2);
+              let deltaAngle = curAngle - startAngle;
+              while (deltaAngle > Math.PI) deltaAngle -= Math.PI * 2;
+              while (deltaAngle < -Math.PI) deltaAngle += Math.PI * 2;
+              planeState.yaw = origYaw + THREE.MathUtils.radToDeg(deltaAngle);
+              document.querySelectorAll('.c3-hint-bar').forEach(hb => hb.textContent = 'Spinning Yaw: ' + Math.round(planeState.yaw) + '°');
+              updatePlaneTransform();
+            } else if (g3Action === 'move-x') {
+              planeState.x = origX + (dx / (G3W * 0.35)) * 2.0;
+              document.querySelectorAll('.c3-hint-bar').forEach(hb => hb.textContent = 'Moving X: ' + planeState.x.toFixed(2));
+              updatePlaneTransform();
+            } else if (g3Action === 'move-z') {
+              planeState.z = origZ + (dy / (G3H * 0.35)) * 2.0;
+              document.querySelectorAll('.c3-hint-bar').forEach(hb => hb.textContent = 'Moving Z: ' + planeState.z.toFixed(2));
+              updatePlaneTransform();
+            } else if (g3Action === 'center-move') {
+              planeState.x = origX + (dx / (G3W * 0.35)) * 2.5;
+              planeState.z = origZ + (dy / (G3H * 0.35)) * 2.5;
+              document.querySelectorAll('.c3-hint-bar').forEach(hb => hb.textContent = 'Translating Surface X/Z');
+              updatePlaneTransform();
+            } else {
+              planeState.pitch = origPitch - (dy / (G3H * 0.35)) * 90;
+              planeState.yaw = origYaw + (dx / (G3W * 0.35)) * 90;
+              document.querySelectorAll('.c3-hint-bar').forEach(hb => hb.textContent = 'Free Orient: Pitch ' + Math.round(planeState.pitch) + '° | Yaw ' + Math.round(planeState.yaw) + '°');
+              updatePlaneTransform();
+            }
+          } else {
+            startX = mx; startY = my;
+            camState.theta -= dx * 0.007;
+            camState.phi = Math.max(0.05, Math.min(Math.PI - 0.05, camState.phi - dy * 0.007));
+            updateCamera();
+          }
+        } else {
+          const G3_ARM = G3W * 0.36, G3_DOT = G3W * 0.095;
+          const hit = hitAxisHelper(mx, my, G3W, G3H, G3_ARM, G3_DOT);
+          if (hit !== canvas._hovAxis) {
+            canvas._hovAxis = hit;
+            canvas.style.cursor = hit > -1 ? 'pointer' : 'grab';
+            drawGimbal3();
+          }
+        }
+      });
+
+      canvas.addEventListener('pointerup', (e) => {
+        if (isDragging) {
+          const r = canvas.getBoundingClientRect();
+          const G3W = canvas.width, G3H = canvas.height;
+          const mx = (e.clientX - r.left) * (G3W / r.width);
+          const my = (e.clientY - r.top) * (G3H / r.height);
+          if (!moved) {
+            const G3_ARM = G3W * 0.36, G3_DOT = G3W * 0.095;
+            const hit = hitAxisHelper(mx, my, G3W, G3H, G3_ARM, G3_DOT);
+            if (hit > -1) {
+              const targetAx = AXES[hit];
+              if (c3Mode === 'surface') {
+                if (targetAx.lbl === 'Y') { planeState.pitch = 0; planeState.roll = 0; }
+                else if (targetAx.lbl === '-Y') { planeState.pitch = 180; planeState.roll = 0; }
+                else if (targetAx.lbl === 'X') { planeState.pitch = 90; planeState.yaw = 90; planeState.roll = 0; }
+                else if (targetAx.lbl === '-X') { planeState.pitch = 90; planeState.yaw = -90; planeState.roll = 0; }
+                else if (targetAx.lbl === 'Z') { planeState.pitch = 90; planeState.yaw = 0; planeState.roll = 0; }
+                else if (targetAx.lbl === '-Z') { planeState.pitch = 90; planeState.yaw = 180; planeState.roll = 0; }
+                updatePlaneTransform();
+                toast('Surface Snapped: ' + targetAx.name);
+              } else {
+                camState.phi = targetAx.snapPhi;
+                camState.theta = targetAx.snapTheta;
+                updateCamera();
+                toast('Snap View: ' + targetAx.name);
+              }
+            }
+          }
+          isDragging = false;
+          try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+        }
+        resetHintBar3();
+        drawGimbal3();
+      });
+    });
+
+    // ── 8. Common Controls & Generic Bindings Across All Cards ──
+
+    // Draggable Modals System
+    let highestZIndex = 200;
+    function makeModalDraggable(card, header) {
+      if (!card || !header) return;
+      let isDragging = false, startX = 0, startY = 0, startLeft = 0, startTop = 0;
+
+      header.addEventListener('pointerdown', (e) => {
+        if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
+        e.stopPropagation(); isDragging = true;
+        card.classList.add('dragging');
+        highestZIndex++;
+        card.style.zIndex = highestZIndex;
+
+        const r = card.getBoundingClientRect();
+        startX = e.clientX; startY = e.clientY;
+        startLeft = r.left; startTop = r.top;
+        header.setPointerCapture(e.pointerId);
+      });
+
+      header.addEventListener('pointermove', (e) => {
+        if (!isDragging) return;
+        const dx = e.clientX - startX, dy = e.clientY - startY;
+        let newLeft = startLeft + dx, newTop = startTop + dy;
+
+        const maxLeft = window.innerWidth - card.offsetWidth - 4;
+        const maxTop = window.innerHeight - card.offsetHeight - 4;
+        newLeft = Math.max(4, Math.min(maxLeft, newLeft));
+        newTop = Math.max(50, Math.min(maxTop, newTop));
+
+        card.style.left = `${newLeft}px`;
+        card.style.top = `${newTop}px`;
+        card.style.bottom = 'auto';
+        card.style.right = 'auto';
+      });
+
+      header.addEventListener('pointerup', (e) => {
+        if (isDragging) {
+          isDragging = false;
+          card.classList.remove('dragging');
+          try { header.releasePointerCapture(e.pointerId); } catch (_) {}
+        }
+      });
+
+      card.addEventListener('pointerdown', () => {
+        highestZIndex++;
+        card.style.zIndex = highestZIndex;
+      });
+    }
+
+    document.querySelectorAll('.modal-card').forEach(card => {
+      const hdr = card.querySelector('.card-ref-header');
+      makeModalDraggable(card, hdr);
+    });
+
+    // Auto-Arrange 6 Modals Side-by-Side
+    function arrangeModals() {
+      const cards = [
+        { id: 'card-c3-dark', w: 176 },
+        { id: 'card-c3-light', w: 176 },
+        { id: 'card-c1-dark', w: 276 },
+        { id: 'card-c1-light', w: 276 }
+      ];
+
+      const W = window.innerWidth, H = window.innerHeight;
+      const gap = 12;
+      let curX = 16, curY = 60;
+
+      cards.forEach((c, idx) => {
+        const el = document.getElementById(c.id);
+        if (!el) return;
+        if (curX + c.w > W - 16 && idx > 0) {
+          curX = 16;
+          curY += 280;
+        }
+        if (curY > H - 260) {
+          curY = Math.max(60, H - 280);
+        }
+        el.style.left = `${curX}px`;
+        el.style.top = `${curY}px`;
+        el.style.bottom = 'auto';
+        el.style.right = 'auto';
+        curX += c.w + gap;
+      });
+    }
+    window.addEventListener('resize', arrangeModals);
+    document.getElementById('btn-arrange-modals').addEventListener('click', () => {
+      arrangeModals();
+      toast('Modals Arranged Side-by-Side');
+    });
+
+    // Option 3 Mode Toggles
+    document.querySelectorAll('.btn-c3-mode-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        c3Mode = c3Mode === 'surface' ? 'cam' : 'surface';
+        document.querySelectorAll('#card-c3-dark, #card-c3-light').forEach(c => c.classList.toggle('surface-mode', c3Mode === 'surface'));
+        document.querySelectorAll('.c3-mode-text').forEach(t => t.textContent = c3Mode === 'surface' ? 'Gizmo: Surface' : 'Gizmo: Camera');
+        resetHintBar3();
+        drawGimbal3();
+        toast(c3Mode === 'surface' ? 'Option 3: Surface 3D Mode' : 'Option 3: Camera Mode');
+      });
+    });
+
+    // Option 1 Switch Pills
+    document.querySelectorAll('.seg-pill-wrap').forEach(pill => {
+      pill.addEventListener('click', () => {
+        const card = pill.closest('.controller-card');
+        if (!card) return;
+        const isSurf = !pill.classList.contains('surface-active');
+        pill.classList.toggle('surface-active', isSurf);
+        const pNav = card.querySelector('.panel-nav');
+        const pGizmo = card.querySelector('.panel-gizmo');
+        if (pNav) pNav.classList.toggle('active', !isSurf);
+        if (pGizmo) pGizmo.classList.toggle('active', isSurf);
+        if (!isSurf) drawGimbal1();
+        toast(isSurf ? 'Option 1: Surface Deck' : 'Option 1: Camera Deck');
+      });
+    });
+
+    // Option 1 & 2 Move Pads
+    document.querySelectorAll('.pad-plane-move, .pad-plane-move-2').forEach(pad => {
+      const knob = pad.querySelector('.move-knob, .c2-move-knob');
+      let isMove = false, startX = 0, startY = 0, origX = 0, origZ = 0;
+      pad.addEventListener('pointerdown', (e) => {
+        e.stopPropagation(); isMove = true;
+        startX = e.clientX; startY = e.clientY;
+        origX = planeState.x; origZ = planeState.z;
+        pad.setPointerCapture(e.pointerId);
+      });
+      pad.addEventListener('pointermove', (e) => {
+        if (!isMove) return;
+        const r = pad.getBoundingClientRect();
+        const maxR = Math.max(12, r.width / 2 - 10);
+        const dx = e.clientX - startX, dy = e.clientY - startY;
+        const dist = Math.hypot(dx, dy);
+        const clampedDist = Math.min(maxR, dist);
+        const angle = Math.atan2(dy, dx);
+        if (knob) knob.style.transform = `translate(${Math.cos(angle) * clampedDist}px, ${Math.sin(angle) * clampedDist}px)`;
+        const norm = clampedDist / maxR;
+        const power = Math.pow(norm, 1.25) * 2.0;
+        planeState.x = origX + Math.cos(angle) * power;
+        planeState.z = origZ + Math.sin(angle) * power;
+        updatePlaneTransform();
+      });
+      pad.addEventListener('pointerup', (e) => {
+        isMove = false;
+        try { pad.releasePointerCapture(e.pointerId); } catch (_) {}
+        if (knob) knob.style.transform = 'translate(0, 0)';
+      });
+    });
+
+    // Tilt Rails (Option 1 & 2)
+    document.querySelectorAll('.rail-plane-tilt, .rail-plane-tilt-2').forEach(rail => {
+      let isTilt = false, startY = 0, origPitch = 0;
+      rail.addEventListener('pointerdown', (e) => {
+        e.stopPropagation(); isTilt = true;
+        startY = e.clientY; origPitch = planeState.pitch;
+        rail.setPointerCapture(e.pointerId);
+      });
+      rail.addEventListener('pointermove', (e) => {
+        if (!isTilt) return;
+        const r = rail.getBoundingClientRect();
+        const travel = Math.max(25, r.height * 0.7);
+        const deltaY = e.clientY - startY;
+        planeState.pitch = Math.max(-90, Math.min(90, origPitch - (deltaY / travel) * 55));
+        updatePlaneTransform();
+      });
+      rail.addEventListener('pointerup', (e) => {
+        isTilt = false;
+        try { rail.releasePointerCapture(e.pointerId); } catch (_) {}
+      });
+    });
+
+    // Elev Rails (Option 1 & 2)
+    document.querySelectorAll('.rail-plane-elev, .rail-plane-elev-2').forEach(rail => {
+      let isElev = false, startY = 0, origElev = 0;
+      rail.addEventListener('pointerdown', (e) => {
+        e.stopPropagation(); isElev = true;
+        startY = e.clientY; origElev = planeState.y;
+        rail.setPointerCapture(e.pointerId);
+      });
+      rail.addEventListener('pointermove', (e) => {
+        if (!isElev) return;
+        const r = rail.getBoundingClientRect();
+        const travel = Math.max(25, r.height * 0.7);
+        const deltaY = e.clientY - startY;
+        planeState.y = Math.max(-4, Math.min(6, origElev - (deltaY / travel) * 2.5));
+        updatePlaneTransform();
+      });
+      rail.addEventListener('pointerup', (e) => {
+        isElev = false;
+        try { rail.releasePointerCapture(e.pointerId); } catch (_) {}
+      });
+    });
+
+    // Option 1 Yaw Spin Strips
+    document.querySelectorAll('.track-spin-yaw').forEach(spin => {
+      let isSpin = false, startX = 0, origYaw = 0;
+      spin.addEventListener('pointerdown', (e) => {
+        e.stopPropagation(); isSpin = true;
+        startX = e.clientX; origYaw = planeState.yaw;
+        spin.setPointerCapture(e.pointerId);
+      });
+      spin.addEventListener('pointermove', (e) => {
+        if (!isSpin) return;
+        planeState.yaw = origYaw + (e.clientX - startX) * 0.45;
+        updatePlaneTransform();
+      });
+      spin.addEventListener('pointerup', (e) => {
+        isSpin = false;
+        try { spin.releasePointerCapture(e.pointerId); } catch (_) {}
+      });
+    });
+
+    document.querySelectorAll('.btn-spin-ccw').forEach(btn => {
+      btn.addEventListener('click', () => { planeState.yaw = (Math.round(planeState.yaw / 45) - 1) * 45; updatePlaneTransform(); toast('Yaw -45°'); });
+    });
+    document.querySelectorAll('.btn-spin-cw').forEach(btn => {
+      btn.addEventListener('click', () => { planeState.yaw = (Math.round(planeState.yaw / 45) + 1) * 45; updatePlaneTransform(); toast('Yaw +45°'); });
+    });
+
+    // Option 2 Surface Toggles
+    document.querySelectorAll('.btn-c2-surf-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const card = btn.closest('.controller-card');
+        if (!card) return;
+        const cluster = card.querySelector('.c2-surface-cluster');
+        const actions = card.querySelector('.c2-surface-actions');
+        const isSurf = !btn.classList.contains('surface-active');
+        btn.classList.toggle('surface-active', isSurf);
+        const txt = btn.querySelector('.c2-toggle-text');
+        if (txt) txt.textContent = isSurf ? 'Surface: On' : 'Surface: Off';
+        if (cluster) cluster.classList.toggle('disabled', !isSurf);
+        drawGimbal2();
+        toast(isSurf ? 'Option 2: Surface Controls Active' : 'Option 2: Surface Controls Muted');
+      });
+    });
+
+    // Presets & Resets (All Cards)
+    document.querySelectorAll('.btn-opt-ground').forEach(btn => {
+      btn.addEventListener('click', () => {
+        planeState.pitch = 0; planeState.roll = 0; planeState.yaw = 0;
+        updatePlaneTransform();
+        toast('Preset: Ground');
+      });
+    });
+    document.querySelectorAll('.btn-opt-wall').forEach(btn => {
+      btn.addEventListener('click', () => {
+        planeState.pitch = 90; planeState.roll = 0;
+        updatePlaneTransform();
+        toast('Preset: Wall');
+      });
+    });
+    document.querySelectorAll('.btn-opt-45slant').forEach(btn => {
+      btn.addEventListener('click', () => {
+        planeState.pitch = 45; planeState.roll = 0;
+        updatePlaneTransform();
+        toast('Preset: 45° Slant');
+      });
+    });
+    document.querySelectorAll('.btn-opt-align').forEach(btn => {
+      btn.addEventListener('click', () => {
+        camState.phi = Math.PI / 2 - THREE.MathUtils.degToRad(planeState.pitch);
+        camState.theta = THREE.MathUtils.degToRad(planeState.yaw);
+        updateCamera();
+        toast('Camera Aligned to Plane');
+      });
+    });
+    document.querySelectorAll('.btn-opt-reset').forEach(btn => {
+      btn.addEventListener('click', () => {
+        planeState.x = 0; planeState.y = 0; planeState.z = 0;
+        planeState.pitch = 0; planeState.yaw = 0; planeState.roll = 0;
+        updatePlaneTransform();
+        toast('Plane Reset');
+      });
+    });
+
+    // Zoom Buttons
+    document.querySelectorAll('.btn-zoom-in').forEach(btn => {
+      btn.addEventListener('click', () => { camState.radius = Math.max(3, camState.radius * 0.88); updateCamera(); });
+    });
+    document.querySelectorAll('.btn-zoom-out').forEach(btn => {
+      btn.addEventListener('click', () => { camState.radius = Math.min(35, camState.radius * 1.12); updateCamera(); });
+    });
+
+    // Background & Themes
+    function setBg(col, isLight) {
+      scene.background.set(col);
+      scene.fog.color.set(col);
+      document.body.classList.toggle('theme-light', isLight);
+      drawGimbal1();
+      drawGimbal2();
+      if (typeof drawGimbal3 === 'function') drawGimbal3();
+    }
+
+    const btnWht = document.getElementById('c1-opt-wht');
+    if (btnWht) btnWht.addEventListener('click', () => setBg(0xf3f4f6, true));
+    const btnGry = document.getElementById('c1-opt-gry');
+    if (btnGry) btnGry.addEventListener('click', () => setBg(0x334155, false));
+    const btnDrk = document.getElementById('c1-opt-drk');
+    if (btnDrk) btnDrk.addEventListener('click', () => setBg(0x0d0f14, false));
+
+    const optSun1 = document.getElementById('c1-opt-sun');
+    let sunState = 0;
+    if (optSun1) {
+      optSun1.addEventListener('click', () => {
+        sunState = (sunState + 1) % 3;
+        if (sunState === 0) { dirLight.position.set(10, 16, 10); optSun1.textContent = '45°, 60°'; }
+        else if (sunState === 1) { dirLight.position.set(-12, 20, 5); optSun1.textContent = '60°, 30°'; }
+        else { dirLight.position.set(0, 24, 0); optSun1.textContent = 'Overhead'; }
+        toast('Sun: ' + optSun1.textContent);
+      });
+    }
+
+    const btnToggleGrid = document.getElementById('btn-toggle-grid');
+    btnToggleGrid.addEventListener('click', () => {
+      gridHelper.visible = !gridHelper.visible;
+      btnToggleGrid.textContent = 'Grid: ' + (gridHelper.visible ? 'On' : 'Off');
+      btnToggleGrid.classList.toggle('on', gridHelper.visible);
+    });
+
+    const btnToggleTheme = document.getElementById('btn-toggle-theme');
+    let isThemeDark = true;
+    btnToggleTheme.addEventListener('click', () => {
+      isThemeDark = !isThemeDark;
+      if (isThemeDark) {
+        setBg(0x0d0f14, false);
+        btnToggleTheme.textContent = 'Theme: Dark';
+      } else {
+        setBg(0xf3f4f6, true);
+        btnToggleTheme.textContent = 'Theme: Light';
+      }
+    });
+
+    // ── 9. Viewport Touch / Mouse Controls with Smooth Damping ──
+    let isVpDragging = false, vpStartX = 0, vpStartY = 0, vpStartTheta = 0, vpStartPhi = 0, vpMode = 'orbit';
+
+    canvas.addEventListener('pointerdown', (e) => {
+      isVpDragging = true;
+      vpMode = e.button === 2 || e.shiftKey ? 'pan' : 'orbit';
+      vpStartX = e.clientX; vpStartY = e.clientY;
+      vpStartTheta = camState.theta; vpStartPhi = camState.phi;
+      canvas.setPointerCapture(e.pointerId);
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+      if (!isVpDragging) return;
+      const dx = e.clientX - vpStartX, dy = e.clientY - vpStartY;
+      if (vpMode === 'orbit') {
+        // Calibrated smooth orbit
+        camState.theta = vpStartTheta - dx * 0.004;
+        camState.phi = Math.max(0.05, Math.min(Math.PI - 0.05, vpStartPhi - dy * 0.004));
+      } else {
+        const sinT = Math.sin(camState.theta), cosT = Math.cos(camState.theta);
+        const speed = camState.radius * 0.0012;
+        camState.target.x -= dx * cosT * speed;
+        camState.target.z += dx * sinT * speed;
+        camState.target.y += dy * speed;
+      }
+      updateCamera();
+    });
+
+    canvas.addEventListener('pointerup', (e) => {
+      isVpDragging = false;
+      try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+    });
+
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const factor = e.deltaY > 0 ? 1.08 : 0.92;
+      camState.radius = Math.max(2.5, Math.min(40, camState.radius * factor));
+      updateCamera();
+    }, { passive: false });
+
+    window.addEventListener('resize', () => {
+      W = window.innerWidth; H = window.innerHeight;
+      renderer.setSize(W, H);
+      camera.aspect = W / H;
+      camera.updateProjectionMatrix();
+      updateCamera();
+    });
+
+    function animate() {
+      requestAnimationFrame(animate);
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    arrangeModals();
+    updateCamera();
+    updatePlaneTransform();
+  </script>
+</body>
+</html>

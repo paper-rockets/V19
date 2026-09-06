@@ -720,3 +720,374 @@
   cursor: ew-resize;
   padding: 6px 0;
 }
+
+
+/* ══════════════════════════════════════════════════════════════════
+   NEW PAPER NAVIGATOR GIZMO (Precision Minimal CAD Style)
+   ══════════════════════════════════════════════════════════════════ */
+.paper-gz-root {
+  --gz-paper: #eeeeec;
+  --gz-ink: #111111;
+  --gz-ink-60: rgba(17,17,17,.60);
+  --gz-ink-38: rgba(17,17,17,.38);
+  --gz-ink-16: rgba(17,17,17,.16);
+  --gz-ink-09: rgba(17,17,17,.09);
+  --gz-glass: rgba(255,255,255,.45);
+  position: fixed;
+  z-index: 100;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: auto;
+  font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--gz-ink);
+}
+
+.paper-gz-root.dark {
+  --gz-paper: #1c1e23;
+  --gz-ink: #f4f4f5;
+  --gz-ink-60: rgba(244,244,245,.65);
+  --gz-ink-38: rgba(244,244,245,.40);
+  --gz-ink-16: rgba(255,255,255,.16);
+  --gz-ink-09: rgba(255,255,255,.09);
+  --gz-glass: rgba(28,30,35,.80);
+}
+
+.paper-gz-canvas {
+  display: block;
+  cursor: grab;
+  touch-action: none;
+  margin: 0 auto;
+}
+.paper-gz-canvas:active, .paper-gz-root.dragging .paper-gz-canvas {
+  cursor: grabbing;
+}
+
+/* Grip and Size Handle Buttons */
+.paper-gz-grip, .paper-gz-size {
+  position: absolute;
+  top: -2px;
+  width: 26px;
+  height: 26px;
+  border-radius: 13px;
+  border: 0;
+  background: none;
+  display: grid;
+  place-items: center;
+  color: var(--gz-ink-38);
+  opacity: 0.55;
+  transition: opacity .18s, color .18s;
+  padding: 0;
+  cursor: pointer;
+}
+.paper-gz-grip {
+  left: -2px;
+  cursor: move;
+}
+.paper-gz-size {
+  right: -2px;
+  cursor: pointer;
+}
+.paper-gz-root.kids .paper-gz-grip {
+  top: 0;
+  left: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 15px;
+}
+.paper-gz-root:hover .paper-gz-grip,
+.paper-gz-root:hover .paper-gz-size,
+.paper-gz-root.moved .paper-gz-grip,
+.paper-gz-root.moved .paper-gz-size {
+  opacity: 1;
+}
+.paper-gz-grip:hover, .paper-gz-size:hover {
+  color: var(--gz-ink);
+}
+.paper-gz-grip svg, .paper-gz-size svg {
+  display: block;
+}
+
+/* Telemetry Readout */
+.paper-gz-readout {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  font-size: 11.5px;
+  line-height: 1;
+  color: var(--gz-ink-60);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  margin-bottom: 5px;
+}
+.paper-gz-readout b {
+  font-weight: 600;
+  color: var(--gz-ink);
+}
+.paper-gz-root.kids .paper-gz-readout {
+  font-size: 13px;
+  gap: 14px;
+}
+
+/* Scope Selector Row */
+.paper-gz-scope-row {
+  display: flex;
+  gap: 3px;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+.paper-gz-scope-btn {
+  font-size: 10px;
+  font-weight: 500;
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--gz-ink-38);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.paper-gz-scope-btn:hover {
+  color: var(--gz-ink);
+}
+.paper-gz-scope-btn.active {
+  color: var(--gz-ink);
+  border-color: var(--gz-ink-16);
+  background: var(--gz-glass);
+  font-weight: 600;
+}
+.paper-gz-root.kids .paper-gz-scope-btn {
+  font-size: 11.5px;
+  padding: 5px 9px;
+  border-radius: 8px;
+}
+
+/* Modes Bar */
+.paper-gz-modes {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  margin-top: 4px;
+}
+.paper-gz-mode-btn {
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  padding: 7px 11px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--gz-ink-38);
+  transition: all 0.15s ease;
+}
+.paper-gz-mode-btn:hover {
+  color: var(--gz-ink);
+  background: rgba(255,255,255,.3);
+}
+.paper-gz-mode-btn[aria-pressed="true"] {
+  color: var(--gz-ink);
+  border-color: var(--gz-ink-16);
+  background: var(--gz-glass);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+/* Kids mode: large, comfortable touch buttons */
+.paper-gz-root.kids .paper-gz-modes {
+  gap: 6px;
+  margin-top: 6px;
+}
+.paper-gz-root.kids .paper-gz-mode-btn {
+  font-size: 15px;
+  padding: 11px 16px;
+  border-radius: 12px;
+  min-height: 44px;
+  font-weight: 500;
+}
+.paper-gz-root.kids .paper-gz-mode-btn[aria-pressed="true"] {
+  color: var(--gz-ink);
+  border-color: var(--gz-ink);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+/* Dynamic Hint */
+.paper-gz-hint {
+  margin-top: 5px;
+  text-align: center;
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--gz-ink-38);
+  font-variant-numeric: tabular-nums;
+  min-height: 18px;
+  pointer-events: none;
+}
+.paper-gz-hint.live {
+  color: var(--gz-ink);
+  font-weight: 500;
+}
+.paper-gz-root.kids .paper-gz-hint {
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--gz-ink-60);
+  min-height: 38px;
+  width: 246px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.paper-gz-root.kids .paper-gz-hint.live {
+  color: var(--gz-ink);
+  font-weight: 600;
+}
+
+/* Action Presets Bar */
+.paper-gz-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+  justify-content: center;
+  max-width: 240px;
+}
+.paper-gz-bar-btn {
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--gz-ink-60);
+  cursor: pointer;
+  background: var(--gz-glass);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--gz-ink-09);
+  border-radius: 9px;
+  padding: 8px 10px;
+  transition: all 0.15s ease;
+}
+.paper-gz-bar-btn:hover {
+  color: var(--gz-ink);
+  border-color: var(--gz-ink-16);
+}
+.paper-gz-bar-btn:active {
+  background: rgba(255, 255, 255, 0.7);
+}
+.paper-gz-bar-btn[aria-pressed="true"] {
+  color: var(--gz-ink);
+  border-color: var(--gz-ink);
+  background: rgba(255, 255, 255, 0.72);
+  font-weight: 600;
+}
+.paper-gz-bar-btn:disabled {
+  opacity: .34;
+  cursor: default;
+}
+/* Kids mode action buttons: generous size, tactile feel */
+.paper-gz-root.kids .paper-gz-bar {
+  gap: 6px;
+  max-width: 254px;
+}
+.paper-gz-root.kids .paper-gz-bar-btn {
+  font-size: 14.5px;
+  color: var(--gz-ink);
+  padding: 12px 14px;
+  border-radius: 13px;
+  min-height: 48px;
+  font-weight: 500;
+}
+.paper-gz-root.kids .paper-gz-bar-btn:active {
+  background: rgba(255, 255, 255, 0.85);
+  transform: translateY(1px);
+}
+
+/* Floating Tour Caption (Kids Mode) */
+.paper-gz-caption {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  top: calc(58px + env(safe-area-inset-top));
+  z-index: 140;
+  font-size: 17.5px;
+  line-height: 1.35;
+  text-align: center;
+  max-width: min(84vw, 420px);
+  padding: 14px 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(17,17,17,0.1);
+  color: var(--gz-ink, #111111);
+  background: rgba(255, 255, 255, 0.85);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.14);
+  pointer-events: none;
+  display: none;
+}
+.paper-gz-caption.on {
+  display: block;
+}
+.paper-gz-caption small {
+  display: block;
+  margin-top: 5px;
+  font-size: 13px;
+  opacity: 0.65;
+}
+
+/* Pro Mode Keys Panel Popover */
+.paper-gz-keys-panel {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  width: 220px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--gz-ink-09);
+  background: rgba(255, 255, 255, 0.88);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  font-size: 12px;
+  line-height: 1.85;
+  color: var(--gz-ink-60);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.18);
+  z-index: 150;
+  user-select: none;
+}
+.paper-gz-root.dark .paper-gz-keys-panel {
+  background: rgba(26, 28, 33, 0.94);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #d4d4d8;
+}
+.paper-gz-keys-panel dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0 12px;
+}
+.paper-gz-keys-panel dt {
+  color: var(--gz-ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.paper-gz-keys-panel p {
+  margin-top: 8px;
+  color: var(--gz-ink-38);
+  line-height: 1.4;
+  font-size: 11px;
+}
+
+/* Pro Mode Intro Toast Banner */
+.paper-gz-intro {
+  position: fixed;
+  left: 16px;
+  top: calc(36px + env(safe-area-inset-top));
+  z-index: 125;
+  font-size: 12.5px;
+  color: var(--gz-ink-38, rgba(17,17,17,0.4));
+  pointer-events: none;
+  transition: opacity 0.7s ease;
+  background: rgba(255, 255, 255, 0.75);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(17,17,17,0.08);
+}
+.paper-gz-intro.gone {
+  opacity: 0;
+}

@@ -1,5 +1,6 @@
-﻿import os from 'node:os';
+import os from 'node:os';
 import fs from 'node:fs';
+import path from 'node:path';
 import http from 'node:http';
 import { spawn } from 'node:child_process';
 import { createServer } from 'vite';
@@ -102,6 +103,29 @@ async function startRemoteServer() {
     const match = text.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/);
     if (match && !cellularUrl) {
       cellularUrl = match[0];
+      const previewText = `=============================================================
+PAPER ROCKETS 3D - PREVIEW LINKS
+=============================================================
+
+1. On your phone (cellular / 4G / 5G / away from home):
+   ${cellularUrl}
+
+2. On your phone (at home on same Wi-Fi):
+   ${localWifiUrl}
+
+3. On this computer:
+   ${computerUrl}
+
+Port: ${requestedPort}
+
+HOW TO RUN WHEN LEAVING HOME:
+Double-click "start-remote-server.bat" in E:\\X\\AiStudio Workflow\\V19.
+Keep the window open on your PC so the tunnel stays active while you are away.
+=============================================================
+`;
+      try {
+        fs.writeFileSync(path.resolve('./CELLULAR_PREVIEW_URL.txt'), previewText, 'utf8');
+      } catch (_) {}
       printServerLinks(computerUrl, localWifiUrl, cellularUrl, requestedPort);
     }
   });

@@ -1,0 +1,84 @@
+  <!-- UNIFIED MERGED CONTROLLER CARD -->
+  <div id="unified-card">
+    <!-- Card Header with the White-Button Mode Toggle -->
+    <div class="card-topbar">
+      <div class="capsule-toggle" id="mode-toggle" title="Click white knob to switch between Camera and Surface controls">
+        <div class="capsule-knob"></div>
+      </div>
+      <div class="topbar-btns">
+        <span class="topbar-badge" id="mode-badge">MODE: CAM</span>
+        <button class="topbar-text-btn" id="btn-card-reset">Reset</button>
+        <button class="topbar-text-btn" id="btn-card-hide">Hide</button>
+      </div>
+    </div>
+
+    <!-- VIEW 1: CAMERA 3D GIMBAL CONTROLLER -->
+    <div class="view-panel active" id="view-camera">
+      <div class="gimbal-body">
+        <div class="gimbal-canvas-wrap">
+          <canvas id="gimbal-canvas" width="140" height="140"></canvas>
+        </div>
+        <div class="zoom-col">
+          <button class="zoom-btn" id="btn-zoom-in" title="Zoom in">+</button>
+          <button class="zoom-btn" id="btn-zoom-out" title="Zoom out">-</button>
+        </div>
+      </div>
+
+      <div class="card-bottom-pill">
+        <div class="pill-group">
+          <span>BG:</span>
+          <span class="pill-opt" id="opt-bg-wht">WHT</span>
+          <span class="pill-opt" id="opt-bg-gry">GRY</span>
+          <span class="pill-opt on" id="opt-bg-drk">DRK</span>
+        </div>
+        <div class="pill-group">
+          <span>SUN:</span>
+          <span class="pill-opt on" id="opt-sun-45">45 deg, 60 deg</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 2: SURFACE / PLANE CONTROLLER -->
+    <div class="view-panel" id="view-surface">
+      <div class="deck-row">
+        <!-- 1. 3D Tilt Pad (Pitch & Roll) -->
+        <div class="joystick-pad tilt-pad" id="pad-plane-tilt">
+          <div class="pad-circle-btn tilt-btn" id="knob-plane-tilt">TILT</div>
+          <div class="pad-sublabel tilt-sub">3D SKEW / TILT</div>
+        </div>
+
+        <!-- 2. Planar Move Pad (X & Z Move) -->
+        <div class="joystick-pad move-pad" id="pad-plane-move">
+          <div class="pad-circle-btn move-btn" id="knob-plane-move">MOVE</div>
+          <div class="pad-sublabel move-sub">X / Z MOVE</div>
+        </div>
+
+        <!-- 3. Elevation Rail (UP & DN) -->
+        <div class="elev-rail" id="rail-plane-elev">
+          <span class="rail-tag">UP</span>
+          <div class="elev-knob" id="knob-plane-elev">ELEV</div>
+          <span class="rail-tag">DN</span>
+        </div>
+      </div>
+
+      <!-- 4. Plane Yaw Spin Strip -->
+      <div class="spin-strip" id="strip-plane-yaw">
+        <button class="spin-step-btn" id="btn-spin-ccw">-45</button>
+        <div class="spin-label-track" id="track-spin-yaw">SWIPE TO SPIN YAW</div>
+        <button class="spin-step-btn" id="btn-spin-cw">+45</button>
+      </div>
+
+      <!-- 5. Orientation Presets Row -->
+      <div class="presets-row">
+        <button class="preset-btn on" id="preset-ground">GROUND</button>
+        <button class="preset-btn" id="preset-wall">WALL</button>
+        <button class="preset-btn" id="preset-45slant">45 SLANT</button>
+        <button class="preset-btn" id="preset-align-view">ALIGN VIEW</button>
+        <button class="preset-btn" id="preset-reset">RESET</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Restore Badge -->
+  <button id="restore-fab" title="Restore Controller Card">NAV</button>
+

@@ -1,0 +1,285 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Unified Navigator Sandbox</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000000;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace, sans-serif;
+      color: #ffffff;
+    }
+
+    /* Floating Picker Header */
+    #picker-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 9999;
+      background: #111111;
+      border-bottom: 2px solid #333333;
+      padding: 6px 10px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      touch-action: pan-x;
+    }
+
+    #picker-bar.collapsed {
+      display: none;
+    }
+
+    .brand-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #888888;
+      padding: 0 8px;
+    }
+
+    .picker-items {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      flex: 1;
+    }
+
+    .nav-btn {
+      min-height: 44px;
+      min-width: 44px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      background: #222222;
+      color: #cccccc;
+      border: 1px solid #444444;
+      border-radius: 4px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+    }
+
+    .nav-btn:hover {
+      background: #333333;
+      color: #ffffff;
+    }
+
+    .nav-btn:active {
+      background: #444444;
+    }
+
+    .nav-btn.active {
+      background: #ffffff;
+      color: #000000;
+      border-color: #ffffff;
+      font-weight: 700;
+    }
+
+    .picker-actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      margin-left: auto;
+    }
+
+    .util-btn {
+      min-height: 44px;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      background: #1a1a1a;
+      color: #aaaaaa;
+      border: 1px solid #444444;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .util-btn:hover {
+      background: #2a2a2a;
+      color: #ffffff;
+    }
+
+    /* Floating toggle button when picker is collapsed */
+    #toggle-picker-btn {
+      position: fixed;
+      top: 8px;
+      right: 8px;
+      z-index: 10000;
+      min-height: 44px;
+      padding: 8px 14px;
+      font-size: 11px;
+      font-weight: 700;
+      background: #111111;
+      color: #ffffff;
+      border: 1px solid #555555;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    /* Iframe viewport filling the entire area */
+    #tool-frame {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: #000000;
+      display: block;
+    }
+
+    /* Push iframe down slightly when picker is visible to keep full view */
+    body.with-picker-offset #tool-frame {
+      top: 56px;
+      height: calc(100% - 56px);
+    }
+  </style>
+</head>
+<body class="with-picker-offset">
+
+  <!-- Floating Utilitarian Picker Header -->
+  <header id="picker-bar">
+    <span class="brand-title">NAV SANDBOX</span>
+    <div class="picker-items">
+      <button class="nav-btn active" data-id="1" data-url="1/index.html">1: Tabbed Deck</button>
+      <button class="nav-btn" data-id="2" data-url="2/index.html">2: Slider Rails</button>
+      <button class="nav-btn" data-id="3" data-url="3/index.html">3: Sphere Gimbal</button>
+      <button class="nav-btn" data-id="4" data-url="4/index.html">4: Lexical UI</button>
+      <button class="nav-btn" data-id="unified" data-url="unified_plane_navigator.html">Unified Controller</button>
+      <button class="nav-btn" data-id="compare" data-url="sandbox_comparison_backup.html">All Modals</button>
+    </div>
+    <div class="picker-actions">
+      <button class="util-btn" id="btn-reload" title="Reload active navigator tool">Reload</button>
+      <button class="util-btn" id="btn-popout" title="Open active tool in full new tab">Popout</button>
+      <button class="util-btn" id="btn-collapse" title="Hide picker bar">Hide Bar</button>
+    </div>
+  </header>
+
+  <!-- Restore Button when collapsed -->
+  <button id="toggle-picker-btn" style="display: none;">PICKER &#9660;</button>
+
+  <!-- Fullscreen Tool Sandbox Iframe -->
+  <iframe id="tool-frame" src="1/index.html"></iframe>
+
+  <script>
+    const frame = document.getElementById('tool-frame');
+    const pickerBar = document.getElementById('picker-bar');
+    const toggleBtn = document.getElementById('toggle-picker-btn');
+    const navButtons = document.querySelectorAll('.nav-btn');
+    const reloadBtn = document.getElementById('btn-reload');
+    const popoutBtn = document.getElementById('btn-popout');
+    const collapseBtn = document.getElementById('btn-collapse');
+
+    const TOOLS = {
+      '1': '1/index.html',
+      '2': '2/index.html',
+      '3': '3/index.html',
+      '4': '4/index.html',
+      'unified': 'unified_plane_navigator.html',
+      'compare': 'sandbox_comparison_backup.html'
+    };
+
+    function selectTool(id) {
+      if (!TOOLS[id]) id = '1';
+      const url = TOOLS[id];
+      frame.src = url;
+
+      navButtons.forEach(btn => {
+        const match = btn.getAttribute('data-id') === id;
+        btn.classList.toggle('active', match);
+      });
+
+      // Update URL hash without reload
+      window.location.hash = '#' + id;
+      try {
+        localStorage.setItem('nav_sandbox_last_tool', id);
+      } catch (e) {}
+    }
+
+    navButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        selectTool(id);
+      });
+    });
+
+    reloadBtn.addEventListener('click', () => {
+      frame.contentWindow.location.reload();
+    });
+
+    popoutBtn.addEventListener('click', () => {
+      window.open(frame.src, '_blank');
+    });
+
+    function setPickerCollapsed(collapsed) {
+      if (collapsed) {
+        pickerBar.classList.add('collapsed');
+        document.body.classList.remove('with-picker-offset');
+        toggleBtn.style.display = 'block';
+      } else {
+        pickerBar.classList.remove('collapsed');
+        document.body.classList.add('with-picker-offset');
+        toggleBtn.style.display = 'none';
+      }
+      try {
+        localStorage.setItem('nav_sandbox_picker_collapsed', collapsed ? 'true' : 'false');
+      } catch (e) {}
+    }
+
+    collapseBtn.addEventListener('click', () => setPickerCollapsed(true));
+    toggleBtn.addEventListener('click', () => setPickerCollapsed(false));
+
+    // Keyboard Shortcuts
+    window.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.key === '1') selectTool('1');
+      if (e.key === '2') selectTool('2');
+      if (e.key === '3') selectTool('3');
+      if (e.key === '4') selectTool('4');
+      if (e.key === '5') selectTool('unified');
+      if (e.key === '6') selectTool('compare');
+      if (e.key === 'r' || e.key === 'R') frame.contentWindow.location.reload();
+      if (e.key === 'h' || e.key === 'H') {
+        const isCollapsed = pickerBar.classList.contains('collapsed');
+        setPickerCollapsed(!isCollapsed);
+      }
+    });
+
+    // Initialize from Hash or LocalStorage
+    let initialId = '1';
+    const hash = window.location.hash.replace('#', '').trim();
+    if (hash && TOOLS[hash]) {
+      initialId = hash;
+    } else {
+      try {
+        const saved = localStorage.getItem('nav_sandbox_last_tool');
+        if (saved && TOOLS[saved]) initialId = saved;
+      } catch (e) {}
+    }
+
+    selectTool(initialId);
+
+    try {
+      if (localStorage.getItem('nav_sandbox_picker_collapsed') === 'true') {
+        setPickerCollapsed(true);
+      }
+    } catch (e) {}
+  </script>
+</body>
+</html>
