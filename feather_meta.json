@@ -1,0 +1,28 @@
+{
+  "item": {
+    "W.inserted_time": 1786908364,
+    "author": {
+      "handle": "MegaCilok",
+      "image": "/api/gallery/user/profile/MegaCilok.jpg?f=abb80efd1bd04733b92f92a652589893"
+    },
+    "comment_count": 1,
+    "description": "Banana practice",
+    "download_count": 3,
+    "downloadable": 1,
+    "file_url": "/api/gallery/work/g5oou4i.feather",
+    "inserted_time": 1786908364,
+    "license": "all",
+    "like_count": 4,
+    "liked_by_me": false,
+    "ratio": "1/1",
+    "tags": [
+      "banana",
+      "fruit"
+    ],
+    "title": "Banana",
+    "use_sequence": 0,
+    "view_count": 88,
+    "wid": "g5oou4i",
+    "wip": false
+  }
+}

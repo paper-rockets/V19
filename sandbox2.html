@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>Sandbox 2 - Navigation Gizmo Variations</title>
+<script src="/js/three.min.js"></script>
+<script>if (typeof THREE === "undefined") document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>');</script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --paper: #eeeeec;
+    --ink: #111111;
+    --ink-60: rgba(17,17,17,0.60);
+    --ink-38: rgba(17,17,17,0.38);
+    --ink-16: rgba(17,17,17,0.16);
+    --ink-09: rgba(17,17,17,0.09);
+    --panel-bg: #f5f5f3;
+    --panel-border: #dcdcd9;
+    --font: ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden; background: var(--paper);
+    font-family: var(--font); color: var(--ink); touch-action: none; overscroll-behavior: none;
+  }
+  #view { position: fixed; inset: 0; display: block; touch-action: none; z-index: 1; }
+
+  /* Top Variation Switcher - Clean & Utilitarian */
+  #variation-bar {
+    position: fixed; top: calc(10px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+    z-index: 50; display: flex; align-items: center; gap: 4px;
+    background: #ffffff; border: 1px solid var(--panel-border); border-radius: 6px; padding: 4px 6px;
+    font-size: 11.5px; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  }
+  .v-title { font-weight: 600; color: var(--ink-60); margin-right: 4px; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; }
+  .v-btn {
+    font: inherit; font-size: 11.5px; padding: 4px 8px; border-radius: 4px; border: 1px solid transparent;
+    background: transparent; color: var(--ink-60); cursor: pointer;
+  }
+  .v-btn:hover { color: var(--ink); background: #f0f0ee; }
+  .v-btn.active { color: var(--ink); font-weight: 600; background: #e6e6e2; border-color: #cecec9; }
+
+  /* Status in top left */
+  #top-left-status {
+    position: fixed; top: calc(12px + env(safe-area-inset-top)); left: 14px; z-index: 20;
+    font-size: 11px; color: var(--ink-60); font-variant-numeric: tabular-nums;
+  }
+  #top-left-status b { color: var(--ink); font-weight: 600; }
+
+  /* Utilities in top right */
+  #top-right-utils {
+    position: fixed; top: calc(10px + env(safe-area-inset-top)); right: 14px; z-index: 20;
+    display: flex; gap: 4px;
+  }
+  .util-btn {
+    font: inherit; font-size: 11px; padding: 4px 8px; border-radius: 4px;
+    background: #ffffff; border: 1px solid var(--panel-border); color: var(--ink-60); cursor: pointer;
+  }
+  .util-btn:hover { color: var(--ink); border-color: var(--ink-38); }
+  .util-btn[aria-pressed="true"] { background: #e6e6e2; color: var(--ink); font-weight: 600; }
+
+  /* ==============================================================
+     VARIATIONS 1 - 5 CONTAINER STYLES (Utilitarian Minimalist)
+     ============================================================== */
+  .variation-panel { display: none; z-index: 30; }
+  .variation-panel.active { display: block; }
+
+  .ctl-group { display: flex; align-items: center; gap: 6px; }
+  .ctl-label { font-size: 10.5px; font-weight: 600; color: var(--ink-60); text-transform: uppercase; letter-spacing: 0.4px; }
+  .ctl-val { font-size: 12px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; min-width: 44px; text-align: center; }
+  .btn-sm {
+    font: inherit; font-size: 11.5px; padding: 4px 8px; border-radius: 4px;
+    border: 1px solid var(--panel-border); background: #ffffff; color: var(--ink);
+    cursor: pointer; line-height: 1.2;
+  }
+  .btn-sm:hover { background: #f0f0ee; border-color: var(--ink-38); }
+  .btn-sm:active { background: #e0e0dc; }
+  .btn-sm.active { background: #111111; color: #ffffff; border-color: #111111; font-weight: 600; }
+  .btn-look {
+    font: inherit; font-size: 11.5px; font-weight: 600; padding: 5px 10px; border-radius: 4px;
+    background: #111111; color: #ffffff; border: 1px solid #111111; cursor: pointer;
+  }
+  .btn-look:hover { background: #333333; }
+  .btn-look:active { background: #000000; }
+
+  /* VARIATION 1: Center Floating Pill (Middle Horizon) */
+  #var1 {
+    position: fixed; left: 50%; top: calc(50% + 140px); transform: translate(-50%, -50%);
+    background: #ffffff; border: 1px solid var(--panel-border); border-radius: 8px;
+    padding: 8px 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  #var1 .pill-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: center; }
+  #var1 .v-sep { width: 1px; height: 18px; background: var(--panel-border); }
+
+  /* VARIATION 2: Center Top Architectural Bar */
+  #var2 {
+    position: fixed; left: 50%; top: calc(52px + env(safe-area-inset-top)); transform: translateX(-50%);
+    background: #fbfbf9; border: 1px solid var(--panel-border); border-radius: 6px;
+    padding: 6px 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  }
+  #var2 .bar-row { display: flex; align-items: center; gap: 12px; }
+  #var2 .v-sep { width: 1px; height: 16px; background: var(--panel-border); }
+
+  /* VARIATION 3: Center Bottom Compact Dock */
+  #var3 {
+    position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+    background: #ffffff; border: 1px solid var(--panel-border); border-radius: 8px;
+    padding: 8px 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+  }
+  #var3 .dock-grid { display: grid; grid-template-columns: repeat(4, auto); gap: 12px; align-items: center; }
+  #var3 .dock-cell { display: flex; flex-direction: column; gap: 4px; align-items: center; }
+  #var3 .dock-cell .ctl-group { display: flex; gap: 3px; }
+
+  /* VARIATION 4: Flanked Horizon (Split Left & Right of Middle) */
+  #var4 { pointer-events: none; }
+  #var4 .flank-left {
+    position: fixed; left: 16px; top: 50%; transform: translateY(-50%); pointer-events: auto;
+    background: #ffffff; border: 1px solid var(--panel-border); border-radius: 6px;
+    padding: 10px 12px; display: flex; flex-direction: column; gap: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05); z-index: 45;
+  }
+  #var4 .flank-right {
+    position: fixed; right: 16px; top: 50%; transform: translateY(-50%); pointer-events: auto;
+    background: #ffffff; border: 1px solid var(--panel-border); border-radius: 6px;
+    padding: 10px 12px; display: flex; flex-direction: column; gap: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05); z-index: 45;
+  }
+
+  /* VARIATION 5: Micro Ribbon (Ultra-Minimalist in Middle) */
+  #var5 {
+    position: fixed; left: 50%; top: calc(50% + 180px); transform: translate(-50%, -50%);
+    background: rgba(255,255,255,0.95); border: 1px solid var(--panel-border); border-radius: 4px;
+    padding: 4px 10px; font-size: 11px; box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  }
+  #var5 .micro-row { display: flex; align-items: center; gap: 8px; }
+  #var5 .micro-tag { font-weight: 600; color: var(--ink-60); }
+  #var5 .micro-btn {
+    background: none; border: none; font: inherit; font-size: 11px; color: var(--ink);
+    cursor: pointer; padding: 2px 5px; border-radius: 3px;
+  }
+  #var5 .micro-btn:hover { background: #e6e6e2; }
+  #var5 .micro-btn.active { font-weight: 700; text-decoration: underline; }
+
+  /* ==============================================================
+     GIZMO (Movable + +15% on press + Sized 15% larger)
+     ============================================================== */
+  #gizmo {
+    position: fixed; z-index: 40; right: 20px; bottom: calc(24px + env(safe-area-inset-bottom));
+    touch-action: none; user-select: none; -webkit-user-select: none;
+    transform-origin: center center;
+    transition: transform 0.12s ease-out;
+  }
+  /* Extra 15% increase when pressed / active */
+  #gizmo.active-press {
+    transform: scale(1.15);
+  }
+  #gizmo-header {
+    display: flex; justify-content: space-between; align-items: center;
+    background: #ffffff; border: 1px solid var(--panel-border); border-bottom: 0;
+    border-top-left-radius: 6px; border-top-right-radius: 6px;
+    padding: 4px 6px; font-size: 10px; color: var(--ink-60);
+  }
+  #grip {
+    cursor: move; display: flex; align-items: center; gap: 4px; font-weight: 600;
+    color: var(--ink-60); padding: 2px 4px; border-radius: 3px; border: 0; background: none; font-size: 10px;
+  }
+  #grip:hover { color: var(--ink); background: #eee; }
+  #size {
+    cursor: pointer; font: inherit; font-size: 10px; font-weight: 600;
+    padding: 2px 6px; border-radius: 3px; border: 1px solid var(--panel-border);
+    background: #f8f8f6; color: var(--ink);
+  }
+  #size:hover { background: #eee; }
+
+  #gizmo-body {
+    background: #ffffff; border: 1px solid var(--panel-border); border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px; padding: 4px; display: flex; flex-direction: column; align-items: center;
+  }
+  #gz-canvas { display: block; cursor: grab; touch-action: none; }
+  #gizmo.dragging #gz-canvas { cursor: grabbing; }
+
+  #modes { display: flex; gap: 3px; justify-content: center; margin-top: 4px; width: 100%; }
+  .m {
+    flex: 1; font: inherit; font-size: 11px; line-height: 1; padding: 5px 6px; border-radius: 4px;
+    cursor: pointer; border: 1px solid var(--panel-border); background: #ffffff; color: var(--ink-60); text-align: center;
+  }
+  .m[aria-pressed="true"] { color: #ffffff; background: #111111; border-color: #111111; font-weight: 600; }
+
+  #hint {
+    margin-top: 4px; text-align: center; font-size: 10.5px; color: var(--ink-38);
+    font-variant-numeric: tabular-nums; min-height: 14px; pointer-events: none;
+  }
+  #hint.live { color: var(--ink); font-weight: 600; }
+
+  /* Mobile responsiveness */
+  @media (max-width: 640px) {
+    #variation-bar { max-width: calc(100vw - 20px); overflow-x: auto; font-size: 10.5px; }
+    #var1 { width: calc(100vw - 24px); max-width: 360px; top: auto; bottom: calc(84px + env(safe-area-inset-bottom)); }
+    #var2 { width: calc(100vw - 24px); max-width: 360px; }
+    #var3 { width: calc(100vw - 24px); max-width: 360px; }
+    #var4 .flank-left, #var4 .flank-right { top: auto; bottom: 84px; transform: none; }
+    #var4 .flank-right { right: 8px; }
+    #var4 .flank-left { left: 8px; }
+    #gizmo { right: 10px; bottom: calc(14px + env(safe-area-inset-bottom)); }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="view"></canvas>
+
+<!-- Top Variation Switcher -->
+<div id="variation-bar">
+  <span class="v-title">Layout:</span>
+  <button class="v-btn active" data-v="1">1: Center Pill</button>
+  <button class="v-btn" data-v="2">2: Center Top</button>
+  <button class="v-btn" data-v="3">3: Bottom Dock</button>
+  <button class="v-btn" data-v="4">4: Flanked</button>
+  <button class="v-btn" data-v="5">5: Micro</button>
+</div>
+
+<!-- Status in top left -->
+<div id="top-left-status">
+  Height: <b id="stat-h">1.10</b>m &middot; Tilt: <b id="stat-t">0&deg;</b> &middot; Spin: <b id="stat-s">0&deg;</b>
+</div>
+
+<!-- Quiet Utilities in top right -->
+<div id="top-right-utils">
+  <button class="util-btn" id="btn-snap" aria-pressed="false">Snap</button>
+  <button class="util-btn" id="btn-grid" aria-pressed="true">Grid</button>
+  <button class="util-btn" id="btn-undo">Undo</button>
+  <button class="util-btn" id="btn-reset">Reset</button>
+</div>
+
+<!-- ==============================================================
+     VARIATION 1: Center Floating Pill (Middle Horizon)
+     ============================================================== -->
+<div id="var1" class="variation-panel active">
+  <div class="pill-row">
+    <!-- Height -->
+    <div class="ctl-group">
+      <span class="ctl-label">Height</span>
+      <button class="btn-sm" onclick="adjustHeight(-0.25)">-</button>
+      <span class="ctl-val" id="v1-h">1.10m</span>
+      <button class="btn-sm" onclick="adjustHeight(+0.25)">+</button>
+    </div>
+    <div class="v-sep"></div>
+    <!-- Spin -->
+    <div class="ctl-group">
+      <span class="ctl-label">Spin</span>
+      <button class="btn-sm" onclick="adjustSpin(-15)">-15&deg;</button>
+      <span class="ctl-val" id="v1-s">0&deg;</span>
+      <button class="btn-sm" onclick="adjustSpin(+15)">+15&deg;</button>
+    </div>
+    <div class="v-sep"></div>
+    <!-- Lift -->
+    <div class="ctl-group">
+      <span class="ctl-label">Lift</span>
+      <button class="btn-sm plane-orient active" data-orient="flat" onclick="setOrient(0,0)">Flat</button>
+      <button class="btn-sm plane-orient" data-orient="45" onclick="setOrient(45,0)">45&deg;</button>
+      <button class="btn-sm plane-orient" data-orient="wall" onclick="setOrient(90,0)">Wall</button>
+    </div>
+    <div class="v-sep"></div>
+    <!-- Look -->
+    <button class="btn-look" onclick="facePlane()">Look at Plane</button>
+  </div>
+</div>
+
+<!-- ==============================================================
+     VARIATION 2: Center Top Architectural Bar
+     ============================================================== -->
+<div id="var2" class="variation-panel">
+  <div class="bar-row">
+    <div class="ctl-group">
+      <span class="ctl-label">Height</span>
+      <button class="btn-sm" onclick="adjustHeight(-0.25)">-</button>
+      <span class="ctl-val" id="v2-h">1.10m</span>
+      <button class="btn-sm" onclick="adjustHeight(+0.25)">+</button>
+    </div>
+    <div class="v-sep"></div>
+    <div class="ctl-group">
+      <span class="ctl-label">Spin</span>
+      <button class="btn-sm" onclick="adjustSpin(-45)">-45&deg;</button>
+      <span class="ctl-val" id="v2-s">0&deg;</span>
+      <button class="btn-sm" onclick="adjustSpin(+45)">+45&deg;</button>
+    </div>
+    <div class="v-sep"></div>
+    <div class="ctl-group">
+      <span class="ctl-label">Lift</span>
+      <button class="btn-sm plane-orient active" data-orient="flat" onclick="setOrient(0,0)">Flat</button>
+      <button class="btn-sm plane-orient" data-orient="45" onclick="setOrient(45,0)">45&deg;</button>
+      <button class="btn-sm plane-orient" data-orient="wall" onclick="setOrient(90,0)">Wall</button>
+    </div>
+    <div class="v-sep"></div>
+    <button class="btn-look" onclick="facePlane()">Look at Plane</button>
+  </div>
+</div>
+
+<!-- ==============================================================
+     VARIATION 3: Center Bottom Compact Dock
+     ============================================================== -->
+<div id="var3" class="variation-panel">
+  <div class="dock-grid">
+    <div class="dock-cell">
+      <span class="ctl-label">Height</span>
+      <div class="ctl-group">
+        <button class="btn-sm" onclick="adjustHeight(-0.25)">-</button>
+        <span class="ctl-val" id="v3-h">1.10m</span>
+        <button class="btn-sm" onclick="adjustHeight(+0.25)">+</button>
+      </div>
+    </div>
+    <div class="dock-cell">
+      <span class="ctl-label">Spin</span>
+      <div class="ctl-group">
+        <button class="btn-sm" onclick="adjustSpin(-15)">-15&deg;</button>
+        <span class="ctl-val" id="v3-s">0&deg;</span>
+        <button class="btn-sm" onclick="adjustSpin(+15)">+15&deg;</button>
+      </div>
+    </div>
+    <div class="dock-cell">
+      <span class="ctl-label">Lift Plane</span>
+      <div class="ctl-group">
+        <button class="btn-sm plane-orient active" data-orient="flat" onclick="setOrient(0,0)">Flat</button>
+        <button class="btn-sm plane-orient" data-orient="45" onclick="setOrient(45,0)">45&deg;</button>
+        <button class="btn-sm plane-orient" data-orient="wall" onclick="setOrient(90,0)">Wall</button>
+      </div>
+    </div>
+    <div class="dock-cell">
+      <span class="ctl-label">Camera</span>
+      <button class="btn-look" onclick="facePlane()">Look at Plane</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==============================================================
+     VARIATION 4: Flanked Horizon (Split Left & Right of Middle)
+     ============================================================== -->
+<div id="var4" class="variation-panel">
+  <div class="flank-left">
+    <div class="ctl-group">
+      <span class="ctl-label">Height</span>
+      <button class="btn-sm" onclick="adjustHeight(-0.25)">-</button>
+      <span class="ctl-val" id="v4-h">1.10m</span>
+      <button class="btn-sm" onclick="adjustHeight(+0.25)">+</button>
+    </div>
+    <div class="ctl-group">
+      <span class="ctl-label">Spin</span>
+      <button class="btn-sm" onclick="adjustSpin(-15)">-15&deg;</button>
+      <span class="ctl-val" id="v4-s">0&deg;</span>
+      <button class="btn-sm" onclick="adjustSpin(+15)">+15&deg;</button>
+    </div>
+  </div>
+  <div class="flank-right">
+    <div class="ctl-group">
+      <span class="ctl-label">Lift Plane</span>
+      <button class="btn-sm plane-orient active" data-orient="flat" onclick="setOrient(0,0)">Flat</button>
+      <button class="btn-sm plane-orient" data-orient="45" onclick="setOrient(45,0)">45&deg;</button>
+      <button class="btn-sm plane-orient" data-orient="wall" onclick="setOrient(90,0)">Wall</button>
+    </div>
+    <button class="btn-look" onclick="facePlane()">Look at Plane</button>
+  </div>
+</div>
+
+<!-- ==============================================================
+     VARIATION 5: Micro Ribbon (Ultra-Minimalist in Middle)
+     ============================================================== -->
+<div id="var5" class="variation-panel">
+  <div class="micro-row">
+    <span class="micro-tag">H</span>
+    <button class="micro-btn" onclick="adjustHeight(-0.25)">-</button>
+    <span id="v5-h" style="font-weight:600">1.10</span>
+    <button class="micro-btn" onclick="adjustHeight(+0.25)">+</button>
+    <span>&middot;</span>
+    <span class="micro-tag">Spin</span>
+    <button class="micro-btn" onclick="adjustSpin(-15)">&larr;</button>
+    <span id="v5-s" style="font-weight:600">0&deg;</span>
+    <button class="micro-btn" onclick="adjustSpin(+15)">&rarr;</button>
+    <span>&middot;</span>
+    <span class="micro-tag">Lift:</span>
+    <button class="micro-btn plane-orient active" data-orient="flat" onclick="setOrient(0,0)">0&deg;</button>
+    <button class="micro-btn plane-orient" data-orient="45" onclick="setOrient(45,0)">45&deg;</button>
+    <button class="micro-btn plane-orient" data-orient="wall" onclick="setOrient(90,0)">90&deg;</button>
+    <span>&middot;</span>
+    <button class="micro-btn" style="font-weight:700" onclick="facePlane()">[Look]</button>
+  </div>
+</div>
+
+<!-- ==============================================================
+     GIZMO (Movable + +15% on press + Sized 15% larger)
+     ============================================================== -->
+<div id="gizmo">
+  <div id="gizmo-header">
+    <button id="grip" title="Drag to reposition gizmo">
+      <span>::: Drag Gizmo</span>
+    </button>
+    <button id="size" title="Cycle gizmo size">Size (198px)</button>
+  </div>
+  <div id="gizmo-body">
+    <canvas id="gz-canvas"></canvas>
+    <div id="modes">
+      <button class="m" id="m-move" aria-pressed="false">Move</button>
+      <button class="m" id="m-rot" aria-pressed="true">Rotate</button>
+      <button class="m" id="m-look" aria-pressed="false">Look</button>
+    </div>
+    <div id="hint">Drag an axis to turn around it</div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const DEG = Math.PI / 180;
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ══════════════════════════════════════════════════════════════════
+   Scene Setup
+   ══════════════════════════════════════════════════════════════════ */
+const PAPER = 0xeeeeec;
+const viewCanvas = $('view');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(PAPER);
+scene.fog = new THREE.Fog(PAPER, 20, 58);
+
+let W = window.innerWidth, H = window.innerHeight;
+const FOV = 46;
+const camera = new THREE.PerspectiveCamera(FOV, W / H, 0.1, 400);
+
+const renderer = new THREE.WebGLRenderer({ canvas: viewCanvas, antialias: true });
+renderer.setSize(W, H);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.72));
+const key = new THREE.DirectionalLight(0xffffff, 0.95);
+key.position.set(9, 15, 7);
+key.castShadow = true;
+key.shadow.mapSize.set(1024, 1024);
+key.shadow.camera.near = 1; key.shadow.camera.far = 46;
+key.shadow.camera.left = -14; key.shadow.camera.right = 14;
+key.shadow.camera.top = 14; key.shadow.camera.bottom = -14;
+scene.add(key);
+scene.add(new THREE.HemisphereLight(0xffffff, 0xd6d6d2, 0.45));
+
+// Ground shadow plane
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(80, 80).rotateX(-Math.PI / 2),
+  new THREE.ShadowMaterial({ opacity: 0.11 })
+);
+ground.receiveShadow = true;
+scene.add(ground);
+
+const grid = new THREE.GridHelper(28, 28, 0xb9b9b5, 0xdcdcd8);
+grid.position.y = 0.002;
+grid.material.transparent = true;
+grid.material.opacity = 0.9;
+scene.add(grid);
+
+// Reference block for depth readability
+const block = new THREE.Mesh(
+  new THREE.BoxGeometry(0.9, 1.7, 0.9),
+  new THREE.MeshLambertMaterial({ color: 0xfafaf8 })
+);
+block.position.set(-2.6, 0.85, 1.6);
+block.castShadow = true;
+scene.add(block);
+const blockEdges = new THREE.LineSegments(
+  new THREE.EdgesGeometry(block.geometry),
+  new THREE.LineBasicMaterial({ color: 0x111111, transparent: true, opacity: 0.28 })
+);
+blockEdges.position.copy(block.position);
+scene.add(blockEdges);
+
+/* ── Surface being transformed ───────────────────────────────────── */
+const SIZE = 3.4;
+const surface = new THREE.Group();
+scene.add(surface);
+
+const planeGeo = new THREE.PlaneGeometry(SIZE, SIZE).rotateX(-Math.PI / 2);
+
+function hatchTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const x = c.getContext('2d');
+  x.clearRect(0, 0, 256, 256);
+  x.strokeStyle = 'rgba(17,17,17,0.22)';
+  x.lineWidth = 1;
+  for (let i = 32; i < 256; i += 32) {
+    x.beginPath(); x.moveTo(i + .5, 0); x.lineTo(i + .5, 256); x.stroke();
+    x.beginPath(); x.moveTo(0, i + .5); x.lineTo(256, i + .5); x.stroke();
+  }
+  x.strokeStyle = 'rgba(17,17,17,0.85)';
+  x.lineWidth = 4;
+  x.strokeRect(2, 2, 252, 252);
+  const t = new THREE.CanvasTexture(c);
+  t.anisotropy = 4;
+  return t;
+}
+surface.add(new THREE.Mesh(planeGeo, new THREE.MeshBasicMaterial({
+  color: 0xffffff, transparent: true, opacity: 0.62, side: THREE.DoubleSide, depthWrite: false
+})));
+const skin = new THREE.Mesh(planeGeo, new THREE.MeshBasicMaterial({
+  map: hatchTexture(), transparent: true, side: THREE.DoubleSide, depthWrite: false
+}));
+skin.renderOrder = 2;
+surface.add(skin);
+
+// Up normal indicator
+const normalTick = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0.62, 0)]),
+  new THREE.LineBasicMaterial({ color: 0x111111, transparent: true, opacity: 0.55 })
+);
+surface.add(normalTick);
+const normalDot = new THREE.Mesh(
+  new THREE.SphereGeometry(0.055, 12, 12),
+  new THREE.MeshBasicMaterial({ color: 0x111111 })
+);
+normalDot.position.y = 0.62;
+surface.add(normalDot);
+
+/* ── Transform state ─────────────────────────────────────────────── */
+const obj = { pos: new THREE.Vector3(0, 1.1, 0), quat: new THREE.Quaternion() };
+const cam = { radius: 11, theta: 0.78, phi: 1.06, target: new THREE.Vector3(0, 1.1, 0) };
+
+function applyObject() {
+  surface.position.copy(obj.pos);
+  surface.quaternion.copy(obj.quat);
+  const e = new THREE.Euler().setFromQuaternion(obj.quat, 'YXZ');
+  const hStr = obj.pos.y.toFixed(2);
+  const tDeg = Math.round(e.x / DEG);
+  const sDeg = Math.round(e.y / DEG);
+
+  // Update top status
+  $('stat-h').textContent = hStr;
+  $('stat-t').textContent = tDeg + '°';
+  $('stat-s').textContent = sDeg + '°';
+
+  // Update readouts across all 5 variations
+  const hText = hStr + 'm';
+  const sText = sDeg + '°';
+  if ($('v1-h')) $('v1-h').textContent = hText;
+  if ($('v1-s')) $('v1-s').textContent = sText;
+  if ($('v2-h')) $('v2-h').textContent = hText;
+  if ($('v2-s')) $('v2-s').textContent = sText;
+  if ($('v3-h')) $('v3-h').textContent = hText;
+  if ($('v3-s')) $('v3-s').textContent = sText;
+  if ($('v4-h')) $('v4-h').textContent = hText;
+  if ($('v4-s')) $('v4-s').textContent = sText;
+  if ($('v5-h')) $('v5-h').textContent = hStr;
+  if ($('v5-s')) $('v5-s').textContent = sText;
+
+  // Update active state for Lift buttons
+  let currentOrient = 'custom';
+  if (Math.abs(tDeg - 0) <= 2) currentOrient = 'flat';
+  else if (Math.abs(tDeg - 45) <= 2) currentOrient = '45';
+  else if (Math.abs(tDeg - 90) <= 2) currentOrient = 'wall';
+
+  document.querySelectorAll('.plane-orient').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-orient') === currentOrient);
+  });
+
+  drawGizmo();
+}
+
+function applyCamera() {
+  const sp = Math.sin(cam.phi), cp = Math.cos(cam.phi);
+  const st = Math.sin(cam.theta), ct = Math.cos(cam.theta);
+  camera.position.set(
+    cam.target.x + cam.radius * sp * st,
+    cam.target.y + cam.radius * cp,
+    cam.target.z + cam.radius * sp * ct
+  );
+  camera.lookAt(cam.target);
+  drawGizmo();
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Gizmo Implementation
+   Base sizes increased by 15%: [161, 198, 242] (previously [140, 172, 210])
+   Extra 15% physical scaling triggered on active press!
+   ══════════════════════════════════════════════════════════════════ */
+const SIZES = [161, 198, 242];
+let sizeIdx = 1; // Default 198px
+const gz = { size: SIZES[sizeIdx], mode: 'rotate', snap: false, active: null, hover: null };
+
+const gzc = $('gz-canvas');
+const gctx = gzc.getContext('2d');
+
+const AXES = [
+  { key: 'y', dir: [0, 1, 0], lbl: 'Y', tone: '#111111', label: '#ffffff', word: 'Height' },
+  { key: 'x', dir: [1, 0, 0], lbl: 'X', tone: '#7c7c7a', label: '#ffffff', word: 'Across' },
+  { key: 'z', dir: [0, 0, 1], lbl: 'Z', tone: '#c2c2be', label: '#111111', word: 'Depth' }
+];
+const GHOST = 'rgba(17,17,17,0.20)';
+const HAIR = 'rgba(17,17,17,0.13)';
+
+function gzMetrics() {
+  const S = gz.size;
+  return { S, c: S / 2, arm: S * 0.30, hand: S * 0.082, hub: S * 0.105, ring: S * 0.455 };
+}
+
+function sizeGizmo() {
+  const dpr = Math.min(window.devicePixelRatio, 2);
+  gzc.style.width = gz.size + 'px';
+  gzc.style.height = gz.size + 'px';
+  gzc.width = Math.round(gz.size * dpr);
+  gzc.height = Math.round(gz.size * dpr);
+  gctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  $('size').textContent = 'Size (' + gz.size + 'px)';
+  drawGizmo();
+}
+
+function axisDir(a) {
+  const v = new THREE.Vector3(a.dir[0], a.dir[1], a.dir[2]);
+  if (gz.mode !== 'look') v.applyQuaternion(obj.quat);
+  return v.normalize();
+}
+
+function project(v) {
+  const sp = Math.sin(cam.phi), cp = Math.cos(cam.phi);
+  const st = Math.sin(cam.theta), ct = Math.cos(cam.theta);
+  const sx = v.x * ct + v.z * -st;
+  const sy = v.x * (-cp * st) + v.y * sp + v.z * (-cp * ct);
+  const depth = v.x * (sp * st) + v.y * cp + v.z * (sp * ct);
+  const m = gzMetrics();
+  return { x: m.c + sx * m.arm, y: m.c - sy * m.arm, depth, len: Math.hypot(sx, sy) };
+}
+
+function handles() {
+  const out = [];
+  AXES.forEach((a, i) => {
+    const d = axisDir(a);
+    out.push({ a, i, sign: 1, dir: d, p: project(d) });
+    const n = d.clone().negate();
+    out.push({ a, i, sign: -1, dir: n, p: project(n) });
+  });
+  return out;
+}
+
+function drawGizmo() {
+  const m = gzMetrics();
+  const g = gctx;
+  g.clearRect(0, 0, m.S, m.S);
+
+  // Outer subtle guide circle
+  g.beginPath();
+  g.arc(m.c, m.c, m.ring, 0, Math.PI * 2);
+  g.fillStyle = 'rgba(255,255,255,0.40)';
+  g.fill();
+  g.strokeStyle = gz.active === 'orbit' ? 'rgba(17,17,17,0.34)' : HAIR;
+  g.lineWidth = 1;
+  g.stroke();
+
+  const hs = handles().sort((p, q) => p.p.depth - q.p.depth);
+
+  // Stems
+  hs.forEach(h => {
+    const front = h.p.depth >= -0.04;
+    g.save();
+    g.beginPath();
+    g.moveTo(m.c, m.c);
+    g.lineTo(h.p.x, h.p.y);
+    if (h.sign > 0 && front) { g.strokeStyle = h.a.tone; g.lineWidth = 2.4; }
+    else { g.strokeStyle = GHOST; g.lineWidth = 1; g.setLineDash([3, 4]); }
+    g.stroke();
+    g.restore();
+  });
+
+  // Handles
+  hs.forEach(h => {
+    const front = h.p.depth >= -0.04;
+    const on = gz.active && gz.active.type === 'axis' && gz.active.i === h.i && gz.active.sign === h.sign;
+    const hov = gz.hover && gz.hover.i === h.i && gz.hover.sign === h.sign;
+
+    if (h.sign < 0 || !front) {
+      g.beginPath();
+      g.arc(h.p.x, h.p.y, m.hand * (h.sign < 0 ? 0.66 : 0.78), 0, Math.PI * 2);
+      g.fillStyle = (on || hov) ? 'rgba(17,17,17,0.42)' : GHOST;
+      g.fill();
+      return;
+    }
+
+    if (h.p.len > (gz.mode === 'rotate' ? 0.34 : 0.22)) {
+      const ux = (h.p.x - m.c) / (m.arm * h.p.len), uy = (h.p.y - m.c) / (m.arm * h.p.len);
+      const base = m.hand * 1.12, wide = m.hand * 0.62;
+      g.save();
+      g.translate(h.p.x, h.p.y);
+      g.rotate(Math.atan2(uy, ux));
+      g.fillStyle = h.a.tone;
+      if (gz.mode === 'rotate') {
+        g.beginPath();
+        g.arc(0, 0, m.hand * 1.5, -0.95, 0.95);
+        g.strokeStyle = h.a.tone;
+        g.lineWidth = 2;
+        g.stroke();
+        const ax = Math.cos(0.95) * m.hand * 1.5, ay = Math.sin(0.95) * m.hand * 1.5;
+        g.beginPath();
+        g.moveTo(ax + 3.2, ay + 1.2); g.lineTo(ax - 2.6, ay + 3.4); g.lineTo(ax - 1.1, ay - 2.6);
+        g.closePath(); g.fill();
+      } else {
+        g.beginPath();
+        g.moveTo(base + m.hand * 1.15, 0);
+        g.lineTo(base, -wide);
+        g.lineTo(base, wide);
+        g.closePath();
+        g.fill();
+      }
+      g.restore();
+    }
+
+    g.beginPath();
+    g.arc(h.p.x, h.p.y, m.hand * (on || hov ? 1.1 : 1), 0, Math.PI * 2);
+    g.fillStyle = h.a.tone;
+    g.fill();
+    if (on || hov) {
+      g.strokeStyle = '#111111';
+      g.lineWidth = 1.6;
+      g.beginPath();
+      g.arc(h.p.x, h.p.y, m.hand * 1.42, 0, Math.PI * 2);
+      g.stroke();
+    }
+    g.fillStyle = h.a.label;
+    g.font = '600 ' + (m.hand * 1.05).toFixed(1) + 'px ' + getComputedStyle(document.body).fontFamily;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(h.a.lbl, h.p.x, h.p.y + 0.5);
+  });
+
+  // Hub
+  g.beginPath();
+  g.arc(m.c, m.c, m.hub, 0, Math.PI * 2);
+  g.fillStyle = 'rgba(255,255,255,0.92)';
+  g.fill();
+  g.strokeStyle = gz.active && gz.active.type === 'hub' ? '#111111' : 'rgba(17,17,17,0.42)';
+  g.lineWidth = gz.active && gz.active.type === 'hub' ? 1.8 : 1.2;
+  g.stroke();
+  drawHubIcon(g, m.c, m.c, m.hub * 0.62);
+}
+
+function drawHubIcon(g, cx, cy, r) {
+  g.save();
+  g.strokeStyle = '#111111';
+  g.fillStyle = '#111111';
+  g.lineWidth = 1.3;
+  if (gz.mode === 'move') {
+    for (let k = 0; k < 4; k++) {
+      g.save();
+      g.translate(cx, cy);
+      g.rotate(k * Math.PI / 2);
+      g.beginPath(); g.moveTo(0, 0); g.lineTo(r * 0.86, 0); g.stroke();
+      g.beginPath();
+      g.moveTo(r, 0); g.lineTo(r * 0.6, -r * 0.32); g.lineTo(r * 0.6, r * 0.32);
+      g.closePath(); g.fill();
+      g.restore();
+    }
+  } else if (gz.mode === 'rotate') {
+    g.beginPath();
+    g.arc(cx, cy, r * 0.82, -2.5, 1.7);
+    g.stroke();
+    const ax = cx + Math.cos(1.7) * r * 0.82, ay = cy + Math.sin(1.7) * r * 0.82;
+    g.beginPath();
+    g.moveTo(ax + 3.4, ay - 0.4); g.lineTo(ax - 1.4, ay + 3.4); g.lineTo(ax - 2.6, ay - 2.4);
+    g.closePath(); g.fill();
+  } else {
+    g.beginPath(); g.arc(cx, cy, r * 0.34, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.arc(cx, cy, r * 0.9, 0, Math.PI * 2); g.stroke();
+  }
+  g.restore();
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Gizmo Interactions
+   ══════════════════════════════════════════════════════════════════ */
+function gzPoint(e) {
+  const r = gzc.getBoundingClientRect();
+  return { x: (e.clientX - r.left) * (gz.size / r.width), y: (e.clientY - r.top) * (gz.size / r.height) };
+}
+
+function pickHandle(pt) {
+  const m = gzMetrics();
+  let best = null, bd = Infinity;
+  handles().forEach(h => {
+    const d = Math.hypot(pt.x - h.p.x, pt.y - h.p.y);
+    const reach = m.hand * (h.sign > 0 ? 1.85 : 1.5);
+    const score = d - (h.p.depth >= -0.04 ? m.hand * 0.5 : 0);
+    if (d < reach && score < bd) { bd = score; best = h; }
+  });
+  return best;
+}
+
+function unitsPerPixel() {
+  return (2 * cam.radius * Math.tan(FOV * DEG / 2)) / H;
+}
+
+function camBasis() {
+  const sp = Math.sin(cam.phi), cp = Math.cos(cam.phi);
+  const st = Math.sin(cam.theta), ct = Math.cos(cam.theta);
+  return {
+    right: new THREE.Vector3(ct, 0, -st),
+    up: new THREE.Vector3(-cp * st, sp, -cp * ct)
+  };
+}
+
+const history = [];
+function pushHistory() {
+  history.push({ p: obj.pos.clone(), q: obj.quat.clone() });
+  if (history.length > 40) history.shift();
+  $('btn-undo').disabled = false;
+}
+function undo() {
+  const s = history.pop();
+  if (!s) return;
+  obj.pos.copy(s.p);
+  obj.quat.copy(s.q);
+  applyObject();
+  $('btn-undo').disabled = history.length === 0;
+  say('Undone', true);
+}
+
+let hintTimer = null;
+function say(text, live) {
+  const el = $('hint');
+  el.textContent = text;
+  el.classList.toggle('live', !!live);
+  if (hintTimer) clearTimeout(hintTimer);
+  if (live) hintTimer = setTimeout(idleHint, 1300);
+}
+function idleHint() {
+  const el = $('hint');
+  el.classList.remove('live');
+  el.textContent = gz.mode === 'look'
+    ? 'Tap an axis to face it'
+    : (gz.mode === 'move' ? 'Drag an axis to slide · hub to float' : 'Drag an axis to turn around it');
+}
+
+let drag = null;
+gzc.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  // Trigger tactile +15% scale on press!
+  $('gizmo').classList.add('active-press');
+
+  const pt = gzPoint(e);
+  const m = gzMetrics();
+  const r = Math.hypot(pt.x - m.c, pt.y - m.c);
+  const hit = pickHandle(pt);
+
+  if (hit) gz.active = { type: 'axis', i: hit.i, sign: hit.sign };
+  else if (r <= m.hub * 1.25 && gz.mode !== 'look') gz.active = { type: 'hub' };
+  else gz.active = { type: 'orbit' };
+
+  drag = {
+    startX: e.clientX, startY: e.clientY, moved: false, hit,
+    pos: obj.pos.clone(), quat: obj.quat.clone(),
+    theta: cam.theta, phi: cam.phi,
+    startAngle: Math.atan2(pt.y - m.c, pt.x - m.c),
+    committed: false
+  };
+  gzc.setPointerCapture(e.pointerId);
+  drawGizmo();
+});
+
+gzc.addEventListener('pointermove', (e) => {
+  if (!drag) {
+    const hit = pickHandle(gzPoint(e));
+    const changed = (hit ? hit.i + ':' + hit.sign : '') !== (gz.hover ? gz.hover.i + ':' + gz.hover.sign : '');
+    gz.hover = hit ? { i: hit.i, sign: hit.sign } : null;
+    gzc.style.cursor = hit ? 'pointer' : 'grab';
+    if (changed) drawGizmo();
+    return;
+  }
+
+  const dx = e.clientX - drag.startX, dy = e.clientY - drag.startY;
+  if (!drag.moved && Math.hypot(dx, dy) < 3.5) return;
+  drag.moved = true;
+
+  const act = gz.active;
+  if (act.type === 'orbit' || (act.type === 'axis' && gz.mode === 'look')) {
+    cam.theta = drag.theta - dx * 0.0062;
+    cam.phi = Math.max(0.06, Math.min(Math.PI - 0.06, drag.phi - dy * 0.0062));
+    applyCamera();
+    say('Orbiting', true);
+    return;
+  }
+
+  if (!drag.committed) { pushHistory(); drag.committed = true; }
+
+  if (act.type === 'hub') {
+    if (gz.mode === 'move') {
+      const b = camBasis(), k = unitsPerPixel();
+      obj.pos.copy(drag.pos)
+        .addScaledVector(b.right, dx * k)
+        .addScaledVector(b.up, -dy * k);
+      if (gz.snap) { obj.pos.x = snapTo(obj.pos.x, 0.25); obj.pos.y = snapTo(obj.pos.y, 0.25); obj.pos.z = snapTo(obj.pos.z, 0.25); }
+      clampPos();
+      applyObject();
+      say('Floating ' + fmt(obj.pos.x) + ' , ' + fmt(obj.pos.y) + ' , ' + fmt(obj.pos.z), true);
+    } else {
+      const b = camBasis();
+      let ay = -dx * 0.5, ax = -dy * 0.5;
+      if (gz.snap) { ay = snapTo(ay, 15); ax = snapTo(ax, 15); }
+      const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), ay * DEG)
+        .multiply(new THREE.Quaternion().setFromAxisAngle(b.right, ax * DEG));
+      obj.quat.copy(drag.quat).premultiply(q);
+      applyObject();
+      say('Turning freely', true);
+    }
+    return;
+  }
+
+  const h = drag.hit;
+  const a = AXES[h.i];
+  const worldDir = h.dir;
+  const p = project(worldDir);
+  const m = gzMetrics();
+
+  if (gz.mode === 'move') {
+    const len = Math.max(0.001, p.len);
+    const nx = (p.x - m.c) / (m.arm * len);
+    const ny = (p.y - m.c) / (m.arm * len);
+    const along = dx * nx + dy * ny;
+    let amount = along * unitsPerPixel() / Math.max(0.30, len);
+    if (gz.snap) amount = snapTo(amount, 0.25);
+    obj.pos.copy(drag.pos).addScaledVector(worldDir, amount);
+    clampPos();
+    applyObject();
+    say('Along ' + a.lbl + ' ' + fmt(amount) + ' m', true);
+  } else {
+    const pt = gzPoint(e);
+    let d = Math.atan2(pt.y - m.c, pt.x - m.c) - drag.startAngle;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    let deg = -(d / DEG) * (p.depth >= 0 ? 1 : -1);
+    if (gz.snap) deg = snapTo(deg, 15);
+    const q = new THREE.Quaternion().setFromAxisAngle(worldDir, deg * DEG);
+    obj.quat.copy(drag.quat).premultiply(q);
+    applyObject();
+    say('Turn around ' + a.lbl + ' ' + (deg > 0 ? '+' : '') + Math.round(deg) + '°', true);
+  }
+});
+
+function endDrag(e) {
+  // Release +15% scale on release
+  $('gizmo').classList.remove('active-press');
+
+  if (!drag) return;
+  if (!drag.moved && drag.hit) faceDirection(drag.hit.dir, drag.hit.a.lbl, drag.hit.sign);
+  else if (!drag.moved && gz.active && gz.active.type === 'hub') {
+    setMode(gz.mode === 'move' ? 'rotate' : 'move');
+  }
+  gz.active = null;
+  drag = null;
+  try { gzc.releasePointerCapture(e.pointerId); } catch (_) {}
+  drawGizmo();
+  idleHint();
+  $('btn-undo').disabled = history.length === 0;
+}
+gzc.addEventListener('pointerup', endDrag);
+gzc.addEventListener('pointercancel', endDrag);
+
+function snapTo(v, step) { return Math.round(v / step) * step; }
+function fmt(v) { return (v >= 0 ? '+' : '') + v.toFixed(2); }
+function clampPos() {
+  obj.pos.x = Math.max(-12, Math.min(12, obj.pos.x));
+  obj.pos.y = Math.max(-3, Math.min(9, obj.pos.y));
+  obj.pos.z = Math.max(-12, Math.min(12, obj.pos.z));
+}
+
+/* ── Camera Flight ───────────────────────────────────────────────── */
+let flight = null;
+function faceDirection(dir, label, sign) {
+  const d = dir.clone().normalize();
+  const theta = Math.atan2(d.x, d.z);
+  const phi = Math.acos(Math.max(-1, Math.min(1, d.y)));
+  flyTo(phi, Math.max(0.001, Math.min(Math.PI - 0.001, theta)));
+  say('Facing ' + (sign < 0 ? '−' : '') + label, true);
+  if (navigator.vibrate) { try { navigator.vibrate(8); } catch (_) {} }
+}
+function flyTo(phi, theta) {
+  let t = theta;
+  while (t - cam.theta > Math.PI) t -= Math.PI * 2;
+  while (t - cam.theta < -Math.PI) t += Math.PI * 2;
+  const targetPhi = Math.max(0.06, Math.min(Math.PI - 0.06, phi));
+  if (reduceMotion) { cam.phi = targetPhi; cam.theta = t; applyCamera(); return; }
+  flight = { p0: cam.phi, t0: cam.theta, p1: targetPhi, t1: t, start: performance.now(), ms: 420 };
+}
+function stepFlight(now) {
+  if (!flight) return;
+  const k = Math.min(1, (now - flight.start) / flight.ms);
+  const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+  cam.phi = flight.p0 + (flight.p1 - flight.p0) * e;
+  cam.theta = flight.t0 + (flight.t1 - flight.t0) * e;
+  applyCamera();
+  if (k >= 1) flight = null;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Viewport 3D Touch/Mouse Orbit & Pan
+   ══════════════════════════════════════════════════════════════════ */
+const pointers = new Map();
+let vp = null;
+viewCanvas.addEventListener('pointerdown', (e) => {
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  viewCanvas.setPointerCapture(e.pointerId);
+  if (pointers.size === 1) {
+    vp = { mode: (e.button === 2 || e.shiftKey) ? 'pan' : 'orbit', x: e.clientX, y: e.clientY, theta: cam.theta, phi: cam.phi, target: cam.target.clone() };
+  } else if (pointers.size === 2) {
+    const [a, b] = [...pointers.values()];
+    vp = { mode: 'pinch', dist: Math.hypot(a.x - b.x, a.y - b.y), radius: cam.radius, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, target: cam.target.clone() };
+  }
+});
+viewCanvas.addEventListener('pointermove', (e) => {
+  if (!pointers.has(e.pointerId)) return;
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (!vp) return;
+  flight = null;
+
+  if (vp.mode === 'pinch' && pointers.size >= 2) {
+    const [a, b] = [...pointers.values()];
+    const dist = Math.hypot(a.x - b.x, a.y - b.y);
+    cam.radius = Math.max(2.5, Math.min(44, vp.radius * (vp.dist / Math.max(1, dist))));
+    const cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
+    panBy(cx - vp.cx, cy - vp.cy, vp.target);
+    applyCamera();
+    return;
+  }
+  const dx = e.clientX - vp.x, dy = e.clientY - vp.y;
+  if (vp.mode === 'orbit') {
+    cam.theta = vp.theta - dx * 0.0042;
+    cam.phi = Math.max(0.06, Math.min(Math.PI - 0.06, vp.phi - dy * 0.0042));
+  } else {
+    panBy(dx, dy, vp.target);
+  }
+  applyCamera();
+});
+function panBy(dx, dy, base) {
+  const b = camBasis(), k = unitsPerPixel();
+  cam.target.copy(base).addScaledVector(b.right, -dx * k).addScaledVector(b.up, dy * k);
+}
+function clearPointer(e) {
+  pointers.delete(e.pointerId);
+  if (pointers.size === 0) vp = null;
+  try { viewCanvas.releasePointerCapture(e.pointerId); } catch (_) {}
+}
+viewCanvas.addEventListener('pointerup', clearPointer);
+viewCanvas.addEventListener('pointercancel', clearPointer);
+viewCanvas.addEventListener('contextmenu', (e) => e.preventDefault());
+viewCanvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  cam.radius = Math.max(2.5, Math.min(44, cam.radius * (e.deltaY > 0 ? 1.08 : 0.92)));
+  applyCamera();
+}, { passive: false });
+
+/* ══════════════════════════════════════════════════════════════════
+   Parameter Operations (Height, Spin, Lift, Look)
+   ══════════════════════════════════════════════════════════════════ */
+function adjustHeight(delta) {
+  pushHistory();
+  obj.pos.y = Math.max(-3, Math.min(9, Math.round((obj.pos.y + delta) * 100) / 100));
+  applyObject();
+  say('Height ' + obj.pos.y.toFixed(2) + 'm', true);
+}
+
+function adjustSpin(deltaDeg) {
+  pushHistory();
+  const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), deltaDeg * DEG);
+  obj.quat.premultiply(q);
+  applyObject();
+  const e = new THREE.Euler().setFromQuaternion(obj.quat, 'YXZ');
+  say('Spin ' + Math.round(e.y / DEG) + '°', true);
+}
+
+function setOrient(pitchDeg, rollDeg) {
+  pushHistory();
+  const e = new THREE.Euler().setFromQuaternion(obj.quat, 'YXZ');
+  obj.quat.setFromEuler(new THREE.Euler(pitchDeg * DEG, e.y, rollDeg * DEG, 'YXZ'));
+  applyObject();
+  say(pitchDeg === 0 ? 'Flat' : (pitchDeg === 90 ? 'Wall' : pitchDeg + '°'), true);
+}
+
+function facePlane() {
+  const n = new THREE.Vector3(0, 1, 0).applyQuaternion(obj.quat);
+  cam.target.copy(obj.pos);
+  faceDirection(n, 'the plane', 1);
+}
+
+// Gizmo mode switching
+function setMode(mode) {
+  gz.mode = mode;
+  $('m-move').setAttribute('aria-pressed', String(mode === 'move'));
+  $('m-rot').setAttribute('aria-pressed', String(mode === 'rotate'));
+  $('m-look').setAttribute('aria-pressed', String(mode === 'look'));
+  idleHint();
+  drawGizmo();
+}
+$('m-move').onclick = () => setMode('move');
+$('m-rot').onclick = () => setMode('rotate');
+$('m-look').onclick = () => setMode('look');
+
+// Gizmo sizing (+15% bigger tiers)
+$('size').onclick = () => {
+  sizeIdx = (sizeIdx + 1) % SIZES.length;
+  gz.size = SIZES[sizeIdx];
+  sizeGizmo();
+  say('Gizmo ' + gz.size + 'px', true);
+};
+
+// Utilities
+$('btn-snap').onclick = () => {
+  gz.snap = !gz.snap;
+  $('btn-snap').setAttribute('aria-pressed', String(gz.snap));
+  say(gz.snap ? 'Snap on (0.25m, 15°)' : 'Snap off', true);
+};
+$('btn-grid').onclick = () => {
+  grid.visible = !grid.visible;
+  $('btn-grid').setAttribute('aria-pressed', String(grid.visible));
+};
+$('btn-undo').onclick = undo;
+$('btn-reset').onclick = () => {
+  pushHistory();
+  obj.pos.set(0, 1.1, 0);
+  obj.quat.identity();
+  cam.target.set(0, 1.1, 0);
+  applyObject();
+  applyCamera();
+  say('Surface reset', true);
+};
+
+/* ── Movable Gizmo (Drag anywhere on screen) ─────────────────────── */
+(() => {
+  const el = $('gizmo'), grip = $('grip'), header = $('gizmo-header');
+  let g = null;
+  const startDrag = (e) => {
+    if (e.target.id === 'size') return;
+    e.preventDefault();
+    const r = el.getBoundingClientRect();
+    g = { x: e.clientX, y: e.clientY, left: r.left, top: r.top };
+    el.classList.add('dragging');
+    e.target.setPointerCapture(e.pointerId);
+  };
+  grip.addEventListener('pointerdown', startDrag);
+  header.addEventListener('pointerdown', startDrag);
+
+  const onMove = (e) => {
+    if (!g) return;
+    const left = Math.max(6, Math.min(window.innerWidth - el.offsetWidth - 6, g.left + e.clientX - g.x));
+    const top = Math.max(10, Math.min(window.innerHeight - el.offsetHeight - 6, g.top + e.clientY - g.y));
+    el.style.left = left + 'px';
+    el.style.top = top + 'px';
+    el.style.right = 'auto';
+    el.style.bottom = 'auto';
+  };
+  grip.addEventListener('pointermove', onMove);
+  header.addEventListener('pointermove', onMove);
+
+  const onEnd = (e) => {
+    g = null;
+    el.classList.remove('dragging');
+    try { e.target.releasePointerCapture(e.pointerId); } catch (_) {}
+  };
+  grip.addEventListener('pointerup', onEnd);
+  grip.addEventListener('pointercancel', onEnd);
+  header.addEventListener('pointerup', onEnd);
+  header.addEventListener('pointercancel', onEnd);
+})();
+
+/* ── Variation Switcher Logic ────────────────────────────────────── */
+document.querySelectorAll('.v-btn').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.v-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const v = btn.getAttribute('data-v');
+    document.querySelectorAll('.variation-panel').forEach(p => p.classList.remove('active'));
+    const target = $('var' + v);
+    if (target) target.classList.add('active');
+    say('Switched to Variation ' + v, true);
+  };
+});
+
+/* ── Keyboard Shortcuts ──────────────────────────────────────────── */
+window.addEventListener('keydown', (e) => {
+  if (e.metaKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k === 'g') setMode('move');
+  else if (k === 'r') setMode('rotate');
+  else if (k === 'l') setMode('look');
+  else if (k === 'f') facePlane();
+  else if (k === 's') $('btn-snap').click();
+  else if (k === 'z') { e.preventDefault(); undo(); }
+  else if (k === '0') $('btn-reset').click();
+  else if (k === '1' || k === '2' || k === '3' || k === '4' || k === '5') {
+    const btn = document.querySelector(`.v-btn[data-v="${k}"]`);
+    if (btn) btn.click();
+  }
+});
+
+/* ── Resize & Render Loop ────────────────────────────────────────── */
+window.addEventListener('resize', () => {
+  W = window.innerWidth; H = window.innerHeight;
+  renderer.setSize(W, H);
+  camera.aspect = W / H;
+  camera.updateProjectionMatrix();
+  applyCamera();
+});
+
+function loop(now) {
+  requestAnimationFrame(loop);
+  stepFlight(now);
+  renderer.render(scene, camera);
+}
+
+sizeGizmo();
+applyObject();
+applyCamera();
+idleHint();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

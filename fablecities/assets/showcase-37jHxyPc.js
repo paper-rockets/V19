@@ -1,0 +1,2 @@
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/menu-D-OEAq09.js","assets/index-eKs5Uldr.js","assets/noise-D8FvdR-x.js"])))=>i.map(i=>d[i]);
+import{t as e}from"./index-eKs5Uldr.js";async function t(t){let n=await e(()=>import(`./menu-D-OEAq09.js`),__vite__mapDeps([0,1,2]));window.__game.presets.menu_backdrop={target:{x:-190,z:-240},distance:1020,yaw:-.26,pitch:.19},n.showStartScreen(t,{preview:!0}).then(e=>{t.config.debug&&console.log(`[menu/showcase] choice`,e)}),await new Promise(e=>setTimeout(e,1400))}export{t as showcase};

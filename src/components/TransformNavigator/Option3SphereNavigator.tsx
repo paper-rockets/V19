@@ -57,6 +57,8 @@ const MOVE_STEPS = [
 
 const DEG = Math.PI / 180;
 const CROP = 0.055;
+const MIN_RAD = 0.55;
+const STORE = 'nv.layout.v1';
 
 export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
   engine,
@@ -68,33 +70,27 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
   activeModelId,
   onSelectModel,
 }) => {
-  const [isOpen, setIsOpen] = useState(true);
-  const [corner, setCorner] = useState<'br' | 'bl' | 'tr' | 'tl'>('br');
-  const [isListOpen, setIsListOpen] = useState(false);
-  const [isStepsOpen, setIsStepsOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
+  const [isListOpen, setIsListOpen] = useState<boolean>(false);
   const [targetsList, setTargetsList] = useState<TargetItem[]>([]);
   const [currentIdx, setCurrentIdx] = useState<number>(0);
-  const [mode, setModeState] = useState<'move' | 'rotate' | 'look'>('move');
+  const [mode, setModeState] = useState<'move' | 'rotate' | 'look'>('look');
   const [rotStep, setRotStep] = useState<number>(15);
   const [moveStep, setMoveStep] = useState<number>(0.5);
-  const [hintText, setHintText] = useState<string>('Drag an arrow to slide Canvas.');
-  const [isLiveHint, setIsLiveHint] = useState<boolean>(false);
-  const [isTourHint, setIsTourHint] = useState<boolean>(false);
   const [historyLen, setHistoryLen] = useState<number>(0);
   const [isTourRunning, setIsTourRunning] = useState<boolean>(false);
 
   const nvRef = useRef<HTMLDivElement | null>(null);
-  const boxRef = useRef<HTMLDivElement | null>(null);
-  const headRef = useRef<HTMLDivElement | null>(null);
-  const puckRef = useRef<HTMLButtonElement | null>(null);
+  const dockRef = useRef<HTMLDivElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const tabRef = useRef<HTMLButtonElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const puckCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const readRef = useRef<HTMLSpanElement | null>(null);
+  const labelRef = useRef<HTMLDivElement | null>(null);
 
-  // Mutable math state (exact mirror of reference script)
+  // Mutable math state (exact mirror of Build 9 reference script)
   const gzRef = useRef({
-    size: 168,
-    mode: 'move' as 'move' | 'rotate' | 'look',
+    size: 210,
+    mode: 'look' as 'move' | 'rotate' | 'look',
     rotStep: 15,
     moveStep: 0.5,
     active: null as any,
@@ -107,6 +103,7 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
   const targetObjRef = useRef<THREE.Object3D | null>(null);
   const targetsRef = useRef<TargetItem[]>([]);
   const currentRef = useRef<number>(0);
+  const anchorRef = useRef({ ax: 1, ay: 1 });
 
   const camRef = useRef({
     radius: 11,
@@ -125,9 +122,10 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     up: '#e0822a',
     side: '#2f80c4',
     front: '#3f9a62',
-    ghost: 'rgba(51,46,40,.22)',
+    ghost: 'rgba(51,46,40,.26)',
     hub: 'rgba(255,255,255,.96)',
     ink: '#332e28',
+    shadow: 'rgba(51,46,40,.20)',
     onColor: '#ffffff',
     line: 'rgba(51,46,40,.13)'
   });
@@ -156,70 +154,135 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     if (!nvEl) return;
     const cs = getComputedStyle(nvEl);
     const v = (n: string) => cs.getPropertyValue(n).trim();
+    const dark = isDark();
     themeRef.current = {
-      up: v('--nv-up') || '#e0822a',
-      side: v('--nv-side') || '#2f80c4',
-      front: v('--nv-front') || '#3f9a62',
-      ghost: v('--nv-ghost') || 'rgba(51,46,40,.22)',
-      hub: v('--nv-hub') || 'rgba(255,255,255,.96)',
-      ink: v('--nv-ink') || '#332e28',
-      onColor: v('--nv-on-color') || '#ffffff',
-      line: v('--nv-line') || 'rgba(51,46,40,.13)'
+      up: v('--nv-up') || (dark ? '#f0a154' : '#e0822a'),
+      side: v('--nv-side') || (dark ? '#63a9e4' : '#2f80c4'),
+      front: v('--nv-front') || (dark ? '#5cba84' : '#3f9a62'),
+      ghost: v('--nv-ghost') || (dark ? 'rgba(242,237,230,.32)' : 'rgba(51,46,40,.26)'),
+      hub: v('--nv-hub') || (dark ? 'rgba(46,44,41,.96)' : 'rgba(255,255,255,.96)'),
+      ink: v('--nv-ink') || (dark ? '#f2ede6' : '#332e28'),
+      shadow: dark ? 'rgba(0,0,0,0.55)' : 'rgba(51,46,40,0.28)',
+      onColor: v('--nv-btn-on') || (dark ? 'rgba(255,255,255,.16)' : '#ffffff'),
+      line: v('--nv-line') || (dark ? 'rgba(255,255,255,.14)' : 'rgba(51,46,40,.13)')
     };
     AXES[0].tone = themeRef.current.up;
     AXES[1].tone = themeRef.current.side;
     AXES[2].tone = themeRef.current.front;
 
     if (outlineRef.current) {
-      const dark = isDark();
       (outlineRef.current.material as THREE.LineBasicMaterial).color.set(dark ? 0xf2ede6 : 0x332e28);
     }
   }, [isDark]);
 
-  // Safe area placement
+  // Safe area metrics
   const cssPx = (n: string) => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(n)) || 0;
   const safeBox = useCallback(() => {
     const g = cssPx('--nv-gap') || 10;
     return {
-      left: (cssPx('--nv-left') || 60) + g,
-      top: (cssPx('--nv-top') || 60) + g,
+      left: (cssPx('--nv-left') || 62) + g,
+      top: (cssPx('--nv-top') || 62) + g,
       right: window.innerWidth - (cssPx('--nv-right') || 8) - g,
       bottom: window.innerHeight - (cssPx('--nv-bottom') || 30) - g
     };
   }, []);
 
-  const place = useCallback((x: number, y: number) => {
-    const el = isOpen ? boxRef.current : puckRef.current;
-    if (!el) return;
+  const span = useCallback(() => {
     const s = safeBox();
-    el.style.left = Math.round(Math.max(s.left, Math.min(s.right - el.offsetWidth, x))) + 'px';
-    el.style.top = Math.round(Math.max(s.top, Math.min(s.bottom - el.offsetHeight, y))) + 'px';
-  }, [isOpen, safeBox]);
+    const dock = dockRef.current;
+    const dw = dock ? dock.offsetWidth : 210;
+    const dh = dock ? dock.offsetHeight : 210;
+    return { s, w: Math.max(1, s.right - s.left - dw), h: Math.max(1, s.bottom - s.top - dh) };
+  }, [safeBox]);
 
-  const toCorner = useCallback((c: 'br' | 'bl' | 'tr' | 'tl') => {
-    setCorner(c);
-    const box = boxRef.current;
-    const puck = puckRef.current;
-    if (box) {
-      box.style.left = '';
-      box.style.top = '';
-    }
-    if (puck) {
-      puck.style.left = '';
-      puck.style.top = '';
-    }
+  const positionMenu = useCallback(() => {
+    const nv = nvRef.current;
+    const dock = dockRef.current;
+    const menu = menuRef.current;
+    if (!nv || !dock || !menu) return;
+    if (nv.dataset.menu !== 'open') return;
+
+    const s = safeBox();
+    menu.style.maxHeight = Math.max(160, s.bottom - s.top) + 'px';
+    const r = dock.getBoundingClientRect();
+    const w = menu.offsetWidth || 198;
+    const h = menu.offsetHeight || 380;
+    const gap = 8;
+
+    const cy = Math.max(s.top, Math.min(s.bottom - h, r.top + r.height / 2 - h / 2));
+    const cx = Math.max(s.left, Math.min(s.right - w, r.left + r.width / 2 - w / 2));
+    const right = { x: r.right + gap, y: cy, axis: 'x' };
+    const left = { x: r.left - w - gap, y: cy, axis: 'x' };
+    const below = { x: cx, y: r.bottom + gap, axis: 'y' };
+    const above = { x: cx, y: r.top - h - gap, axis: 'y' };
+
+    const order: any[] = [];
+    order.push((r.left + r.width / 2) > window.innerWidth / 2 ? left : right);
+    order.push(order[0] === left ? right : left);
+    order.push((r.top + r.height / 2) > window.innerHeight / 2 ? above : below);
+    order.push(order[2] === above ? below : above);
+
+    const fits = (p: any) => p.axis === 'x'
+      ? (p.x >= s.left && p.x + w <= s.right && h <= s.bottom - s.top)
+      : (p.y >= s.top && p.y + h <= s.bottom && w <= s.right - s.left);
+
+    const pick = order.find(fits) || order[0];
+    const x = Math.max(s.left, Math.min(s.right - w, pick.x));
+    const y = Math.max(s.top, Math.min(s.bottom - h, pick.y));
+    menu.style.left = Math.round(x) + 'px';
+    menu.style.top = Math.round(y) + 'px';
+
+    nv.classList.toggle('nv-covered',
+      !(x + w < r.left || x > r.right || y + h < r.top || y > r.bottom));
+  }, [safeBox]);
+
+  const saveLayout = useCallback(() => {
+    try {
+      localStorage.setItem(STORE, JSON.stringify({
+        ax: +anchorRef.current.ax.toFixed(4),
+        ay: +anchorRef.current.ay.toFixed(4),
+        mode: gzRef.current.mode,
+        rotStep: gzRef.current.rotStep,
+        moveStep: gzRef.current.moveStep
+      }));
+    } catch (_) {}
   }, []);
 
-  const nearestCorner = useCallback(() => {
-    const el = isOpen ? boxRef.current : puckRef.current;
-    if (!el) return 'br';
-    const r = el.getBoundingClientRect();
-    const isTop = r.top + r.height / 2 < window.innerHeight / 2;
-    const isLeft = r.left + r.width / 2 < window.innerWidth / 2;
-    return (isTop ? 't' : 'b') + (isLeft ? 'l' : 'r') as 'br' | 'bl' | 'tr' | 'tl';
-  }, [isOpen]);
+  const place = useCallback((x: number, y: number, remember?: boolean) => {
+    const dock = dockRef.current;
+    if (!dock) return;
+    const { s, w, h } = span();
+    const left = Math.max(s.left, Math.min(s.right - dock.offsetWidth, x));
+    const top = Math.max(s.top, Math.min(s.bottom - dock.offsetHeight, y));
+    dock.style.left = Math.round(left) + 'px';
+    dock.style.top = Math.round(top) + 'px';
+    if (remember) {
+      anchorRef.current = { ax: (left - s.left) / w, ay: (top - s.top) / h };
+      saveLayout();
+    }
+    positionMenu();
+  }, [span, saveLayout, positionMenu]);
 
-  // Selection outline
+  const placeFromAnchor = useCallback(() => {
+    const { s, w, h } = span();
+    place(s.left + anchorRef.current.ax * w, s.top + anchorRef.current.ay * h);
+  }, [span, place]);
+
+  const setMenu = useCallback((open: boolean) => {
+    setIsMenuOpen(open);
+    const nv = nvRef.current;
+    const tab = tabRef.current;
+    if (nv) nv.dataset.menu = open ? 'open' : 'closed';
+    if (tab) tab.setAttribute('aria-expanded', String(open));
+    if (open) {
+      requestAnimationFrame(positionMenu);
+    } else {
+      nv?.classList.remove('nv-covered');
+      setIsListOpen(false);
+    }
+  }, [positionMenu]);
+
+  // Outline for active target
   const markSelection = useCallback(() => {
     const targetObj = targetObjRef.current;
     const outline = outlineRef.current;
@@ -240,7 +303,7 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     engine?.markDirty();
   }, [engine]);
 
-  // Target synchronization
+  // Target sync
   const syncFromTarget = useCallback(() => {
     const targetObj = targetObjRef.current;
     if (!targetObj) return;
@@ -298,11 +361,18 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     return true;
   }, [jumpDisplay, commit]);
 
-  // Gizmo Canvas Metrics
-  const metrics = (S: number) => ({ S, c: S / 2, arm: S * 0.235, hand: S * 0.102, hub: S * 0.112 });
+  // Build 9 Metrics
+  const metrics = (S: number) => ({
+    S,
+    c: S / 2,
+    arm: S * 0.235,
+    hand: S * 0.102,
+    hub: S * 0.072
+  });
 
   const fitGizmo = (size: number) => {
     const gzc = canvasRef.current;
+    const dock = dockRef.current;
     if (!gzc) return;
     const gctx = gzc.getContext('2d');
     if (!gctx) return;
@@ -313,16 +383,9 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     gzc.width = Math.round(size * dpr);
     gzc.height = Math.round(h * dpr);
     gctx.setTransform(dpr, 0, 0, dpr, 0, -size * CROP * dpr);
-  };
-
-  const fit = (canvas: HTMLCanvasElement | null, ctx: CanvasRenderingContext2D | null, size: number) => {
-    if (!canvas || !ctx) return;
-    const dpr = Math.min(window.devicePixelRatio, 2);
-    canvas.style.width = size + 'px';
-    canvas.style.height = size + 'px';
-    canvas.width = Math.round(size * dpr);
-    canvas.height = Math.round(size * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    gzc.style.clipPath = 'circle(' + Math.round(size * 0.47) + 'px at 50% 50%)';
+    (gzc.style as any).webkitClipPath = gzc.style.clipPath;
+    if (dock) dock.style.width = size + 'px';
   };
 
   const axisDir = (a: AxisDef) => {
@@ -331,15 +394,18 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     return v.normalize();
   };
 
-  // Spherical camera projection from reference prototype
-  const project = useCallback((axisWorldDir: THREE.Vector3, m: ReturnType<typeof metrics>) => {
+  const project = useCallback((v: THREE.Vector3, m: ReturnType<typeof metrics>) => {
     const cam = camRef.current;
     const sp = Math.sin(cam.phi), cp = Math.cos(cam.phi);
     const st = Math.sin(cam.theta), ct = Math.cos(cam.theta);
-    const sx = axisWorldDir.x * ct + axisWorldDir.z * -st;
-    const sy = axisWorldDir.x * (-cp * st) + axisWorldDir.y * sp + axisWorldDir.z * (-cp * ct);
-    const depth = axisWorldDir.x * (sp * st) + axisWorldDir.y * cp + axisWorldDir.z * (sp * ct);
-    return { x: m.c + sx * m.arm, y: m.c - sy * m.arm, depth, len: Math.hypot(sx, sy) };
+    const sx = v.x * ct + v.z * -st;
+    const sy = v.x * (-cp * st) + v.y * sp + v.z * (-cp * ct);
+    const depth = v.x * (sp * st) + v.y * cp + v.z * (sp * ct);
+    const len = Math.hypot(sx, sy);
+    const draw = Math.max(len, MIN_RAD);
+    const k = len < 1e-6 ? 0 : draw / len;
+    const rad = m.arm * draw;
+    return { x: m.c + sx * m.arm * k, y: m.c - sy * m.arm * k, depth, len, rad };
   }, []);
 
   const handles = useCallback((m: ReturnType<typeof metrics>) => {
@@ -411,6 +477,11 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     ctx.clearRect(-2, -2, m.S + 4, m.S + 4);
     const hs = handles(m).sort((p: any, q: any) => p.p.depth - q.p.depth);
 
+    ctx.save();
+    ctx.shadowColor = T.shadow;
+    ctx.shadowBlur = 7;
+    ctx.shadowOffsetY = 1.5;
+
     hs.forEach((h: any) => {
       const front = h.p.depth >= -0.04;
       ctx.save();
@@ -423,20 +494,43 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
       ctx.restore();
     });
 
+    // ghosts and back-facing dots first
     hs.forEach((h: any) => {
       const front = h.p.depth >= -0.04;
+      if (h.sign > 0 && front) return;
+      const on = live && gz.active && gz.active.type === 'axis' && gz.active.i === h.i && gz.active.sign === h.sign;
+      const hov = live && gz.hover && gz.hover.i === h.i && gz.hover.sign === h.sign;
+      ctx.beginPath();
+      ctx.arc(h.p.x, h.p.y, m.hand * (h.sign < 0 ? 0.58 : 0.72), 0, Math.PI * 2);
+      ctx.fillStyle = (on || hov) ? T.ink : T.ghost;
+      ctx.fill();
+    });
+
+    // the hub goes UNDER the live handles, so it can never hide one
+    ctx.beginPath();
+    ctx.arc(m.c, m.c, m.hub, 0, Math.PI * 2);
+    ctx.fillStyle = T.hub;
+    ctx.fill();
+    ctx.strokeStyle = live && gz.active && gz.active.type === 'hub' ? T.ink : T.ghost;
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+    ctx.restore();
+
+    hubIcon(ctx, m.c, m.c, m.hub * 0.72);
+
+    ctx.save();
+    ctx.shadowColor = T.shadow;
+    ctx.shadowBlur = 7;
+    ctx.shadowOffsetY = 1.5;
+
+    hs.forEach((h: any) => {
+      const front = h.p.depth >= -0.04;
+      if (!(h.sign > 0 && front)) return;
       const on = live && gz.active && gz.active.type === 'axis' && gz.active.i === h.i && gz.active.sign === h.sign;
       const hov = live && gz.hover && gz.hover.i === h.i && gz.hover.sign === h.sign;
 
-      if (h.sign < 0 || !front) {
-        ctx.beginPath();
-        ctx.arc(h.p.x, h.p.y, m.hand * (h.sign < 0 ? 0.58 : 0.72), 0, Math.PI * 2);
-        ctx.fillStyle = (on || hov) ? T.ink : T.ghost;
-        ctx.fill();
-        return;
-      }
       if (h.p.len > (gz.mode === 'rotate' ? 0.34 : 0.22)) {
-        const ux = (h.p.x - m.c) / (m.arm * h.p.len), uy = (h.p.y - m.c) / (m.arm * h.p.len);
+        const ux = (h.p.x - m.c) / h.p.rad, uy = (h.p.y - m.c) / h.p.rad;
         ctx.save();
         ctx.translate(h.p.x, h.p.y);
         ctx.rotate(Math.atan2(uy, ux));
@@ -477,39 +571,20 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
       ctx.textBaseline = 'middle';
       ctx.fillText(h.a.lbl, h.p.x, h.p.y + 0.5);
     });
-
-    ctx.beginPath();
-    ctx.arc(m.c, m.c, m.hub, 0, Math.PI * 2);
-    ctx.fillStyle = T.hub;
-    ctx.fill();
-    ctx.strokeStyle = live && gz.active && gz.active.type === 'hub' ? T.ink : T.ghost;
-    ctx.lineWidth = 1.6;
-    ctx.stroke();
-    hubIcon(ctx, m.c, m.c, m.hub * 0.6);
+    ctx.restore();
 
     if (live && gz.ring) pulse(ctx, m, now);
   }, [handles]);
 
   const drawGizmo = useCallback((now?: number) => {
-    const nvEl = nvRef.current;
-    const open = nvEl ? nvEl.getAttribute('data-open') === 'true' : isOpen;
-    if (open && canvasRef.current) {
+    if (canvasRef.current) {
       const ctx = canvasRef.current.getContext('2d');
       if (ctx) paint(ctx, metrics(gzRef.current.size), true, now);
-    } else if (puckCanvasRef.current) {
-      fit(puckCanvasRef.current, puckCanvasRef.current.getContext('2d'), 56);
-      const ctx = puckCanvasRef.current.getContext('2d');
-      if (ctx) paint(ctx, metrics(56), false, now);
     }
-  }, [isOpen, paint]);
+  }, [paint]);
 
   const applyObject = useCallback(() => {
     if (reduceMotionRef.current || !(gzRef.current.rotStep || gzRef.current.moveStep)) jumpDisplay();
-    const e = new THREE.Euler().setFromQuaternion(objRef.current.quat, 'YXZ');
-    if (readRef.current) {
-      readRef.current.innerHTML = 'height <b>' + objRef.current.pos.y.toFixed(1) + '</b> · tilt <b>' +
-        Math.round(e.x / DEG) + '°</b> · spin <b>' + Math.round(e.y / DEG) + '°</b>';
-    }
     drawGizmo();
   }, [jumpDisplay, drawGizmo]);
 
@@ -523,29 +598,32 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     drawGizmo();
   }, [engine, drawGizmo]);
 
-  // Hints
+  // Labels and hints
   const idleHint = useCallback(() => {
     if (tourRef.current) return;
-    setIsLiveHint(false);
-    setIsTourHint(false);
+    const el = labelRef.current;
+    if (!el) return;
+    el.classList.remove('nv-live');
     const targets = targetsRef.current;
     const current = currentRef.current;
-    const what = targets[current] ? targets[current].name : 'it';
-    const m = gzRef.current.mode;
-    setHintText(m === 'look' ? 'Drag to spin around. Tap a dot to look from there.'
-      : m === 'move' ? 'Drag an arrow to slide ' + what + '.'
-      : 'Drag an arrow to turn ' + what + '.');
+    const what = targets[current] ? targets[current].name : '—';
+    if (gzRef.current.mode === 'look') {
+      el.innerHTML = '';
+      return;
+    }
+    el.innerHTML = (gzRef.current.mode === 'move' ? 'moving' : 'turning') + ' <b>' + what + '</b>';
   }, []);
 
   const say = useCallback((text: string, live?: boolean) => {
-    setHintText(text);
-    setIsLiveHint(!!live);
-    setIsTourHint(false);
+    if (gzRef.current.mode === 'look' && !tourRef.current) return;
+    const el = labelRef.current;
+    if (!el) return;
+    el.innerHTML = text;
+    el.classList.toggle('nv-live', !!live);
     if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
-    if (live) hintTimerRef.current = setTimeout(idleHint, 1400);
+    if (live) hintTimerRef.current = setTimeout(idleHint, 1600);
   }, [idleHint]);
 
-  // Handle snapping & tick
   const snap = (v: number, step: number) => Math.round(v / step) * step;
 
   const clampPos = () => {
@@ -560,7 +638,6 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     if (navigator.vibrate) { try { navigator.vibrate(4); } catch (_) {} }
   };
 
-  // Camera basis & pixel scale
   const camBasis = () => {
     const camera = engine?.getCamera();
     if (camera) {
@@ -587,7 +664,6 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     return (2 * camRef.current.radius * Math.tan((46 * DEG) / 2)) / H;
   };
 
-  // History
   const pushHistory = () => {
     const targetObj = targetObjRef.current;
     if (!targetObj) return;
@@ -610,7 +686,6 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     say('Undone', true);
   };
 
-  // Flight animation
   const flyTo = (phi: number, theta: number, ms?: number) => {
     const cam = camRef.current;
     let t = theta;
@@ -643,7 +718,6 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     if (navigator.vibrate) { try { navigator.vibrate(8); } catch (_) {} }
   };
 
-  // Pointer Picking
   const gzPoint = (e: React.PointerEvent<HTMLCanvasElement> | PointerEvent) => {
     const gzc = canvasRef.current;
     if (!gzc) return { x: 0, y: 0 };
@@ -665,15 +739,15 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     return (tie || near[0]).h;
   };
 
-  // Modes
   const setMode = (m: 'move' | 'rotate' | 'look') => {
     gzRef.current.mode = m;
     setModeState(m);
+    if (nvRef.current) nvRef.current.dataset.mode = m;
     idleHint();
     drawGizmo();
+    saveLayout();
   };
 
-  // Orientations
   const setOrient = (pitch: number, roll: number, label: string) => {
     stopTour(); pushHistory();
     const e = new THREE.Euler().setFromQuaternion(objRef.current.quat, 'YXZ');
@@ -704,7 +778,6 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     say((targets[current] ? targets[current].name : 'It') + ' back to the start', true);
   };
 
-  // Tour
   const TOUR = [
     { t: 0, dur: 4200, ring: { type: 'axis', i: 0 }, cap: 'Drag the orange arrow to lift it up.' },
     { t: 4200, dur: 4200, ring: { type: 'axis', i: 1 }, cap: 'Tap a dot to look from that side. Tapping never moves it.' },
@@ -742,6 +815,7 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
       }
     };
     setMode('move');
+    setMenu(false);
     setIsTourRunning(true);
   };
 
@@ -758,9 +832,11 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
       tour.step = idx;
       const s = TOUR[idx];
       gzRef.current.ring = s.ring;
-      setHintText(s.cap);
-      setIsTourHint(true);
-      setIsLiveHint(false);
+      const label = labelRef.current;
+      if (label) {
+        label.textContent = s.cap;
+        label.classList.add('nv-live');
+      }
       if (idx === 1) {
         const h = handles(metrics(gzRef.current.size)).filter((k: any) => k.i === 1 && k.sign === 1)[0];
         if (h) faceDirection(h.dir, '');
@@ -783,7 +859,6 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     drawGizmo(now);
   };
 
-  // Select target
   const selectTarget = useCallback((i: number, quiet?: boolean) => {
     const targets = targetsRef.current;
     if (i < 0 || !targets[i]) return;
@@ -794,12 +869,13 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     jumpDisplay();
     markSelection();
     applyObject();
-    if (!quiet) say('Now moving ' + targets[i].name, true);
+    setMenu(false);
+    if (!quiet) say('now moving <b>' + targets[i].name + '</b>', true);
     if (targets[i].id) {
       onSelectLayer?.(targets[i].id);
       onSelectModel?.(targets[i].id);
     }
-  }, [syncFromTarget, jumpDisplay, markSelection, applyObject, say, onSelectLayer, onSelectModel]);
+  }, [syncFromTarget, jumpDisplay, markSelection, applyObject, say, onSelectLayer, onSelectModel, setMenu]);
 
   const setTargets = useCallback((list: TargetItem[]) => {
     const formatted = list.map(t => {
@@ -846,7 +922,6 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     selectTarget(canvasIdx >= 0 ? canvasIdx : 0, true);
   }, [engine, layers, setTargets, selectTarget]);
 
-  // Keep target selection in sync when app activeLayerId changes
   useEffect(() => {
     if (activeLayerId) {
       const idx = targetsRef.current.findIndex(t => t.id === activeLayerId);
@@ -856,72 +931,54 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     }
   }, [activeLayerId, selectTarget]);
 
-  // Size to box and fit
   const sizeToBox = useCallback(() => {
-    const box = boxRef.current;
-    if (!box) return;
-    const s = Math.max(140, Math.min(212, Math.round(box.clientWidth - 14)));
-    if (s !== gzRef.current.size) {
-      gzRef.current.size = s;
-      fitGizmo(s);
-    }
-  }, []);
+    gzRef.current.size = window.innerWidth < 420 ? 190 : 210;
+    fitGizmo(gzRef.current.size);
+    drawGizmo();
+  }, [drawGizmo]);
 
-  const setOpen = useCallback((open: boolean) => {
-    setIsOpen(open);
-    requestAnimationFrame(() => {
-      if (open) sizeToBox();
-      else fit(puckCanvasRef.current, puckCanvasRef.current?.getContext('2d') || null, 56);
-      toCorner(corner);
-      drawGizmo();
-    });
-  }, [sizeToBox, toCorner, corner, drawGizmo]);
-
-  // Pointer dragging on head or puck
+  // Tab dragging & click handling
   useEffect(() => {
-    const head = headRef.current;
-    const box = boxRef.current;
-    const puck = puckRef.current;
-    if (!head || !box || !puck) return;
+    const tab = tabRef.current;
+    const dock = dockRef.current;
+    if (!tab || !dock) return;
 
-    const listeners: Array<() => void> = [];
-    [[head, box], [puck, puck]].forEach(([handle, el]: [HTMLElement, HTMLElement]) => {
-      let d: any = null;
-      const onDown = (e: PointerEvent) => {
-        if ((e.target as HTMLElement).closest('.nv-icon')) return;
-        e.preventDefault();
-        const r = el.getBoundingClientRect();
-        d = { x: e.clientX, y: e.clientY, left: r.left, top: r.top, moved: false };
-        handle.setPointerCapture(e.pointerId);
-      };
-      const onMove = (e: PointerEvent) => {
-        if (!d) return;
-        if (!d.moved && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 4) return;
-        d.moved = true;
-        place(d.left + e.clientX - d.x, d.top + e.clientY - d.y);
-      };
-      const onUp = (e: PointerEvent) => {
-        if (!d) return;
-        const moved = d.moved;
-        d = null;
-        try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
-        if (moved) toCorner(nearestCorner());
-        else if (handle === puck) setOpen(true);
-      };
-      handle.addEventListener('pointerdown', onDown);
-      handle.addEventListener('pointermove', onMove);
-      handle.addEventListener('pointerup', onUp);
-      listeners.push(() => {
-        handle.removeEventListener('pointerdown', onDown);
-        handle.removeEventListener('pointermove', onMove);
-        handle.removeEventListener('pointerup', onUp);
-      });
-    });
+    let d: any = null;
+    const onDown = (e: PointerEvent) => {
+      e.preventDefault();
+      const r = dock.getBoundingClientRect();
+      d = { x: e.clientX, y: e.clientY, left: r.left, top: r.top, moved: false };
+      try { tab.setPointerCapture(e.pointerId); } catch (_) {}
+    };
+    const onMove = (e: PointerEvent) => {
+      if (!d) return;
+      if (!d.moved && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 5) return;
+      if (!d.moved) setMenu(false);
+      d.moved = true;
+      place(d.left + e.clientX - d.x, d.top + e.clientY - d.y, true);
+    };
+    const onUp = (e: PointerEvent) => {
+      if (!d) return;
+      const moved = d.moved;
+      d = null;
+      try { tab.releasePointerCapture(e.pointerId); } catch (_) {}
+      if (!moved) {
+        setMenu(nvRef.current?.dataset.menu !== 'open');
+      }
+    };
 
-    return () => listeners.forEach(un => un());
-  }, [place, toCorner, nearestCorner, setOpen]);
+    tab.addEventListener('pointerdown', onDown);
+    tab.addEventListener('pointermove', onMove);
+    tab.addEventListener('pointerup', onUp);
 
-  // Pointer events on gizmo canvas
+    return () => {
+      tab.removeEventListener('pointerdown', onDown);
+      tab.removeEventListener('pointermove', onMove);
+      tab.removeEventListener('pointerup', onUp);
+    };
+  }, [place, setMenu]);
+
+  // Gizmo pointer events
   useEffect(() => {
     const gzc = canvasRef.current;
     if (!gzc) return;
@@ -934,7 +991,7 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
       const r = Math.hypot(pt.x - m.c, pt.y - m.c);
       const hit = pickHandle(pt);
       if (hit) gzRef.current.active = { type: 'axis', i: hit.i, sign: hit.sign };
-      else if (r <= m.hub * 1.3 && gzRef.current.mode !== 'look') gzRef.current.active = { type: 'hub' };
+      else if (r <= m.hub * 1.7) gzRef.current.active = { type: 'hub' };
       else gzRef.current.active = { type: 'orbit' };
 
       dragRef.current = {
@@ -965,7 +1022,7 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
       drag.moved = true;
       const act = gzRef.current.active;
 
-      if (act.type === 'orbit' || (act.type === 'axis' && gzRef.current.mode === 'look')) {
+      if (act.type === 'orbit' || gzRef.current.mode === 'look') {
         camRef.current.theta = drag.theta - dx * 0.0062;
         camRef.current.phi = Math.max(0.06, Math.min(Math.PI - 0.06, drag.phi - dy * 0.0062));
         applyCamera();
@@ -1003,7 +1060,7 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
       const h = drag.hit, a = AXES[h.i], worldDir = h.dir, p = project(worldDir, m);
       if (gzRef.current.mode === 'move') {
         const len = Math.max(0.001, p.len);
-        const nx = (p.x - m.c) / (m.arm * len), ny = (p.y - m.c) / (m.arm * len);
+        const nx = (p.x - m.c) / p.rad, ny = (p.y - m.c) / p.rad;
         let amount = (dx * nx + dy * ny) * unitsPerPixel() / Math.max(0.30, len);
         if (gzRef.current.moveStep) amount = snap(amount, gzRef.current.moveStep);
         objRef.current.pos.copy(drag.pos).addScaledVector(worldDir, amount);
@@ -1027,8 +1084,11 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     const onUp = (e: PointerEvent) => {
       const drag = dragRef.current;
       if (!drag) return;
-      if (!drag.moved && drag.hit) faceDirection(drag.hit.dir, drag.hit.sign > 0 ? drag.hit.a.lbl : drag.hit.a.back);
-      else if (!drag.moved && gzRef.current.active && gzRef.current.active.type === 'hub') setMode(gzRef.current.mode === 'move' ? 'rotate' : 'move');
+      if (!drag.moved && drag.hit) {
+        faceDirection(drag.hit.dir, drag.hit.sign > 0 ? drag.hit.a.lbl : drag.hit.a.back);
+      } else if (!drag.moved && gzRef.current.active && gzRef.current.active.type === 'hub') {
+        setMode(gzRef.current.mode === 'look' ? 'move' : gzRef.current.mode === 'move' ? 'rotate' : 'look');
+      }
       gzRef.current.active = null; dragRef.current = null;
       nvRef.current?.classList.remove('nv-grabbing', 'nv-focus');
       try { gzc.releasePointerCapture(e.pointerId); } catch (_) {}
@@ -1049,11 +1109,14 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     };
   }, [drawGizmo, applyCamera, applyObject, idleHint, say]);
 
-  // Dimming while drawing on canvas
+  // Stepping aside while drawing on main canvas
   useEffect(() => {
     const onDocDown = (e: PointerEvent) => {
       if (nvRef.current && !nvRef.current.contains(e.target as Node)) {
         nvRef.current.classList.add('nv-dim');
+        setMenu(false);
+      } else if (e.target === canvasRef.current) {
+        setMenu(false);
       }
     };
     const onDocUp = () => {
@@ -1068,9 +1131,9 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
       document.removeEventListener('pointerup', onDocUp, true);
       document.removeEventListener('pointercancel', onDocUp, true);
     };
-  }, []);
+  }, [setMenu]);
 
-  // Set up 3D Selection outline in scene
+  // 3D Scene Outline
   useEffect(() => {
     if (!engine) return;
     const scene = engine.getScene();
@@ -1091,10 +1154,21 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     };
   }, [engine, isDark]);
 
-  // Main Animation Loop
+  // Boot & main animation loop
   useEffect(() => {
     let animId: number;
     let lastFrame = 0;
+
+    // Load persisted layout if available
+    try {
+      const v = JSON.parse(localStorage.getItem(STORE) || 'null');
+      if (v) {
+        if (typeof v.ax === 'number') anchorRef.current = { ax: Math.min(1, Math.max(0, v.ax)), ay: Math.min(1, Math.max(0, v.ay)) };
+        if (v.mode) { gzRef.current.mode = v.mode; setModeState(v.mode); }
+        if (typeof v.rotStep === 'number') { gzRef.current.rotStep = v.rotStep; setRotStep(v.rotStep); }
+        if (typeof v.moveStep === 'number') { gzRef.current.moveStep = v.moveStep; setMoveStep(v.moveStep); }
+      }
+    } catch (_) {}
 
     const loop = (now: number) => {
       animId = requestAnimationFrame(loop);
@@ -1104,7 +1178,6 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
       stepFlight(now);
       stepTour(now);
 
-      // Camera sync from main viewport
       if (!dragRef.current && !flightRef.current && !tourRef.current && engine) {
         const engCam = engine.cameraSpherical;
         if (
@@ -1122,28 +1195,26 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
       if (easeDisplay(dt)) drawGizmo(now);
     };
 
-    fit(puckCanvasRef.current, puckCanvasRef.current?.getContext('2d') || null, 56);
     sizeToBox();
     document.documentElement.dataset.nvTheme = theme;
     readTheme();
     applyObject();
+
     if (engine?.cameraSpherical) {
       camRef.current.theta = engine.cameraSpherical.theta;
       camRef.current.phi = engine.cameraSpherical.phi;
       camRef.current.radius = engine.cameraSpherical.radius;
-      if (engine.cameraTarget) {
-        camRef.current.target.copy(engine.cameraTarget);
-      }
+      if (engine.cameraTarget) camRef.current.target.copy(engine.cameraTarget);
     }
     idleHint();
-    toCorner('br');
+    placeFromAnchor();
     drawGizmo();
 
     animId = requestAnimationFrame(loop);
 
     const onResize = () => {
       sizeToBox();
-      toCorner(corner);
+      placeFromAnchor();
       drawGizmo();
     };
     window.addEventListener('resize', onResize);
@@ -1152,7 +1223,7 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
       cancelAnimationFrame(animId);
       window.removeEventListener('resize', onResize);
     };
-  }, [sizeToBox, readTheme, applyObject, applyCamera, idleHint, toCorner, corner, drawGizmo, easeDisplay, engine]);
+  }, [sizeToBox, readTheme, applyObject, applyCamera, idleHint, placeFromAnchor, drawGizmo, easeDisplay, engine]);
 
   // Theme change
   useEffect(() => {
@@ -1162,111 +1233,31 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
   }, [theme, readTheme, drawGizmo]);
 
   const currentTarget = targetsList[currentIdx];
-  const rStepObj = ROT_STEPS.find(o => o.v === rotStep);
-  const mStepObj = MOVE_STEPS.find(o => o.v === moveStep);
-  const stepLabel = mode === 'rotate' ? (rStepObj ? rStepObj.lbl : 'Free') : (mStepObj ? mStepObj.lbl : 'Free');
 
   return (
-    <div id="nv" ref={nvRef} data-open={isOpen ? 'true' : 'false'} data-corner={corner}>
-      <div className="nv-box" id="nv-box" ref={boxRef}>
-        <div className="nv-head" id="nv-head" ref={headRef}>
-          <span className="nv-grip"><i></i><i></i><i></i><i></i></span>
-          <span className="nv-read" id="nv-read" ref={readRef}></span>
-          <button
-            className="nv-icon"
-            id="nv-tour"
-            title={isTourRunning ? 'Stop' : 'Show me how'}
-            onClick={() => (isTourRunning ? stopTour() : startTour())}
-          >
-            {isTourRunning ? '✕' : '?'}
-          </button>
-          <button className="nv-icon" id="nv-fold" title="Tuck away" onClick={() => setOpen(false)}>–</button>
-        </div>
-        <div className="nv-row">
-          <button
-            className={`nv-target ${mode === 'look' ? 'nv-mute' : ''}`}
-            id="nv-target"
-            aria-expanded={isListOpen}
-            onClick={() => {
-              stopTour();
-              setIsStepsOpen(false);
-              setIsListOpen(!isListOpen);
-            }}
-          >
-            <span>Moving</span><b id="nv-target-name">{currentTarget?.name || 'Canvas'}</b><span>▾</span>
-          </button>
-          <button
-            className={`nv-step ${mode === 'look' ? 'nv-mute' : ''}`}
-            id="nv-step"
-            aria-expanded={isStepsOpen}
-            title={`Step size · turning ${rStepObj ? rStepObj.lbl : 'Free'}, sliding ${mStepObj ? mStepObj.lbl : 'Free'}`}
-            onClick={() => {
-              stopTour();
-              setIsListOpen(false);
-              setIsStepsOpen(!isStepsOpen);
-            }}
-          >
-            {stepLabel}
-          </button>
-        </div>
-
-        <div className={`nv-list ${isListOpen ? 'nv-on' : ''}`} id="nv-list" role="listbox">
-          {targetsList.map((t, idx) => (
-            <button
-              key={t.id + '_' + idx}
-              className="nv-opt"
-              role="option"
-              aria-selected={currentIdx === idx}
-              onClick={() => {
-                selectTarget(idx);
-                setIsListOpen(false);
-              }}
-            >
-              <span className="nv-swatch"></span>
-              <span>{t.name}{t.note ? <em> {t.note}</em> : null}</span>
-            </button>
-          ))}
-        </div>
-
-        <div className={`nv-steps ${isStepsOpen ? 'nv-on' : ''}`} id="nv-steps">
-          <h4>Turning steps</h4>
-          <div id="nv-rot-steps">
-            {ROT_STEPS.map(o => (
-              <button
-                key={o.v}
-                className="nv-chip"
-                aria-pressed={rotStep === o.v}
-                onClick={() => {
-                  gzRef.current.rotStep = o.v;
-                  setRotStep(o.v);
-                  say(o.lbl === 'Free' ? 'Free movement' : 'Steps of ' + o.lbl, true);
-                }}
-              >
-                {o.lbl}
-              </button>
-            ))}
-          </div>
-          <h4>Sliding steps</h4>
-          <div id="nv-move-steps">
-            {MOVE_STEPS.map(o => (
-              <button
-                key={o.v}
-                className="nv-chip"
-                aria-pressed={moveStep === o.v}
-                onClick={() => {
-                  gzRef.current.moveStep = o.v;
-                  setMoveStep(o.v);
-                  say(o.lbl === 'Free' ? 'Free movement' : 'Steps of ' + o.lbl, true);
-                }}
-              >
-                {o.lbl}
-              </button>
-            ))}
-          </div>
-        </div>
-
+    <div
+      id="nv"
+      ref={nvRef}
+      data-menu={isMenuOpen ? 'open' : 'closed'}
+      data-corner="br"
+      data-mode={mode}
+    >
+      <div className="nv-dock" id="nv-dock" ref={dockRef}>
         <canvas className="nv-canvas" id="nv-canvas" ref={canvasRef}></canvas>
+        <button
+          className="nv-tab"
+          id="nv-tab"
+          ref={tabRef}
+          aria-expanded={isMenuOpen}
+          title="Menu · drag to move"
+        >
+          ⋯
+        </button>
+        <div className="nv-label" id="nv-label" ref={labelRef}></div>
+      </div>
 
+      <div className="nv-menu" id="nv-menu" ref={menuRef}>
+        <div className="nv-sec">Mode</div>
         <div className="nv-modes">
           <button
             className="nv-mode"
@@ -1294,10 +1285,45 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
           </button>
         </div>
 
-        <div className={`nv-hint ${isLiveHint ? 'nv-live' : ''} ${isTourHint ? 'nv-tour' : ''}`} id="nv-hint">
-          {hintText}
+        <div className="nv-sec">Turning steps</div>
+        <div className="nv-chips" id="nv-rot-steps">
+          {ROT_STEPS.map(o => (
+            <button
+              key={o.v}
+              className="nv-chip"
+              aria-pressed={rotStep === o.v}
+              onClick={() => {
+                gzRef.current.rotStep = o.v;
+                setRotStep(o.v);
+                saveLayout();
+                say(o.lbl === 'Free' ? 'free movement' : 'steps of ' + o.lbl, true);
+              }}
+            >
+              {o.lbl}
+            </button>
+          ))}
         </div>
 
+        <div className="nv-sec">Sliding steps</div>
+        <div className="nv-chips" id="nv-move-steps">
+          {MOVE_STEPS.map(o => (
+            <button
+              key={o.v}
+              className="nv-chip"
+              aria-pressed={moveStep === o.v}
+              onClick={() => {
+                gzRef.current.moveStep = o.v;
+                setMoveStep(o.v);
+                saveLayout();
+                say(o.lbl === 'Free' ? 'free movement' : 'steps of ' + o.lbl, true);
+              }}
+            >
+              {o.lbl}
+            </button>
+          ))}
+        </div>
+
+        <div className="nv-sec">Set it</div>
         <div className="nv-acts">
           <button className="nv-act" id="nv-flat" onClick={() => setOrient(0, 0, 'Flat like a table')}>Lay flat</button>
           <button className="nv-act" id="nv-wall" onClick={() => setOrient(90, 0, 'Up like a wall')}>Stand up</button>
@@ -1306,17 +1332,48 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
           <button className="nv-act" id="nv-undo" disabled={historyLen === 0} onClick={() => { stopTour(); undo(); }}>Undo</button>
           <button className="nv-act" id="nv-reset" onClick={resetTarget}>Start over</button>
         </div>
-      </div>
 
-      <button
-        className="nv-puck"
-        id="nv-puck"
-        ref={puckRef}
-        title="Open"
-        onClick={() => setOpen(true)}
-      >
-        <canvas id="nv-puck-canvas" ref={puckCanvasRef}></canvas>
-      </button>
+        <button
+          className="nv-act nv-wide"
+          id="nv-tour"
+          onClick={() => { isTourRunning ? stopTour() : startTour(); }}
+        >
+          {isTourRunning ? 'Stop the demo' : 'Show me how'}
+        </button>
+
+        <div className="nv-sec">Moving</div>
+        <button
+          className="nv-pick"
+          id="nv-pick"
+          aria-expanded={isListOpen}
+          onClick={() => {
+            setIsListOpen(prev => !prev);
+            requestAnimationFrame(() => positionMenu());
+          }}
+        >
+          <b id="nv-pick-name">{currentTarget?.name || 'Canvas'}</b><span>▾</span>
+        </button>
+
+        <div id="nv-list" className={isListOpen ? 'nv-on' : ''} role="listbox">
+          {targetsList.map((t, idx) => (
+            <button
+              key={t.id + '_' + idx}
+              className="nv-opt"
+              role="option"
+              aria-selected={currentIdx === idx}
+              onClick={() => {
+                selectTarget(idx);
+                setIsListOpen(false);
+              }}
+            >
+              <span className="nv-swatch"></span>
+              <span>{t.name}{t.note ? <em> {t.note}</em> : null}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="nv-sec" style={{ textAlign: 'center', margin: '8px 0 0' }}>build 9</div>
+      </div>
     </div>
   );
 };

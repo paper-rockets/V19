@@ -3473,6 +3473,11 @@ export class StudioEngine {
     this.markDirty();
   }
 
+  public setTargetPosition(x: number, y: number, z: number): void {
+    this.targetPosition.set(x, y, z);
+    this.markDirty();
+  }
+
   // ==========================================
   // TRANSFORM JOYSTICK & SPATIAL ENGINE
   // ==========================================

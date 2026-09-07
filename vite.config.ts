@@ -29,6 +29,8 @@ export default defineConfig(({ mode }) => {
         input: {
           main: path.resolve(__dirname, 'index.html'),
           sandbox: path.resolve(__dirname, 'sandbox.html'),
+          sandbox2: path.resolve(__dirname, 'sandbox2.html'),
+          sandbox3: path.resolve(__dirname, 'sandbox3.html'),
           moodboard: path.resolve(__dirname, 'moodboard/index.html'),
         },
         output: {

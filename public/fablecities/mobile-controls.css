@@ -1,0 +1,291 @@
+/* Mobile Phone Touchscreen Controls for Fable Cities */
+
+:root {
+  --fc-mob-bg: rgba(18, 32, 44, 0.88);
+  --fc-mob-border: rgba(79, 195, 247, 0.28);
+  --fc-mob-accent: #4fc3f7;
+  --fc-mob-text: #e8edf2;
+  --fc-mob-subtext: #8da0b3;
+  --fc-mob-glow: rgba(79, 195, 247, 0.25);
+}
+
+/* Prevent default pull-to-refresh, bounce, or double-tap zoom on canvas */
+#game {
+  touch-action: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -webkit-touch-callout: none !important;
+}
+
+/* Mobile HUD Container */
+#fc-mobile-hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1000;
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
+  color: var(--fc-mob-text);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#fc-mobile-hud * {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Floating control panels accept touches */
+.fc-mob-interactive {
+  pointer-events: auto;
+}
+
+/* Mobile Toggle Pill Button (top right or floating) */
+#fc-mob-toggle-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--fc-mob-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--fc-mob-border);
+  border-radius: 20px;
+  color: var(--fc-mob-text);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  transition: all 0.2s ease;
+}
+
+#fc-mob-toggle-btn:active {
+  transform: scale(0.95);
+  border-color: var(--fc-mob-accent);
+}
+
+#fc-mob-toggle-btn.active {
+  border-color: var(--fc-mob-accent);
+  box-shadow: 0 0 12px var(--fc-mob-glow);
+}
+
+/* Mode Switch: Look / Build */
+#fc-mob-mode-toggle {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  background: var(--fc-mob-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--fc-mob-border);
+  border-radius: 24px;
+  padding: 3px;
+  gap: 3px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.fc-mob-mode-btn {
+  border: none;
+  background: transparent;
+  color: var(--fc-mob-subtext);
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 20px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.fc-mob-mode-btn.active {
+  background: var(--fc-mob-accent);
+  color: #0b141c;
+  box-shadow: 0 2px 8px var(--fc-mob-glow);
+}
+
+/* Bottom Right: Zoom & Orbit Cluster */
+#fc-mob-right-cluster {
+  position: absolute;
+  right: 16px;
+  bottom: 80px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.fc-mob-btn-group {
+  display: flex;
+  flex-direction: column;
+  background: var(--fc-mob-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--fc-mob-border);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+
+.fc-mob-btn {
+  width: 52px;
+  height: 52px;
+  background: transparent;
+  border: none;
+  color: var(--fc-mob-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: bold;
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.fc-mob-btn:not(:last-child) {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.fc-mob-btn:active, .fc-mob-btn.pressed {
+  background: rgba(79, 195, 247, 0.25);
+  color: var(--fc-mob-accent);
+}
+
+.fc-mob-btn svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+}
+
+/* Horizontal sub-cluster for rotation */
+.fc-mob-btn-row {
+  display: flex;
+  background: var(--fc-mob-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--fc-mob-border);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+
+.fc-mob-btn-row .fc-mob-btn:not(:last-child) {
+  border-bottom: none;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Bottom Left: Thumb Pan D-Pad */
+#fc-mob-dpad {
+  position: absolute;
+  left: 16px;
+  bottom: 80px;
+  width: 130px;
+  height: 130px;
+  background: var(--fc-mob-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--fc-mob-border);
+  border-radius: 50%;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  padding: 6px;
+}
+
+.fc-dpad-btn {
+  background: transparent;
+  border: none;
+  color: var(--fc-mob-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: all 0.15s ease;
+}
+
+.fc-dpad-btn:active, .fc-dpad-btn.pressed {
+  background: rgba(79, 195, 247, 0.3);
+  color: var(--fc-mob-accent);
+}
+
+.fc-dpad-up    { grid-column: 2; grid-row: 1; border-radius: 16px 16px 6px 6px; }
+.fc-dpad-left  { grid-column: 1; grid-row: 2; border-radius: 16px 6px 6px 16px; }
+.fc-dpad-center{ grid-column: 2; grid-row: 2; font-size: 10px; color: var(--fc-mob-subtext); letter-spacing: 0.08em; pointer-events: none; }
+.fc-dpad-right { grid-column: 3; grid-row: 2; border-radius: 6px 16px 16px 6px; }
+.fc-dpad-down  { grid-column: 2; grid-row: 3; border-radius: 6px 6px 16px 16px; }
+
+/* Camera Presets Bar */
+#fc-mob-presets {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  background: var(--fc-mob-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--fc-mob-border);
+  border-radius: 20px;
+  padding: 4px 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+}
+
+.fc-mob-preset-btn {
+  background: transparent;
+  border: none;
+  color: var(--fc-mob-text);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  padding: 6px 10px;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.fc-mob-preset-btn:active {
+  background: var(--fc-mob-accent);
+  color: #0b141c;
+}
+
+/* Touch Gesture Hint (shown briefly on touch start) */
+#fc-mob-gesture-hint {
+  position: absolute;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(11, 15, 20, 0.85);
+  border: 1px solid rgba(79, 195, 247, 0.35);
+  border-radius: 20px;
+  padding: 6px 16px;
+  font-size: 12px;
+  color: #c9d8e6;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+#fc-mob-gesture-hint.show {
+  opacity: 1;
+}
+
+/* Hidden state for HUD */
+#fc-mobile-hud.minimized #fc-mob-right-cluster,
+#fc-mobile-hud.minimized #fc-mob-dpad,
+#fc-mobile-hud.minimized #fc-mob-presets,
+#fc-mobile-hud.minimized #fc-mob-mode-toggle {
+  display: none !important;
+}

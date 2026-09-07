@@ -322,8 +322,152 @@ export class MaterialCache {
       material.stencilFunc = THREE.AlwaysStencilFunc;
     }
 
+    // Apply procedural decal texture map if patternType is set
+    if (patType !== 'none') {
+      const patternTex = MaterialCache.getPatternTexture(patType, color, patScale, patInt, patAng, patContr);
+      if (patternTex && 'map' in material) {
+        (material as any).map = patternTex;
+        if ('color' in material) {
+          (material as any).color.setHex(0xffffff);
+        }
+        material.needsUpdate = true;
+      }
+    }
+
     this.cache.set(key, material);
     return material;
+  }
+
+  private static patternTextureCache: Map<string, THREE.CanvasTexture> = new Map();
+
+  /**
+   * Procedurally generates dynamic pattern textures for stipple, terrazzo, dot matrix, line, & cross decals
+   */
+  public static getPatternTexture(
+    patType: PatternType,
+    baseColor: THREE.Color,
+    scale: number = 4.0,
+    intensity: number = 0.8,
+    angle: number = 45,
+    contrast: number = 1.0
+  ): THREE.Texture | null {
+    if (patType === 'none') return null;
+
+    const cacheKey = `${patType}_${baseColor.getHexString()}_${scale}_${intensity}_${angle}_${contrast}`;
+    if (MaterialCache.patternTextureCache.has(cacheKey)) {
+      return MaterialCache.patternTextureCache.get(cacheKey)!;
+    }
+
+    const size = 256;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    const hex = '#' + baseColor.getHexString();
+    ctx.fillStyle = hex;
+    ctx.fillRect(0, 0, size, size);
+
+    if (patType === 'stipple') {
+      // High-density procedural stipple / spray noise dots
+      const numDots = Math.round(2200 * intensity);
+      for (let i = 0; i < numDots; i++) {
+        const x = Math.random() * size;
+        const y = Math.random() * size;
+        const r = 0.8 + Math.random() * 2.4;
+        const alpha = Math.min(1.0, (0.35 + Math.random() * 0.65) * intensity * contrast);
+        const isDark = Math.random() > 0.45;
+        ctx.fillStyle = isDark ? `rgba(0, 0, 0, ${alpha})` : `rgba(255, 255, 255, ${alpha * 0.9})`;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else if (patType === 'terrazzo') {
+      // Multi-tone mosaic stone flecks
+      const chips = [
+        '#ffffff',
+        '#f87171', // coral/terracotta
+        '#38bdf8', // sky cyan
+        '#fbbf24', // warm amber
+        '#1e293b', // deep charcoal
+        '#34d399', // soft jade
+      ];
+      const count = Math.round(160 * intensity);
+      for (let i = 0; i < count; i++) {
+        const x = Math.random() * size;
+        const y = Math.random() * size;
+        const s = 3 + Math.random() * 8.5;
+        const chipColor = chips[Math.floor(Math.random() * chips.length)];
+        ctx.fillStyle = chipColor;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(Math.random() * Math.PI);
+        ctx.beginPath();
+        ctx.moveTo(-s * 0.5, -s * 0.4);
+        ctx.lineTo(s * 0.6, -s * 0.3);
+        ctx.lineTo(s * 0.4, s * 0.5);
+        ctx.lineTo(-s * 0.5, s * 0.3);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+    } else if (patType === 'dot') {
+      // Architectural dot matrix grid
+      const spacing = Math.max(12, Math.round(32 / (scale / 4.0)));
+      const dotRadius = Math.max(2, Math.round(spacing * 0.22 * intensity));
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+      for (let x = spacing / 2; x < size; x += spacing) {
+        for (let y = spacing / 2; y < size; y += spacing) {
+          ctx.beginPath();
+          ctx.arc(x, y, dotRadius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    } else if (patType === 'line') {
+      // Directional hatching lines
+      ctx.save();
+      ctx.translate(size / 2, size / 2);
+      ctx.rotate((angle * Math.PI) / 180);
+      ctx.translate(-size, -size);
+      const spacing = Math.max(8, Math.round(24 / (scale / 4.0)));
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.75)';
+      ctx.lineWidth = Math.max(1.5, Math.round(3 * intensity));
+      for (let y = 0; y < size * 2; y += spacing) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(size * 2, y);
+        ctx.stroke();
+      }
+      ctx.restore();
+    } else if (patType === 'cross') {
+      // Cross-hatch grid
+      const spacing = Math.max(10, Math.round(24 / (scale / 4.0)));
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.lineWidth = Math.max(1, Math.round(2 * intensity));
+      for (let x = 0; x < size; x += spacing) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, size);
+        ctx.stroke();
+      }
+      for (let y = 0; y < size; y += spacing) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(size, y);
+        ctx.stroke();
+      }
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    const repeatFactor = Math.max(1, Math.round(scale * 1.5));
+    tex.repeat.set(repeatFactor, 1);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.needsUpdate = true;
+    MaterialCache.patternTextureCache.set(cacheKey, tex);
+    return tex;
   }
 
   /**

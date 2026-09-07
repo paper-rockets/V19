@@ -1,0 +1,135 @@
+{
+  "storeKeys": [
+    "_p",
+    "$id",
+    "$onAction",
+    "$patch",
+    "$reset",
+    "$subscribe",
+    "$dispose",
+    "title",
+    "writable",
+    "stage",
+    "cameras",
+    "clipboard",
+    "brushes",
+    "stageProps",
+    "triggerStageProps",
+    "shots",
+    "groups",
+    "curves",
+    "reset"
+  ],
+  "stage": {
+    "grid": false,
+    "fog": false,
+    "axis": false,
+    "render": false,
+    "backgroundColor": [
+      158,
+      221,
+      255
+    ],
+    "light": {
+      "directional": {
+        "color": [
+          255,
+          255,
+          255
+        ],
+        "intensity": 1,
+        "direction": [
+          0,
+          0
+        ]
+      },
+      "groundShadow": true,
+      "toonShading": false
+    },
+    "postprocessing": {
+      "glow": {
+        "enabled": false,
+        "value": 50
+      },
+      "dof": {
+        "enabled": false,
+        "value": 8
+      },
+      "grain": {
+        "enabled": false,
+        "value": 50
+      },
+      "pixelation": {
+        "enabled": false,
+        "value": 51.038043478260825
+      }
+    }
+  },
+  "groupsCount": 3,
+  "groups": [
+    {
+      "id": "m21oYrMiJrC",
+      "visibility": true,
+      "curveCount": 415,
+      "sampleCurve": {
+        "keys": [
+          "id",
+          "points",
+          "normals",
+          "color",
+          "shape",
+          "size",
+          "pressures",
+          "materialStyle"
+        ],
+        "color": [
+          255,
+          149,
+          49,
+          1
+        ],
+        "pointsCount": 71,
+        "samplePoint": {
+          "x": 1.55502,
+          "y": 6.588074,
+          "z": 2.488261
+        }
+      }
+    },
+    {
+      "id": "e2RI97TS-Ut",
+      "visibility": true,
+      "curveCount": 13,
+      "sampleCurve": {
+        "keys": [
+          "id",
+          "points",
+          "normals",
+          "color",
+          "shape",
+          "size",
+          "pressures",
+          "materialStyle"
+        ],
+        "color": [
+          230,
+          234,
+          202,
+          1
+        ],
+        "pointsCount": 66,
+        "samplePoint": {
+          "x": -0.384027,
+          "y": 11.092147,
+          "z": -2.463762
+        }
+      }
+    },
+    {
+      "id": "_VEg7fjByOe",
+      "visibility": true,
+      "curveCount": 0,
+      "sampleCurve": null
+    }
+  ]
+}

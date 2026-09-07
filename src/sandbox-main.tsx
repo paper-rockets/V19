@@ -5,11 +5,11 @@
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { StandaloneNavSandbox } from './components/Sandbox/StandaloneNavSandbox';
+import { CurrentGizmoSandbox } from './components/Sandbox/CurrentGizmoSandbox';
 import './index.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <StandaloneNavSandbox />
+    <CurrentGizmoSandbox />
   </StrictMode>
 );
