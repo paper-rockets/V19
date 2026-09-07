@@ -1400,6 +1400,7 @@ export function App() {
           <Option3SphereNavigator
             engine={engine}
             theme={theme}
+            uiMode={uiMode}
             layers={layers}
             activeLayerId={activeLayerId}
             onSelectLayer={handleSelectLayer}

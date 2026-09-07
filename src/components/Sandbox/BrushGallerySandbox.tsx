@@ -973,17 +973,17 @@ export const BrushGallerySandbox: React.FC = () => {
 
     // 5. 3D FEATHER BANANA (428 strokes from MegaCilok Feather artwork)
     const bananaCam = {
-      x: FEATHER_BANANA_STAGE.focus.x,
-      y: FEATHER_BANANA_STAGE.focus.y,
-      z: FEATHER_BANANA_STAGE.focus.z,
-      distance: FEATHER_BANANA_STAGE.camera.radius,
-      azimuth: FEATHER_BANANA_STAGE.camera.theta,
-      elevation: FEATHER_BANANA_STAGE.camera.phi,
+      x: 22.0,
+      y: 0.5,
+      z: 0.0,
+      distance: 20.0,
+      azimuth: -2.122,
+      elevation: 1.143,
     };
 
     FEATHER_BANANA_CURVES.forEach((curve, idx) => {
       const pts: StrokePoint[] = curve.points.map((p) => ({
-        position: new THREE.Vector3(p[0], p[1], p[2]),
+        position: new THREE.Vector3(p[0] + 21.8, p[1] - 5.78, p[2] + 0.5),
         normal: new THREE.Vector3(0, 1, 0),
         surfaceOffset: 0.003,
         pressure: 1.0,
@@ -1044,7 +1044,7 @@ export const BrushGallerySandbox: React.FC = () => {
   // Populate all strokes instantly (when bypassing the bot)
   const populateAllInstantly = useCallback((eng: StudioEngine) => {
     eng.clearAllStrokes();
-    const tasks = buildAllStrokeTasks().filter((t) => t.category !== 'banana');
+    const tasks = buildAllStrokeTasks();
     tasks.forEach((task) => {
       eng.recreateStrokeFromDescriptor({
         id: task.id,
@@ -1060,7 +1060,6 @@ export const BrushGallerySandbox: React.FC = () => {
 
   // Populate Feather Banana strokes instantly (when bypassing the bot)
   const populateBananaInstantly = useCallback((eng: StudioEngine) => {
-    eng.clearAllStrokes();
     const tasks = buildAllStrokeTasks().filter((t) => t.category === 'banana');
     tasks.forEach((task) => {
       eng.recreateStrokeFromDescriptor({
@@ -1419,8 +1418,15 @@ export const BrushGallerySandbox: React.FC = () => {
     if (isBananaMode) {
       if (planeMeshRef.current) planeMeshRef.current.visible = false;
       if (bustMeshRef.current) bustMeshRef.current.visible = false;
-      if (inst.scene) {
-        inst.scene.background = new THREE.Color(FEATHER_BANANA_STAGE.backgroundColor);
+      const sceneObj = (inst as any).scene || (inst.getScene ? inst.getScene() : null);
+      if (sceneObj) {
+        sceneObj.background = new THREE.Color(FEATHER_BANANA_STAGE.backgroundColor);
+      }
+      const anyInst = inst as any;
+      if (anyInst.ambientLight) anyInst.ambientLight.intensity = 1.6;
+      if (anyInst.dirLight1) {
+        anyInst.dirLight1.position.set(-15, 18, -10);
+        anyInst.dirLight1.intensity = 1.8;
       }
       inst.setTargetPosition(
         FEATHER_BANANA_STAGE.focus.x,
@@ -1450,7 +1456,7 @@ export const BrushGallerySandbox: React.FC = () => {
       }
       inst.dispose();
     };
-  }, [populateBananaInstantly, populateAllInstantly, botScope]);
+  }, []);
 
   // Handle switching drawing scopes (Banana 3D Stage vs Showcase Canvas)
   const handleScopeChange = useCallback((newScope: 'banana' | 'all' | 'bust' | 'clay' | 'presets' | 'patterns') => {
@@ -1460,11 +1466,18 @@ export const BrushGallerySandbox: React.FC = () => {
     setBotScope(newScope);
     if (!engine) return;
 
+    const anyEng = engine as any;
+
     if (newScope === 'banana') {
       if (planeMeshRef.current) planeMeshRef.current.visible = false;
       if (bustMeshRef.current) bustMeshRef.current.visible = false;
       if (engine.scene) {
         engine.scene.background = new THREE.Color(FEATHER_BANANA_STAGE.backgroundColor);
+      }
+      if (anyEng.ambientLight) anyEng.ambientLight.intensity = 1.6;
+      if (anyEng.dirLight1) {
+        anyEng.dirLight1.position.set(-15, 18, -10);
+        anyEng.dirLight1.intensity = 1.8;
       }
       engine.setTargetPosition(
         FEATHER_BANANA_STAGE.focus.x,
@@ -1482,12 +1495,18 @@ export const BrushGallerySandbox: React.FC = () => {
     } else {
       if (planeMeshRef.current) planeMeshRef.current.visible = true;
       if (bustMeshRef.current) bustMeshRef.current.visible = true;
-      if (engine.scene) {
-        engine.scene.background = new THREE.Color(theme === 'dark' ? 0x242629 : 0xf8fafc);
+      if (anyEng.ambientLight) anyEng.ambientLight.intensity = 0.85;
+      if (anyEng.dirLight1) {
+        anyEng.dirLight1.position.set(10, 20, 15);
+        anyEng.dirLight1.intensity = 1.5;
       }
+      engine.setTheme(theme);
       if (newScope === 'bust') {
         engine.setTargetPosition(11.5, 0.5, 0);
         engine.setCameraView(0.35, Math.PI / 2.3, 10.5, true);
+      } else if (newScope === 'all') {
+        engine.setTargetPosition(3.0, 0, 0);
+        engine.setCameraView(0, Math.PI / 2, 31.0, true);
       } else {
         engine.setTargetPosition(-1.0, 11.5, 0);
         engine.setCameraView(0, Math.PI / 2, 13.0, true);
@@ -1838,11 +1857,16 @@ export const BrushGallerySandbox: React.FC = () => {
             )}
 
             <button
-              onClick={() => engine && populateAllInstantly(engine)}
-              title="Populate all strokes instantly without waiting"
+              onClick={() => {
+                if (engine) {
+                  if (botScope === 'banana') populateBananaInstantly(engine);
+                  else populateAllInstantly(engine);
+                }
+              }}
+              title="Populate complete strokes instantly without waiting"
               className="py-1.5 px-2 rounded border border-neutral-700 text-neutral-400 hover:text-white font-sans text-[11px]"
             >
-              Show All
+              {botScope === 'banana' ? 'Show Banana' : 'Show All'}
             </button>
 
             <button
@@ -1856,10 +1880,28 @@ export const BrushGallerySandbox: React.FC = () => {
 
           {/* Scope Selector */}
           <div className="mb-2.5">
-            <div className="text-[10px] text-neutral-400 mb-1">Drawing Scope:</div>
+            <div className="flex items-center justify-between text-[10px] text-neutral-400 mb-1">
+              <span>Drawing Target:</span>
+              {botScope === 'banana' && (
+                <span className="text-yellow-400 font-bold">Feather 3D Live</span>
+              )}
+            </div>
+
+            {/* Featured Banana Button */}
+            <button
+              onClick={() => handleScopeChange('banana')}
+              className={`w-full mb-1.5 py-1.5 px-2 rounded border text-center flex items-center justify-center gap-1.5 text-[11px] font-sans transition-all ${
+                botScope === 'banana'
+                  ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500 font-bold shadow-[0_0_12px_rgba(234,179,8,0.25)]'
+                  : 'border-neutral-800 text-neutral-300 hover:text-white hover:border-neutral-700 bg-neutral-900/40'
+              }`}
+            >
+              <span>Feather 3D Banana (428 Strokes)</span>
+            </button>
+
             <div className="grid grid-cols-3 gap-1 text-[10px] font-sans">
               <button
-                onClick={() => setBotScope('all')}
+                onClick={() => handleScopeChange('all')}
                 className={`py-1 px-1.5 rounded border text-center ${
                   botScope === 'all'
                     ? 'bg-neutral-800 text-white border-neutral-600 font-bold'
@@ -1869,17 +1911,17 @@ export const BrushGallerySandbox: React.FC = () => {
                 All (89)
               </button>
               <button
-                onClick={() => setBotScope('bust')}
+                onClick={() => handleScopeChange('bust')}
                 className={`py-1 px-1.5 rounded border text-center ${
                   botScope === 'bust'
                     ? 'bg-emerald-900/60 text-emerald-300 border-emerald-500 font-bold'
                     : 'border-neutral-800 text-neutral-400 hover:text-neutral-200'
                 }`}
               >
-                3D Model (5)
+                3D Bust (5)
               </button>
               <button
-                onClick={() => setBotScope('clay')}
+                onClick={() => handleScopeChange('clay')}
                 className={`py-1 px-1.5 rounded border text-center ${
                   botScope === 'clay'
                     ? 'bg-orange-900/60 text-orange-300 border-orange-500 font-bold'
@@ -1889,7 +1931,7 @@ export const BrushGallerySandbox: React.FC = () => {
                 Clay (24)
               </button>
               <button
-                onClick={() => setBotScope('presets')}
+                onClick={() => handleScopeChange('presets')}
                 className={`py-1 px-1.5 rounded border text-center ${
                   botScope === 'presets'
                     ? 'bg-blue-900/60 text-blue-300 border-blue-500 font-bold'
@@ -1899,7 +1941,7 @@ export const BrushGallerySandbox: React.FC = () => {
                 Presets (54)
               </button>
               <button
-                onClick={() => setBotScope('patterns')}
+                onClick={() => handleScopeChange('patterns')}
                 className={`py-1 px-1.5 rounded border text-center ${
                   botScope === 'patterns'
                     ? 'bg-purple-900/60 text-purple-300 border-purple-500 font-bold'
@@ -1908,6 +1950,18 @@ export const BrushGallerySandbox: React.FC = () => {
               >
                 Patterns (6)
               </button>
+              <button
+                onClick={() => {
+                  if (engine) {
+                    if (botScope === 'banana') populateBananaInstantly(engine);
+                    else populateAllInstantly(engine);
+                  }
+                }}
+                title="Render complete artwork instantly without bot drawing"
+                className="py-1 px-1.5 rounded border border-neutral-700 text-amber-400 hover:text-amber-300 text-center"
+              >
+                Instant Full
+              </button>
             </div>
           </div>
 
@@ -1915,7 +1969,7 @@ export const BrushGallerySandbox: React.FC = () => {
           <div className="flex items-center justify-between mb-2 text-[11px]">
             <span className="text-neutral-400">Drawing Speed:</span>
             <div className="flex items-center gap-1">
-              {[0.5, 1.0, 2.0, 4.0].map((s) => (
+              {[0.5, 1.0, 2.0, 4.0, 8.0].map((s) => (
                 <button
                   key={s}
                   onClick={() => setBotSpeed(s)}
@@ -1929,6 +1983,21 @@ export const BrushGallerySandbox: React.FC = () => {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Cinematic Orbit Toggle (for 3D video screen recording) */}
+          <div className="flex items-center justify-between mb-2 text-[11px]">
+            <span className="text-neutral-400">Cinematic Orbit:</span>
+            <button
+              onClick={() => setCameraOrbit(!cameraOrbit)}
+              className={`px-2 py-0.5 rounded text-[10px] font-sans border ${
+                cameraOrbit
+                  ? 'bg-cyan-900/60 text-cyan-300 border-cyan-500 font-bold shadow'
+                  : 'border-neutral-800 text-neutral-500 hover:text-neutral-300'
+              }`}
+            >
+              {cameraOrbit ? 'Orbiting 360°' : 'Locked View'}
+            </button>
           </div>
 
           {/* Camera Follow Toggle */}
@@ -1987,4 +2056,125 @@ export const BrushGallerySandbox: React.FC = () => {
         <div
           className="pointer-events-none fixed z-50 transition-transform duration-75 ease-out"
           style={{
-            left: `${stylusState
+            left: `${stylusState.x}px`,
+            top: `${stylusState.y}px`,
+            transform: 'translate(-50%, -50%)',
+          }}
+        >
+          <div className="relative flex items-center">
+            {/* Pressure ripple ring */}
+            <div
+              className={`absolute -inset-2 rounded-full border-2 transition-all duration-100 ${
+                stylusState.isDown ? 'scale-125 opacity-100' : 'scale-75 opacity-30'
+              }`}
+              style={{ borderColor: stylusState.color }}
+            />
+            {/* Nib center */}
+            <div
+              className="w-4 h-4 rounded-full border-2 border-white shadow-xl flex items-center justify-center"
+              style={{ backgroundColor: stylusState.color }}
+            >
+              <div className="w-1.5 h-1.5 bg-white rounded-full" />
+            </div>
+            {/* Active Brush Label */}
+            <div className="ml-3 px-2 py-0.5 rounded bg-black/90 border border-white/20 text-[10px] text-white font-mono whitespace-nowrap shadow-xl">
+              {stylusState.brushName}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── GUIDE EXPLAINER PANEL ── */}
+      {showGuide && (
+        <aside
+          id="guide-panel"
+          className={`absolute top-14 right-4 z-40 w-96 max-h-[85vh] overflow-y-auto p-4 rounded border font-sans text-xs shadow-2xl ${
+            isDark ? 'bg-[#181a1f] border-neutral-700 text-neutral-200' : 'bg-white border-neutral-300 text-neutral-800'
+          }`}
+        >
+          <div className="flex items-center justify-between pb-2 mb-3 border-b border-neutral-700/50">
+            <span className="font-bold text-sm text-amber-400 font-mono">WHAT THIS APP ACTUALLY DOES</span>
+            <button onClick={() => setShowGuide(false)} className="text-neutral-400 hover:text-white font-mono">
+              [X]
+            </button>
+          </div>
+
+          <div className="space-y-3 leading-relaxed">
+            <div>
+              <p className="font-bold text-white mb-1">1. It is a 3D Spatial Creative Studio</p>
+              <p className="text-neutral-400">
+                Unlike regular paint apps (like Photoshop or Procreate) that only draw flat 2D pixels on a flat screen,
+                every stroke drawn in this app is a real 3D mesh that lives in 3D physical space.
+              </p>
+            </div>
+
+            <div>
+              <p className="font-bold text-white mb-1">2. Three Distinct Ways to Draw & Sculpt</p>
+              <ul className="list-disc pl-4 space-y-1 text-neutral-400">
+                <li>
+                  <strong className="text-neutral-200">On 3D Objects:</strong> Draw directly onto 3D models (like the
+                  sculpted clay bust on the right). Strokes wrap around curved surfaces, build clay volume, pinch ridges,
+                  and carve creases.
+                </li>
+                <li>
+                  <strong className="text-neutral-200">In Free 3D Air:</strong> Draw 3D pipes, cables, and neon wires
+                  floating in mid-air. You can walk around them and view them from every perspective.
+                </li>
+                <li>
+                  <strong className="text-neutral-200">On a 3D Drafting Canvas:</strong> Sketch on the giant drafting
+                  board on the left with millimeter precision.
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <p className="font-bold text-white mb-1">3. The 3 Types of Brushes</p>
+              <ul className="list-disc pl-4 space-y-1 text-neutral-400">
+                <li>
+                  <strong className="text-neutral-200">Visual & Shaders (18):</strong> Metallic chrome, polished gold leaf,
+                  glowing neon cables with bloom, and live animated shaders (fire, lightning, plasma, aurora).
+                </li>
+                <li>
+                  <strong className="text-neutral-200">Clay Sculpting (8):</strong> Digital clay tools: Add Volume (build),
+                  Inflate (swelling mass), Pinch (sharp ridge), Crease (carved shadow incision), Flatten (planar bevel),
+                  and Smooth (polishing blend).
+                </li>
+                <li>
+                  <strong className="text-neutral-200">Procedural Patterns (6):</strong> Solid, Stipple spray, Terrazzo
+                  stone mosaic, Dot matrix, Line hatch, and Cross-hatch decals.
+                </li>
+              </ul>
+            </div>
+
+            <div className="pt-2 border-t border-neutral-700/50">
+              <p className="font-bold text-emerald-400 mb-1">How to Screen Record the Auto-Draw Bot:</p>
+              <p className="text-neutral-400">
+                1. Click <strong>'Start Auto-Draw'</strong> in the top-left dock.
+                <br />
+                2. A 3-second countdown will start — click 'Record' in your screen capture app.
+                <br />
+                3. The bot will automatically select each brush, pick colors, and draw the strokes live on the canvas and 3D model!
+              </p>
+            </div>
+          </div>
+        </aside>
+      )}
+
+      {/* ── FOOTER BAR ── */}
+      <footer
+        className={`absolute bottom-2 left-3 right-3 z-30 px-3 py-1.5 rounded flex items-center justify-between text-[11px] font-mono border pointer-events-none ${
+          isDark
+            ? 'bg-neutral-900/90 border-white/10 text-neutral-400'
+            : 'bg-white/90 border-neutral-300 text-neutral-600'
+        }`}
+      >
+        <div>
+          Left-drag: <b>Orbit 3D Camera</b> &middot; Right-drag / 2-finger: <b>Pan Camera</b> &middot; Wheel / Pinch: <b>Zoom In/Out</b>
+        </div>
+        <div>
+          Exhibits: <b>18 Visual Styles &middot; 8 Clay Brushes &middot; 6 Patterns &middot; 3D Model</b>
+        </div>
+      </footer>
+    </div>
+  );
+};

@@ -2,11 +2,13 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import * as THREE from 'three';
 import { StudioEngine } from '../../core/studioEngine';
 import { TransformTargetScope } from '../../types';
+import { useUiMode } from '../../core/uiModeStore';
 import './navigatorStyles.css';
 
 export interface Option3SphereNavigatorProps {
   engine?: StudioEngine | null;
   theme?: 'light' | 'dark';
+  uiMode?: 'play' | 'pro';
   targetScope?: TransformTargetScope;
   onSelectTargetScope?: (scope: TransformTargetScope) => void;
   isLocked?: boolean;
@@ -36,10 +38,16 @@ interface AxisDef {
   tone: string;
 }
 
-const AXES: AxisDef[] = [
+const PLAY_AXES: AxisDef[] = [
   { dir: [0, 1, 0], lbl: 'Up', back: 'Down', tone: '#e0822a' },
   { dir: [1, 0, 0], lbl: 'Side', back: 'Side', tone: '#2f80c4' },
   { dir: [0, 0, 1], lbl: 'Front', back: 'Back', tone: '#3f9a62' }
+];
+
+const PRO_AXES: AxisDef[] = [
+  { dir: [0, 1, 0], lbl: 'Y', back: '−Y', tone: '#5d9e35' },
+  { dir: [1, 0, 0], lbl: 'X', back: '−X', tone: '#c84356' },
+  { dir: [0, 0, 1], lbl: 'Z', back: '−Z', tone: '#3775cc' }
 ];
 
 const ROT_STEPS = [
@@ -63,6 +71,7 @@ const STORE = 'nv.layout.v1';
 export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
   engine,
   theme = 'dark',
+  uiMode,
   layers = [],
   activeLayerId,
   onSelectLayer,
@@ -70,6 +79,10 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
   activeModelId,
   onSelectModel,
 }) => {
+  const storeUiMode = useUiMode();
+  const effectiveUiMode: 'play' | 'pro' = uiMode || storeUiMode || 'play';
+  const isPro = effectiveUiMode === 'pro';
+
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const [isListOpen, setIsListOpen] = useState<boolean>(false);
   const [targetsList, setTargetsList] = useState<TargetItem[]>([]);
@@ -86,6 +99,9 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
   const tabRef = useRef<HTMLButtonElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const labelRef = useRef<HTMLDivElement | null>(null);
+  const numRef = useRef<HTMLDivElement | null>(null);
+
+  const axesRef = useRef<AxisDef[]>((isPro ? PRO_AXES : PLAY_AXES).map(a => ({ ...a })));
 
   // Mutable math state (exact mirror of Build 9 reference script)
   const gzRef = useRef({
@@ -155,25 +171,45 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     const cs = getComputedStyle(nvEl);
     const v = (n: string) => cs.getPropertyValue(n).trim();
     const dark = isDark();
-    themeRef.current = {
-      up: v('--nv-up') || (dark ? '#f0a154' : '#e0822a'),
-      side: v('--nv-side') || (dark ? '#63a9e4' : '#2f80c4'),
-      front: v('--nv-front') || (dark ? '#5cba84' : '#3f9a62'),
-      ghost: v('--nv-ghost') || (dark ? 'rgba(242,237,230,.32)' : 'rgba(51,46,40,.26)'),
-      hub: v('--nv-hub') || (dark ? 'rgba(46,44,41,.96)' : 'rgba(255,255,255,.96)'),
-      ink: v('--nv-ink') || (dark ? '#f2ede6' : '#332e28'),
-      shadow: dark ? 'rgba(0,0,0,0.55)' : 'rgba(51,46,40,0.28)',
-      onColor: v('--nv-btn-on') || (dark ? 'rgba(255,255,255,.16)' : '#ffffff'),
-      line: v('--nv-line') || (dark ? 'rgba(255,255,255,.14)' : 'rgba(51,46,40,.13)')
-    };
-    AXES[0].tone = themeRef.current.up;
-    AXES[1].tone = themeRef.current.side;
-    AXES[2].tone = themeRef.current.front;
+
+    if (isPro) {
+      themeRef.current = {
+        up: v('--nv-y') || (dark ? '#84c94f' : '#5d9e35'),
+        side: v('--nv-x') || (dark ? '#e8697c' : '#c84356'),
+        front: v('--nv-z') || (dark ? '#5e9ff0' : '#3775cc'),
+        accent: v('--nv-accent') || (dark ? '#5e9ff0' : '#3775cc'),
+        ghost: v('--nv-ghost') || (dark ? 'rgba(242,237,230,.32)' : 'rgba(51,46,40,.26)'),
+        hub: v('--nv-hub') || (dark ? 'rgba(46,44,41,.96)' : 'rgba(255,255,255,.96)'),
+        ink: v('--nv-ink') || (dark ? '#f2ede6' : '#332e28'),
+        shadow: dark ? 'rgba(0,0,0,0.55)' : 'rgba(51,46,40,0.28)',
+        onColor: v('--nv-btn-on') || (dark ? 'rgba(255,255,255,.16)' : '#ffffff'),
+        line: v('--nv-line') || (dark ? 'rgba(255,255,255,.14)' : 'rgba(51,46,40,.13)')
+      };
+    } else {
+      themeRef.current = {
+        up: v('--nv-up') || (dark ? '#f0a154' : '#e0822a'),
+        side: v('--nv-side') || (dark ? '#63a9e4' : '#2f80c4'),
+        front: v('--nv-front') || (dark ? '#5cba84' : '#3f9a62'),
+        accent: v('--nv-up') || (dark ? '#f0a154' : '#e0822a'),
+        ghost: v('--nv-ghost') || (dark ? 'rgba(242,237,230,.32)' : 'rgba(51,46,40,.26)'),
+        hub: v('--nv-hub') || (dark ? 'rgba(46,44,41,.96)' : 'rgba(255,255,255,.96)'),
+        ink: v('--nv-ink') || (dark ? '#f2ede6' : '#332e28'),
+        shadow: dark ? 'rgba(0,0,0,0.55)' : 'rgba(51,46,40,0.28)',
+        onColor: v('--nv-btn-on') || (dark ? 'rgba(255,255,255,.16)' : '#ffffff'),
+        line: v('--nv-line') || (dark ? 'rgba(255,255,255,.14)' : 'rgba(51,46,40,.13)')
+      };
+    }
+
+    if (axesRef.current && axesRef.current.length >= 3) {
+      axesRef.current[0].tone = themeRef.current.up;
+      axesRef.current[1].tone = themeRef.current.side;
+      axesRef.current[2].tone = themeRef.current.front;
+    }
 
     if (outlineRef.current) {
       (outlineRef.current.material as THREE.LineBasicMaterial).color.set(dark ? 0xf2ede6 : 0x332e28);
     }
-  }, [isDark]);
+  }, [isDark, isPro]);
 
   // Safe area metrics
   const cssPx = (n: string) => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(n)) || 0;
@@ -410,7 +446,8 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
 
   const handles = useCallback((m: ReturnType<typeof metrics>) => {
     const out: any[] = [];
-    AXES.forEach((a, i) => {
+    const axes = axesRef.current || PLAY_AXES;
+    axes.forEach((a, i) => {
       const d = axisDir(a);
       out.push({ a, i, sign: 1, dir: d, p: project(d, m) });
       const n = d.clone().negate();
@@ -585,6 +622,12 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
 
   const applyObject = useCallback(() => {
     if (reduceMotionRef.current || !(gzRef.current.rotStep || gzRef.current.moveStep)) jumpDisplay();
+    const e = new THREE.Euler().setFromQuaternion(objRef.current.quat, 'YXZ');
+    if (numRef.current) {
+      numRef.current.innerHTML =
+        '<i>pos</i><b>' + objRef.current.pos.x.toFixed(2) + '</b><b>' + objRef.current.pos.y.toFixed(2) + '</b><b>' + objRef.current.pos.z.toFixed(2) + '</b>' +
+        '<i>rot</i><b>' + Math.round(e.x / DEG) + '°</b><b>' + Math.round(e.y / DEG) + '°</b><b>' + Math.round(e.z / DEG) + '°</b>';
+    }
     drawGizmo();
   }, [jumpDisplay, drawGizmo]);
 
@@ -611,8 +654,12 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
       el.innerHTML = '';
       return;
     }
-    el.innerHTML = (gzRef.current.mode === 'move' ? 'moving' : 'turning') + ' <b>' + what + '</b>';
-  }, []);
+    if (isPro) {
+      el.innerHTML = '<b>' + what + '</b> · ' + (gzRef.current.mode === 'move' ? 'move' : 'rotate');
+    } else {
+      el.innerHTML = (gzRef.current.mode === 'move' ? 'moving' : 'turning') + ' <b>' + what + '</b>';
+    }
+  }, [isPro]);
 
   const say = useCallback((text: string, live?: boolean) => {
     if (gzRef.current.mode === 'look' && !tourRef.current) return;
@@ -683,7 +730,7 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     objRef.current.quat.copy(s.q);
     applyObject();
     setHistoryLen(historyRef.current.length);
-    say('Undone', true);
+    say(isPro ? 'undo' : 'Undone', true);
   };
 
   const flyTo = (phi: number, theta: number, ms?: number) => {
@@ -714,7 +761,7 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
   const faceDirection = (dir: THREE.Vector3, label?: string) => {
     const d = dir.clone().normalize();
     flyTo(Math.acos(Math.max(-1, Math.min(1, d.y))), Math.atan2(d.x, d.z));
-    if (label) say('Looking from the ' + label.toLowerCase() + ' side', true);
+    if (label) say(isPro ? ('view · ' + label) : ('Looking from the ' + label.toLowerCase() + ' side'), true);
     if (navigator.vibrate) { try { navigator.vibrate(8); } catch (_) {} }
   };
 
@@ -759,7 +806,7 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     stopTour();
     camRef.current.target.copy(objRef.current.pos);
     faceDirection(new THREE.Vector3(0, 1, 0).applyQuaternion(objRef.current.quat), '');
-    say('Looking straight at it', true);
+    say(isPro ? 'framed' : 'Looking straight at it', true);
   };
 
   const resetTarget = () => {
@@ -775,14 +822,21 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     syncFromTarget();
     camRef.current.target.copy(objRef.current.pos);
     applyObject(); applyCamera();
-    say((targets[current] ? targets[current].name : 'It') + ' back to the start', true);
+    say(isPro ? 'reset' : ((targets[current] ? targets[current].name : 'It') + ' back to the start'), true);
   };
 
-  const TOUR = [
+  const TOUR_PLAY = [
     { t: 0, dur: 4200, ring: { type: 'axis', i: 0 }, cap: 'Drag the orange arrow to lift it up.' },
     { t: 4200, dur: 4200, ring: { type: 'axis', i: 1 }, cap: 'Tap a dot to look from that side. Tapping never moves it.' },
     { t: 8400, dur: 4600, ring: { type: 'hub' }, cap: 'Tap the middle circle to switch to Turn.' },
     { t: 13000, dur: 2200, ring: null, cap: 'Your turn. Undo fixes anything.' }
+  ];
+
+  const TOUR_PRO = [
+    { t: 0, dur: 3600, ring: { type: 'axis', i: 0 }, cap: 'Drag an axis to constrain the transform to it.' },
+    { t: 3600, dur: 3600, ring: { type: 'axis', i: 1 }, cap: 'Tap an axis to snap the view down it — tapping never transforms.' },
+    { t: 7200, dur: 4000, ring: { type: 'hub' }, cap: 'Tap the hub to cycle Orbit · Move · Rotate.' },
+    { t: 11200, dur: 1800, ring: null, cap: 'Hold Shift, or set snap to Free, for unconstrained drags.' }
   ];
 
   const stopTour = () => {
@@ -822,15 +876,16 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
   const stepTour = (now: number) => {
     const tour = tourRef.current;
     if (!tour) return;
+    const activeTour = isPro ? TOUR_PRO : TOUR_PLAY;
     const el = Math.max(0, now - tour.start);
     let idx = 0;
-    for (let i = 0; i < TOUR.length; i++) if (el >= TOUR[i].t) idx = i;
-    const last = TOUR[TOUR.length - 1];
+    for (let i = 0; i < activeTour.length; i++) if (el >= activeTour[i].t) idx = i;
+    const last = activeTour[activeTour.length - 1];
     if (el > last.t + last.dur) { stopTour(); return; }
 
     if (idx !== tour.step) {
       tour.step = idx;
-      const s = TOUR[idx];
+      const s = activeTour[idx];
       gzRef.current.ring = s.ring;
       const label = labelRef.current;
       if (label) {
@@ -844,7 +899,7 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
       if (idx === 2) setMode('rotate');
       if (idx === 3) { setMode('move'); flyTo(tour.save.phi, tour.save.theta, 600); }
     }
-    const s = TOUR[idx];
+    const s = activeTour[idx];
     const wave = Math.sin(Math.min(1, (el - s.t) / s.dur * 1.25) * Math.PI);
     if (idx === 0) {
       objRef.current.pos.copy(tour.save.pos);
@@ -870,12 +925,15 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     markSelection();
     applyObject();
     setMenu(false);
-    if (!quiet) say('now moving <b>' + targets[i].name + '</b>', true);
+    if (!quiet) {
+      if (isPro) say('target · <b>' + targets[i].name + '</b>', true);
+      else say('now moving <b>' + targets[i].name + '</b>', true);
+    }
     if (targets[i].id) {
       onSelectLayer?.(targets[i].id);
       onSelectModel?.(targets[i].id);
     }
-  }, [syncFromTarget, jumpDisplay, markSelection, applyObject, say, onSelectLayer, onSelectModel, setMenu]);
+  }, [syncFromTarget, jumpDisplay, markSelection, applyObject, say, onSelectLayer, onSelectModel, setMenu, isPro]);
 
   const setTargets = useCallback((list: TargetItem[]) => {
     const formatted = list.map(t => {
@@ -899,28 +957,59 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
       c => c !== drawingPlane && (c as any).name !== 'DrawingPlaneCanvas' && !(c as any).isLine && !(c as any).isPoints
     );
 
-    if (sceneRoot) list.push({ id: 'scene', name: 'Everything', note: 'model + canvas', object: sceneRoot });
-    if (loadedModel) list.push({ id: 'model', name: 'Model', note: 'the 3D shape', object: loadedModel });
-    if (drawingPlane) list.push({ id: 'canvas', name: 'Canvas', note: 'what you draw on', object: drawingPlane });
+    if (sceneRoot) {
+      list.push({
+        id: 'scene',
+        name: isPro ? 'Scene root' : 'Everything',
+        note: isPro ? 'all objects' : 'model + canvas',
+        object: sceneRoot
+      });
+    }
+    if (loadedModel) {
+      list.push({
+        id: 'model',
+        name: 'Model',
+        note: isPro ? 'mesh' : 'the 3D shape',
+        object: loadedModel
+      });
+    }
+    if (drawingPlane) {
+      list.push({
+        id: 'canvas',
+        name: 'Canvas',
+        note: isPro ? 'paint surface' : 'what you draw on',
+        object: drawingPlane
+      });
+    }
 
     if (layers && layers.length > 0) {
       layers.forEach(l => {
         const layerObj = (drawingPlane?.getObjectByName?.(l.id) || (drawingPlane?.children?.find((c: any) => c.userData?.layerId === l.id))) as THREE.Object3D;
         if (layerObj) {
-          list.push({ id: l.id, name: l.name || 'Layer', note: l.type || 'layer', object: layerObj });
+          list.push({
+            id: l.id,
+            name: l.name || 'Layer',
+            note: isPro ? 'child of canvas' : (l.type || 'layer'),
+            object: layerObj
+          });
         }
       });
     }
 
     if (list.length === 0) {
       const dummy = new THREE.Group();
-      list.push({ id: 'canvas', name: 'Canvas', note: 'what you draw on', object: dummy });
+      list.push({
+        id: 'canvas',
+        name: 'Canvas',
+        note: isPro ? 'paint surface' : 'what you draw on',
+        object: dummy
+      });
     }
 
     setTargets(list);
     const canvasIdx = list.findIndex(t => t.id === 'canvas');
     selectTarget(canvasIdx >= 0 ? canvasIdx : 0, true);
-  }, [engine, layers, setTargets, selectTarget]);
+  }, [engine, layers, setTargets, selectTarget, isPro]);
 
   useEffect(() => {
     if (activeLayerId) {
@@ -1026,7 +1115,7 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
         camRef.current.theta = drag.theta - dx * 0.0062;
         camRef.current.phi = Math.max(0.06, Math.min(Math.PI - 0.06, drag.phi - dy * 0.0062));
         applyCamera();
-        say('Walking around it', true);
+        say(isPro ? 'orbit' : 'Walking around it', true);
         return;
       }
       if (!drag.committed) { pushHistory(); drag.committed = true; }
@@ -1042,7 +1131,7 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
           }
           clampPos(); applyObject();
           tick(objRef.current.pos.x + ':' + objRef.current.pos.y + ':' + objRef.current.pos.z);
-          say('Sliding it around', true);
+          say(isPro ? 'screen move' : 'Sliding it around', true);
         } else {
           const b = camBasis();
           let ay = -dx * 0.5, ax = -dy * 0.5;
@@ -1052,12 +1141,12 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
           objRef.current.quat.copy(drag.quat).premultiply(q);
           applyObject();
           tick(ay + ':' + ax);
-          say('Tumbling it', true);
+          say(isPro ? 'trackball' : 'Tumbling it', true);
         }
         return;
       }
 
-      const h = drag.hit, a = AXES[h.i], worldDir = h.dir, p = project(worldDir, m);
+      const h = drag.hit, a = (axesRef.current || PLAY_AXES)[h.i], worldDir = h.dir, p = project(worldDir, m);
       if (gzRef.current.mode === 'move') {
         const len = Math.max(0.001, p.len);
         const nx = (p.x - m.c) / p.rad, ny = (p.y - m.c) / p.rad;
@@ -1066,7 +1155,11 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
         objRef.current.pos.copy(drag.pos).addScaledVector(worldDir, amount);
         clampPos(); applyObject();
         tick(amount);
-        say((h.sign > 0 ? a.lbl : a.back) + '  ' + Math.abs(amount).toFixed(gzRef.current.moveStep && gzRef.current.moveStep >= 0.5 ? 1 : 2), true);
+        if (isPro) {
+          say(a.lbl + '  ' + (amount >= 0 ? '+' : '−') + Math.abs(amount).toFixed(2), true);
+        } else {
+          say((h.sign > 0 ? a.lbl : a.back) + '  ' + Math.abs(amount).toFixed(gzRef.current.moveStep && gzRef.current.moveStep >= 0.5 ? 1 : 2), true);
+        }
       } else {
         const pt = gzPoint(e);
         let d = Math.atan2(pt.y - m.c, pt.x - m.c) - drag.startAngle;
@@ -1077,7 +1170,11 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
         objRef.current.quat.copy(drag.quat).premultiply(new THREE.Quaternion().setFromAxisAngle(worldDir, deg * DEG));
         applyObject();
         tick(deg);
-        say('Turned ' + Math.round(Math.abs(deg)) + '°', true);
+        if (isPro) {
+          say(a.lbl + '  ' + (deg >= 0 ? '+' : '−') + Math.abs(Math.round(deg)) + '°', true);
+        } else {
+          say('Turned ' + Math.round(Math.abs(deg)) + '°', true);
+        }
       }
     };
 
@@ -1232,6 +1329,16 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
     drawGizmo();
   }, [theme, readTheme, drawGizmo]);
 
+  // UI Mode (Play vs Pro) switch
+  useEffect(() => {
+    axesRef.current = (isPro ? PRO_AXES : PLAY_AXES).map(a => ({ ...a }));
+    readTheme();
+    applyObject();
+    applyCamera();
+    idleHint();
+    drawGizmo();
+  }, [isPro, readTheme, applyObject, applyCamera, idleHint, drawGizmo]);
+
   const currentTarget = targetsList[currentIdx];
 
   return (
@@ -1241,6 +1348,7 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
       data-menu={isMenuOpen ? 'open' : 'closed'}
       data-corner="br"
       data-mode={mode}
+      data-ui-mode={effectiveUiMode}
     >
       <div className="nv-dock" id="nv-dock" ref={dockRef}>
         <canvas className="nv-canvas" id="nv-canvas" ref={canvasRef}></canvas>
@@ -1257,7 +1365,14 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
       </div>
 
       <div className="nv-menu" id="nv-menu" ref={menuRef}>
-        <div className="nv-sec">Mode</div>
+        {isPro && (
+          <>
+            <div className="nv-sec">Transform</div>
+            <div className="nv-num" id="nv-num" ref={numRef}></div>
+          </>
+        )}
+
+        <div className="nv-sec">{isPro ? 'Tool' : 'Mode'}</div>
         <div className="nv-modes">
           <button
             className="nv-mode"
@@ -1265,7 +1380,7 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
             aria-pressed={mode === 'look'}
             onClick={() => { stopTour(); setMode('look'); }}
           >
-            Look
+            {isPro ? 'Orbit' : 'Look'}
           </button>
           <button
             className="nv-mode"
@@ -1281,11 +1396,11 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
             aria-pressed={mode === 'rotate'}
             onClick={() => { stopTour(); setMode('rotate'); }}
           >
-            Turn
+            {isPro ? 'Rotate' : 'Turn'}
           </button>
         </div>
 
-        <div className="nv-sec">Turning steps</div>
+        <div className="nv-sec">{isPro ? 'Rotate snap' : 'Turning steps'}</div>
         <div className="nv-chips" id="nv-rot-steps">
           {ROT_STEPS.map(o => (
             <button
@@ -1296,7 +1411,7 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
                 gzRef.current.rotStep = o.v;
                 setRotStep(o.v);
                 saveLayout();
-                say(o.lbl === 'Free' ? 'free movement' : 'steps of ' + o.lbl, true);
+                say(isPro ? (o.lbl === 'Free' ? 'snap off' : 'snap ' + o.lbl) : (o.lbl === 'Free' ? 'free movement' : 'steps of ' + o.lbl), true);
               }}
             >
               {o.lbl}
@@ -1304,7 +1419,7 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
           ))}
         </div>
 
-        <div className="nv-sec">Sliding steps</div>
+        <div className="nv-sec">{isPro ? 'Move snap' : 'Sliding steps'}</div>
         <div className="nv-chips" id="nv-move-steps">
           {MOVE_STEPS.map(o => (
             <button
@@ -1315,7 +1430,7 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
                 gzRef.current.moveStep = o.v;
                 setMoveStep(o.v);
                 saveLayout();
-                say(o.lbl === 'Free' ? 'free movement' : 'steps of ' + o.lbl, true);
+                say(isPro ? (o.lbl === 'Free' ? 'snap off' : 'snap ' + o.lbl) : (o.lbl === 'Free' ? 'free movement' : 'steps of ' + o.lbl), true);
               }}
             >
               {o.lbl}
@@ -1323,14 +1438,26 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
           ))}
         </div>
 
-        <div className="nv-sec">Set it</div>
+        <div className="nv-sec">{isPro ? 'Align' : 'Set it'}</div>
         <div className="nv-acts">
-          <button className="nv-act" id="nv-flat" onClick={() => setOrient(0, 0, 'Flat like a table')}>Lay flat</button>
-          <button className="nv-act" id="nv-wall" onClick={() => setOrient(90, 0, 'Up like a wall')}>Stand up</button>
-          <button className="nv-act" id="nv-lean" onClick={() => setOrient(45, 0, 'Leaning like a ramp')}>Lean</button>
-          <button className="nv-act" id="nv-face" onClick={lookAtIt}>Look at it</button>
-          <button className="nv-act" id="nv-undo" disabled={historyLen === 0} onClick={() => { stopTour(); undo(); }}>Undo</button>
-          <button className="nv-act" id="nv-reset" onClick={resetTarget}>Start over</button>
+          <button className="nv-act" id="nv-flat" onClick={() => setOrient(0, 0, isPro ? 'aligned flat' : 'Flat like a table')}>
+            {isPro ? 'Flat' : 'Lay flat'}
+          </button>
+          <button className="nv-act" id="nv-wall" onClick={() => setOrient(90, 0, isPro ? 'upright' : 'Stand up')}>
+            {isPro ? 'Upright' : 'Stand up'}
+          </button>
+          <button className="nv-act" id="nv-lean" onClick={() => setOrient(45, 0, isPro ? '45°' : 'Leaning like a ramp')}>
+            {isPro ? '45°' : 'Lean'}
+          </button>
+          <button className="nv-act" id="nv-face" onClick={lookAtIt}>
+            {isPro ? 'Frame' : 'Look at it'}
+          </button>
+          <button className="nv-act" id="nv-undo" disabled={historyLen === 0} onClick={() => { stopTour(); undo(); }}>
+            Undo
+          </button>
+          <button className="nv-act" id="nv-reset" onClick={resetTarget}>
+            {isPro ? 'Reset' : 'Start over'}
+          </button>
         </div>
 
         <button
@@ -1338,10 +1465,10 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
           id="nv-tour"
           onClick={() => { isTourRunning ? stopTour() : startTour(); }}
         >
-          {isTourRunning ? 'Stop the demo' : 'Show me how'}
+          {isTourRunning ? (isPro ? 'Stop walkthrough' : 'Stop the demo') : (isPro ? 'Walkthrough' : 'Show me how')}
         </button>
 
-        <div className="nv-sec">Moving</div>
+        <div className="nv-sec">{isPro ? 'Target' : 'Moving'}</div>
         <button
           className="nv-pick"
           id="nv-pick"
@@ -1372,7 +1499,9 @@ export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
           ))}
         </div>
 
-        <div className="nv-sec" style={{ textAlign: 'center', margin: '8px 0 0' }}>build 9</div>
+        <div className="nv-sec" style={{ textAlign: 'center', margin: '8px 0 0' }}>
+          {isPro ? 'navigator · pro' : 'build 9'}
+        </div>
       </div>
     </div>
   );
