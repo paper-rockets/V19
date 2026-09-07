@@ -1,0 +1,1995 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>Unified Navigator Sandbox — Options 1, 2, 3 & Gizmo Lab</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    :root {
+      --bg: #0d0f14;
+      --card-bg: #14171d;
+      --panel-bg: #1b1f27;
+      --panel-elev: #242934;
+      --panel-hover: #2e3543;
+      --ink: #f1f5f9;
+      --ink-bright: #ffffff;
+      --mut: #8b95a5;
+      --accent: #38bdf8;
+      --accent-ink: #0f172a;
+      --bdr: rgba(255, 255, 255, 0.08);
+      --shadow-card: 0 16px 40px rgba(0, 0, 0, 0.6);
+      --shadow-knob: 0 2px 8px rgba(0, 0, 0, 0.4);
+      --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    body.theme-light {
+      --bg: #f3f4f6;
+      --card-bg: #ffffff;
+      --panel-bg: #f0f2f5;
+      --panel-elev: #e4e7eb;
+      --panel-hover: #d8dce2;
+      --ink: #111827;
+      --ink-bright: #000000;
+      --mut: #6b7280;
+      --accent: #0284c7;
+      --accent-ink: #ffffff;
+      --bdr: rgba(0, 0, 0, 0.08);
+      --shadow-card: 0 16px 36px rgba(15, 23, 42, 0.1);
+      --shadow-knob: 0 2px 6px rgba(15, 23, 42, 0.15);
+    }
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font: 13px/1.4 var(--font-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    header {
+      padding: 10px 16px;
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--bdr);
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+    h1 {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      color: var(--ink-bright);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .status-badge {
+      background: var(--panel-elev);
+      color: var(--accent);
+      border: 1px solid var(--bdr);
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .toolbar {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-left: auto;
+    }
+    button, select {
+      font: inherit;
+      font-size: 12px;
+      border: 1px solid var(--bdr);
+      border-radius: 6px;
+      background: var(--panel-bg);
+      color: var(--ink);
+      padding: 6px 11px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      transition: all 0.15s ease;
+    }
+    button:hover, select:hover {
+      background: var(--panel-hover);
+      color: var(--ink-bright);
+    }
+    button.on {
+      background: var(--accent);
+      color: var(--accent-ink);
+      border-color: var(--accent);
+      font-weight: 600;
+    }
+    button:disabled {
+      opacity: 0.35;
+      cursor: default;
+      pointer-events: none;
+    }
+    .btn-download {
+      background: #0284c7;
+      color: #fff;
+      border-color: #0369a1;
+      font-weight: 600;
+    }
+    .btn-download:hover { background: #0369a1; }
+    .view-filter-bar {
+      display: flex;
+      gap: 3px;
+      background: var(--panel-bg);
+      padding: 3px;
+      border-radius: 7px;
+      border: 1px solid var(--bdr);
+    }
+    .view-filter-bar button {
+      padding: 4px 9px;
+      font-size: 11px;
+      border: none;
+      background: transparent;
+      color: var(--mut);
+      border-radius: 5px;
+    }
+    .view-filter-bar button.active {
+      background: var(--panel-elev);
+      color: var(--ink-bright);
+      font-weight: 600;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 360px minmax(0, 1fr);
+      gap: 16px;
+      padding: 16px;
+      flex: 1;
+    }
+    .preview-col {
+      position: sticky;
+      top: 60px;
+      align-self: start;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .preview-card {
+      border-radius: 14px;
+      overflow: hidden;
+      background: var(--card-bg);
+      border: 1px solid var(--bdr);
+      box-shadow: var(--shadow-card);
+    }
+    canvas#scene {
+      display: block;
+      width: 100%;
+      height: 320px;
+      background: #0a0c10;
+      touch-action: none;
+    }
+    body.theme-light canvas#scene { background: #e8eaee; }
+    .controls-row {
+      padding: 8px 10px;
+      border-top: 1px solid var(--bdr);
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+      align-items: center;
+      background: var(--card-bg);
+    }
+    .controls-row label {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11.5px;
+      color: var(--mut);
+    }
+    .controls-row input[type="range"] {
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .hint-bar {
+      padding: 7px 10px;
+      font-size: 11px;
+      color: var(--accent);
+      background: var(--panel-bg);
+      border-top: 1px solid var(--bdr);
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+    }
+    .info-bar {
+      padding: 7px 10px;
+      background: var(--bg);
+      font-size: 10.5px;
+      color: var(--mut);
+      border-top: 1px solid var(--bdr);
+      font-family: ui-monospace, monospace;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .content-col {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .section-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      font-weight: 700;
+      color: var(--mut);
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--bdr);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* ── OPTION CARDS (ORIGINAL AUTHENTIC CSS) ── */
+    .cards-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      align-items: flex-start;
+    }
+    .controller-card {
+      background: var(--card-bg);
+      border: 1px solid var(--bdr);
+      border-radius: 14px;
+      box-shadow: var(--shadow-card);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: border-color 0.18s ease;
+    }
+    .card-ref-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 10px 4px 10px;
+      background: var(--panel-bg);
+      border-bottom: 1px solid var(--bdr);
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .card-badge {
+      font-size: 9.5px;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+    .badge-dark { background: #252a34; color: var(--accent); }
+    .badge-light { background: #e2e8f0; color: #0284c7; }
+
+    /* Segmented Pill (Option 1) */
+    .fc-hdr {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 8px 4px 8px;
+      gap: 6px;
+    }
+    .seg-pill-wrap {
+      width: 146px;
+      height: 26px;
+      border-radius: 13px;
+      background: var(--panel-bg);
+      position: relative;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      padding: 2px;
+    }
+    .seg-slider {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 70px;
+      height: 22px;
+      border-radius: 11px;
+      background: var(--accent);
+      box-shadow: var(--shadow-knob);
+      transform: translateX(0px);
+      transition: transform 0.2s ease;
+      z-index: 1;
+    }
+    .seg-pill-wrap.surface-active .seg-slider {
+      transform: translateX(72px);
+    }
+    .seg-label {
+      flex: 1;
+      text-align: center;
+      font-size: 9.5px;
+      font-weight: 600;
+      position: relative;
+      z-index: 2;
+      pointer-events: none;
+    }
+    .seg-label.lbl-cam { color: var(--accent-ink); font-weight: 700; }
+    .seg-label.lbl-surf { color: var(--mut); }
+    .seg-pill-wrap.surface-active .seg-label.lbl-cam { color: var(--mut); font-weight: 600; }
+    .seg-pill-wrap.surface-active .seg-label.lbl-surf { color: var(--accent-ink); font-weight: 700; }
+
+    .fc-hdr-btns { display: flex; align-items: center; gap: 4px; }
+    .fc-hdr-btn {
+      height: 23px;
+      padding: 0 8px;
+      border-radius: 11px;
+      border: none;
+      background: var(--panel-bg);
+      color: var(--mut);
+      font-size: 9px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .fc-hdr-btn:hover { background: var(--panel-hover); color: var(--ink); }
+
+    .fc-panels {
+      display: flex;
+      flex-direction: column;
+      padding: 4px 8px 8px 8px;
+      width: 100%;
+      gap: 6px;
+    }
+    .pb-panel { display: none; flex-direction: column; gap: 6px; width: 100%; }
+    .pb-panel.active { display: flex; }
+
+    /* Option 1 Gimbal Container */
+    .gimbal-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 140px;
+      position: relative;
+      background: var(--panel-bg);
+      border-radius: 12px;
+      padding: 4px;
+    }
+    .gimbal-canvas-1 {
+      width: 132px;
+      height: 132px;
+      border-radius: 50%;
+      cursor: grab;
+      display: block;
+    }
+    .gimbal-canvas-1:active { cursor: grabbing; }
+
+    .zoom-col {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .zoom-btn {
+      width: 24px;
+      height: 24px;
+      border-radius: 12px;
+      background: var(--panel-elev);
+      border: 1px solid var(--bdr);
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: var(--shadow-knob);
+    }
+    .zoom-btn:hover { background: var(--panel-hover); }
+
+    /* Option 1 & 2 Surface Deck Controls */
+    .deck-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .move-pad {
+      width: 104px;
+      height: 104px;
+      border-radius: 12px;
+      background: var(--panel-bg);
+      position: relative;
+      cursor: grab;
+      touch-action: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: inset 0 2px 5px rgba(0,0,0,0.3);
+    }
+    .move-pad::before {
+      content: "";
+      position: absolute;
+      width: 100%;
+      height: 1px;
+      background: var(--bdr);
+    }
+    .move-pad::after {
+      content: "";
+      position: absolute;
+      height: 100%;
+      width: 1px;
+      background: var(--bdr);
+    }
+    .move-knob {
+      width: 36px;
+      height: 36px;
+      border-radius: 18px;
+      background: var(--panel-elev);
+      border: 1.5px solid var(--accent);
+      color: var(--ink-bright);
+      font-size: 9px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: absolute;
+      box-shadow: var(--shadow-knob);
+      pointer-events: none;
+    }
+    .move-sublabel {
+      position: absolute;
+      bottom: 4px;
+      font-size: 8px;
+      color: var(--mut);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      pointer-events: none;
+    }
+    .sliders-col {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .slider-rail {
+      width: 36px;
+      height: 104px;
+      border-radius: 18px;
+      background: var(--panel-bg);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 0;
+      cursor: grab;
+      touch-action: none;
+    }
+    .rail-tag {
+      font-size: 8px;
+      font-weight: 600;
+      color: var(--mut);
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+    .rail-knob {
+      width: 30px;
+      height: 30px;
+      border-radius: 15px;
+      background: var(--panel-elev);
+      border: 1.5px solid var(--accent);
+      color: var(--ink-bright);
+      font-size: 8.5px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: absolute;
+      top: 37px;
+      box-shadow: var(--shadow-knob);
+      pointer-events: none;
+    }
+    .spin-strip {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--panel-bg);
+      border-radius: 8px;
+      padding: 3px 5px;
+      height: 28px;
+    }
+    .spin-step-btn {
+      height: 22px;
+      padding: 0 6px;
+      border-radius: 6px;
+      border: none;
+      background: var(--panel-elev);
+      color: var(--ink);
+      font-size: 9.5px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .spin-label-track {
+      flex: 1;
+      text-align: center;
+      font-size: 9px;
+      color: var(--mut);
+      font-weight: 600;
+      cursor: ew-resize;
+      touch-action: none;
+      line-height: 22px;
+    }
+    .presets-row {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .preset-btn {
+      flex: 1;
+      min-width: 44px;
+      height: 24px;
+      border-radius: 6px;
+      border: 1px solid var(--bdr);
+      background: var(--panel-bg);
+      color: var(--ink);
+      font-size: 9px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .preset-btn:hover { background: var(--panel-hover); }
+
+    /* ── OPTION 2: SPLIT NAVCUBE & SURFACE CONTROLS ── */
+    .c2-body-split {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      background: var(--panel-bg);
+      padding: 8px;
+      border-radius: 12px;
+    }
+    .c2-gimbal-side {
+      position: relative;
+      width: 156px;
+      height: 156px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .gimbal-canvas-2 {
+      width: 156px;
+      height: 156px;
+      border-radius: 50%;
+      cursor: grab;
+      display: block;
+    }
+    .c2-surface-side {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+    }
+    .c2-move-pad {
+      width: 90px;
+      height: 90px;
+      border-radius: 10px;
+      background: var(--card-bg);
+      position: relative;
+      cursor: grab;
+      touch-action: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--bdr);
+    }
+    .c2-move-knob {
+      width: 32px;
+      height: 32px;
+      border-radius: 16px;
+      background: var(--panel-elev);
+      border: 1.5px solid var(--accent);
+      color: var(--ink-bright);
+      font-size: 8px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: absolute;
+      pointer-events: none;
+    }
+    .c2-move-sub {
+      position: absolute;
+      bottom: 3px;
+      font-size: 7.5px;
+      color: var(--mut);
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+    .c2-sliders-row {
+      display: flex;
+      gap: 6px;
+    }
+    .c2-slider-rail {
+      width: 32px;
+      height: 90px;
+      border-radius: 16px;
+      background: var(--card-bg);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 3px 0;
+      cursor: grab;
+      touch-action: none;
+      border: 1px solid var(--bdr);
+    }
+    .c2-rail-knob {
+      width: 26px;
+      height: 26px;
+      border-radius: 13px;
+      background: var(--panel-elev);
+      border: 1.5px solid var(--accent);
+      color: var(--ink-bright);
+      font-size: 8px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: absolute;
+      top: 32px;
+      pointer-events: none;
+    }
+    .c2-actions-row {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .c2-footer-toggle {
+      height: 24px;
+      padding: 0 8px;
+      border-radius: 6px;
+      border: 1px solid var(--accent);
+      background: var(--accent);
+      color: var(--accent-ink);
+      font-size: 9px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .c2-footer-reset {
+      height: 24px;
+      padding: 0 8px;
+      border-radius: 6px;
+      border: 1px solid var(--bdr);
+      background: var(--panel-bg);
+      color: var(--mut);
+      font-size: 9px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* ── OPTION 3: SPHERE GIMBAL ── */
+    .c3-gimbal-wrap {
+      width: 100%;
+      height: 156px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--panel-bg);
+      border-radius: 12px;
+      position: relative;
+    }
+    .gimbal-canvas-3 {
+      width: 156px;
+      height: 156px;
+      border-radius: 50%;
+      cursor: grab;
+      display: block;
+    }
+    .c3-hint-bar {
+      font-size: 8.5px;
+      color: var(--mut);
+      text-align: center;
+      padding: 2px 4px;
+      letter-spacing: 0.2px;
+    }
+    .c3-bottom-ctrls {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .c3-mode-pill {
+      height: 24px;
+      padding: 0 10px;
+      border-radius: 12px;
+      border: 1px solid var(--accent);
+      background: var(--accent);
+      color: var(--accent-ink);
+      font-size: 9px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    /* ── TRANSFORM GIZMOS GRID (6 STYLES) ── */
+    .gizmo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      gap: 12px;
+    }
+    .gizmo-tile {
+      border: 1px solid var(--bdr);
+      border-radius: 10px;
+      padding: 10px;
+      background: var(--card-bg);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .gizmo-tile h2 {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ink-bright);
+    }
+    .gizmo-tile svg {
+      width: 100%;
+      height: 190px;
+      display: block;
+      touch-action: none;
+      user-select: none;
+      background: var(--panel-bg);
+      border-radius: 6px;
+      border: 1px solid var(--bdr);
+    }
+    .gizmo-modes {
+      display: flex;
+      gap: 4px;
+    }
+    .gizmo-modes button {
+      flex: 1;
+      padding: 4px 6px;
+      font-size: 11px;
+    }
+    .gizmo-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: var(--mut);
+      padding-top: 3px;
+      border-top: 1px solid var(--bdr);
+    }
+    .gizmo-footer button {
+      padding: 1px 8px;
+      font-size: 13px;
+      font-weight: bold;
+    }
+    .handle { cursor: grab; }
+    .handle:active { cursor: grabbing; }
+
+    [hidden] { display: none !important; }
+
+    @media (max-width: 900px) {
+      .layout { display: flex; flex-direction: column; padding: 10px; }
+      .preview-col { position: static; }
+      canvas#scene { height: 250px; }
+    }
+  </style>
+</head>
+<body class="theme-dark">
+
+  <header>
+    <h1>
+      <span>Navigator Unified Sandbox</span>
+      <span class="status-badge">Options 1, 2, 3 & Gizmo Lab</span>
+    </h1>
+
+    <div class="view-filter-bar">
+      <button class="active" data-view="all">All Tools</button>
+      <button data-view="decks">Options 1, 2, 3 (Decks)</button>
+      <button data-view="gizmos">Gizmo Lab (6 Styles)</button>
+    </div>
+
+    <div class="toolbar">
+      <button id="themeToggle" title="Toggle Light / Dark theme">🌓 Theme</button>
+      <button id="undo" title="Undo last action">↶ Undo</button>
+      <button id="reset" title="Reset object position and rotation">Reset Object</button>
+      <button id="viewReset" title="Reset camera angle">Reset View</button>
+      <select id="shape" aria-label="Test 3D object">
+        <option value="canvas">Sketch Canvas</option>
+        <option value="cube">3D Cube</option>
+      </select>
+      <button class="btn-download" id="downloadHtml">💾 Download HTML</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- STICKY 3D PREVIEW -->
+    <section class="preview-col">
+      <div class="preview-card">
+        <canvas id="scene" aria-label="Live synced 3D preview"></canvas>
+
+        <div class="controls-row">
+          <button data-target="object" class="on">Object</button>
+          <button data-target="camera">Camera</button>
+          <span style="width: 4px;"></span>
+          <button data-mode="move" class="on">Move</button>
+          <button data-mode="rotate">Rotate</button>
+          <button data-mode="size">Size</button>
+          <button data-mode="skew">Skew…</button>
+        </div>
+
+        <div class="controls-row">
+          <span style="font-size: 11.5px; color: var(--mut);">Quick Turn:</span>
+          <button id="turnLeft">↶ −15°</button>
+          <button id="turnRight">↷ +15°</button>
+        </div>
+
+        <div id="rotationPanel" class="controls-row" hidden>
+          <label>Axis:
+            <select id="rotationAxis">
+              <option value="2">Normal · Turn</option>
+              <option value="0">Local X · Tilt</option>
+              <option value="1">Local Y · Tilt</option>
+            </select>
+          </label>
+          <label>Angle:
+            <input id="rotationSlider" type="range" min="-180" max="180" value="0" step="1">
+          </label>
+          <output id="rotationValue" style="font-size: 11px; font-weight: bold; width: 32px;">0°</output>
+        </div>
+
+        <div id="skewPanel" class="controls-row" hidden>
+          <label>Skew:
+            <input id="skew" type="range" min="-0.8" max="0.8" step="0.01" value="0">
+          </label>
+          <button id="clearSkew">Clear</button>
+        </div>
+
+        <div id="hint" class="hint-bar">All 3 Options, all 6 Gizmos, and the 3D Canvas are 100% synchronized in real time.</div>
+        <div id="info" class="info-bar">
+          <span id="stat-pos">Pos: 0.00 / 0.00 / 0.00</span>
+          <span id="stat-rot">Rot: 0°</span>
+          <span id="stat-size">Size: 100%</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONTENT COL: ALL NAVIGATOR CARDS & GIZMOS -->
+    <section class="content-col">
+
+      <!-- SECTION: OPTION 1, OPTION 2, OPTION 3 (TACTICAL DECKS) -->
+      <div id="section-decks">
+        <div class="section-title">
+          <span>Tactile Navigator Suite: Options 1, 2, 3</span>
+          <span style="font-size: 11px; font-weight: normal; color: var(--accent);">Direct Touch Panels & Gimbals</span>
+        </div>
+
+        <div class="cards-row" style="margin-top: 12px;">
+
+          <!-- ── OPTION 1: TABBED DECK ── -->
+          <div class="controller-card" id="card-opt1" style="width: 276px;">
+            <div class="card-ref-header">
+              <span>Option 1: Tabbed Deck</span>
+              <span class="card-badge badge-dark" id="badge-opt1">Synced</span>
+            </div>
+            <div class="fc-hdr">
+              <div class="seg-pill-wrap" id="pill-opt1" title="Toggle Camera / Surface Mode">
+                <div class="seg-slider"></div>
+                <span class="seg-label lbl-cam">Camera</span>
+                <span class="seg-label lbl-surf">Surface</span>
+              </div>
+              <div class="fc-hdr-btns">
+                <button class="fc-hdr-btn" id="btn-opt1-reset">Reset</button>
+              </div>
+            </div>
+            <div class="fc-panels">
+              <!-- Camera Mode Panel -->
+              <div class="pb-panel active" id="panel-opt1-cam">
+                <div class="gimbal-wrap">
+                  <canvas class="gimbal-canvas-1" id="canvas-opt1-cam" width="132" height="132"></canvas>
+                  <div class="zoom-col">
+                    <button class="zoom-btn" id="btn-zoom-in">+</button>
+                    <button class="zoom-btn" id="btn-zoom-out">−</button>
+                  </div>
+                </div>
+              </div>
+              <!-- Surface Mode Panel -->
+              <div class="pb-panel" id="panel-opt1-surf">
+                <div class="deck-row">
+                  <div class="move-pad" id="pad-opt1-move">
+                    <div class="move-knob" id="knob-opt1-move">Move</div>
+                    <div class="move-sublabel">X / Z Move</div>
+                  </div>
+                  <div class="sliders-col">
+                    <div class="slider-rail" id="rail-opt1-tilt" title="Drag vertically for Tilt">
+                      <span class="rail-tag">Up</span>
+                      <div class="rail-knob" id="knob-opt1-tilt">Tilt</div>
+                      <span class="rail-tag">Down</span>
+                    </div>
+                    <div class="slider-rail" id="rail-opt1-elev" title="Drag vertically for Elevation">
+                      <span class="rail-tag">Up</span>
+                      <div class="rail-knob" id="knob-opt1-elev">Elev</div>
+                      <span class="rail-tag">Down</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="spin-strip">
+                  <button class="spin-step-btn" id="btn-opt1-ccw">−45°</button>
+                  <div class="spin-label-track" id="track-opt1-yaw">Swipe to Spin Yaw</div>
+                  <button class="spin-step-btn" id="btn-opt1-cw">+45°</button>
+                </div>
+                <div class="presets-row">
+                  <button class="preset-btn on" data-preset="ground">Ground</button>
+                  <button class="preset-btn" data-preset="wall">Wall</button>
+                  <button class="preset-btn" data-preset="slant">45° Slant</button>
+                  <button class="preset-btn" data-preset="align">Align</button>
+                  <button class="preset-btn" data-preset="reset">Reset</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── OPTION 2: SPLIT GIMBAL + SURFACE CLUSTER ── -->
+          <div class="controller-card" id="card-opt2" style="width: 320px;">
+            <div class="card-ref-header">
+              <span>Option 2: Split Gimbal & Deck</span>
+              <span class="card-badge badge-dark">Side-by-Side</span>
+            </div>
+            <div class="fc-panels">
+              <div class="c2-body-split">
+                <!-- Left: Large 3D Camera Gimbal -->
+                <div class="c2-gimbal-side">
+                  <canvas class="gimbal-canvas-2" id="canvas-opt2-gimbal" width="156" height="156"></canvas>
+                </div>
+                <!-- Right: Surface Controls Cluster -->
+                <div class="c2-surface-side">
+                  <div class="c2-move-pad" id="pad-opt2-move">
+                    <div class="c2-move-knob" id="knob-opt2-move">Move</div>
+                    <div class="c2-move-sub">X / Z</div>
+                  </div>
+                  <div class="c2-sliders-row">
+                    <div class="c2-slider-rail" id="rail-opt2-tilt" title="Drag for Pitch Tilt">
+                      <span class="rail-tag">Up</span>
+                      <div class="c2-rail-knob" id="knob-opt2-tilt">Tilt</div>
+                      <span class="rail-tag">Dn</span>
+                    </div>
+                    <div class="c2-slider-rail" id="rail-opt2-elev" title="Drag for Height Elevation">
+                      <span class="rail-tag">Up</span>
+                      <div class="c2-rail-knob" id="knob-opt2-elev">Elev</div>
+                      <span class="rail-tag">Dn</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="c2-actions-row">
+                <button class="c2-footer-toggle" id="btn-opt2-toggle">Surface: On</button>
+                <button class="c2-footer-reset" id="btn-opt2-reset">Reset</button>
+                <button class="preset-btn" data-preset="align">Align</button>
+                <button class="preset-btn" data-preset="ground">Ground</button>
+                <button class="preset-btn" data-preset="wall">Wall</button>
+                <button class="preset-btn" data-preset="slant">45°</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── OPTION 3: 3D SPHERE GIMBAL ── -->
+          <div class="controller-card" id="card-opt3" style="width: 200px;">
+            <div class="card-ref-header">
+              <span>Option 3: Sphere Gimbal</span>
+              <span class="card-badge badge-dark">Cones & Rim</span>
+            </div>
+            <div class="fc-panels">
+              <div class="c3-gimbal-wrap">
+                <canvas class="gimbal-canvas-3" id="canvas-opt3-gimbal" width="156" height="156"></canvas>
+              </div>
+              <div class="c3-hint-bar">
+                Cones: Elev | Sides: Skew | Center: Move | Rim: Spin
+              </div>
+              <div class="presets-row">
+                <button class="preset-btn" data-preset="align">Align</button>
+                <button class="preset-btn" data-preset="ground">Ground</button>
+                <button class="preset-btn" data-preset="wall">Wall</button>
+                <button class="preset-btn" data-preset="slant">45°</button>
+              </div>
+              <div class="c3-bottom-ctrls">
+                <button class="c3-mode-pill" id="btn-opt3-mode">
+                  <span id="text-opt3-mode">Gizmo: Surface</span>
+                </button>
+                <button class="fc-hdr-btn" id="btn-opt3-reset">Reset</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── OPTION 4: LEXICAL STEPPER ── -->
+          <div class="controller-card" id="card-opt4" style="width: 220px;">
+            <div class="card-ref-header">
+              <span>Option 4: Lexical Stepper</span>
+              <span class="card-badge badge-dark">Precision</span>
+            </div>
+            <div class="fc-panels" style="display:grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 10px;">
+              <button id="lex-x-neg">X −0.25</button>
+              <button id="lex-x-pos">X +0.25</button>
+              <button id="lex-y-neg">Y −0.25</button>
+              <button id="lex-y-pos">Y +0.25</button>
+              <button id="lex-rot-neg">Turn −15°</button>
+              <button id="lex-rot-pos">Turn +15°</button>
+              <button id="lex-tilt-neg">Tilt −15°</button>
+              <button id="lex-tilt-pos">Tilt +15°</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- SECTION: TRANSFORM GIZMO LAB (6 VARIATIONS + CAMERA GIMBAL) -->
+      <div id="section-gizmos">
+        <div class="section-title">
+          <span>Transform Gizmo Lab (6 Styles + Camera Orbit Gimbal)</span>
+          <span style="font-size: 11px; font-weight: normal; color: var(--accent);">Direct Vector SVG Handles</span>
+        </div>
+        <div id="gizmo-grid" class="gizmo-grid" style="margin-top: 12px;"></div>
+      </div>
+
+    </section>
+  </main>
+
+  <script>
+    'use strict';
+
+    const $ = s => document.querySelector(s);
+    const $$ = s => [...document.querySelectorAll(s)];
+
+    // ── 3x3 Matrix & Vector Math ──
+    const I = () => [1,0,0, 0,1,0, 0,0,1];
+    const fresh = () => ({ p: [0, 0, 0], r: I(), s: 1, skew: 0 });
+
+    let state = fresh();
+    let history = [];
+    let yaw = 0.65;
+    let pitch = 0.4;
+    let camDist = 6.0;
+    let target = 'object';
+    let mode = 'move';
+    let drag = null;
+    let releaseFeedback = null;
+    let feedbackFrame = 0;
+
+    // Option 1 & 3 UI Modes
+    let opt1Mode = 'camera'; // 'camera' or 'surface'
+    let opt2SurfaceActive = true;
+    let opt3Mode = 'surface'; // 'surface' or 'camera'
+
+    const mul = (a, b) => Array.from({ length: 9 }, (_, i) => {
+      let r = Math.floor(i / 3), c = i % 3;
+      return a[r * 3] * b[c] + a[r * 3 + 1] * b[c + 3] + a[r * 3 + 2] * b[c + 6];
+    });
+
+    const mv = (m, v) => [0, 1, 2].map(i => m[i * 3] * v[0] + m[i * 3 + 1] * v[1] + m[i * 3 + 2] * v[2]);
+
+    function rot(axis, a) {
+      let c = Math.cos(a), s = Math.sin(a);
+      return axis === 0 ? [1,0,0, 0,c,-s, 0,s,c] :
+             axis === 1 ? [c,0,s, 0,1,0, -s,0,c] :
+                          [c,-s,0, s,c,0, 0,0,1];
+    }
+
+    function camera() {
+      return mul(rot(0, pitch), rot(1, yaw));
+    }
+
+    function inverse(m) {
+      return [m[0], m[3], m[6], m[1], m[4], m[7], m[2], m[5], m[8]];
+    }
+
+    const copy = () => JSON.parse(JSON.stringify(state));
+
+    function save() {
+      history.push(copy());
+      if (history.length > 80) history.shift();
+    }
+
+    // ── Gizmo Names & Builders ──
+    const gizmoNames = [
+      'Vertical triangles',
+      'Arrow caps',
+      'Three clear directions',
+      'Triangle in circle',
+      'Active axis',
+      'Soft arrowheads'
+    ];
+
+    $('#gizmo-grid').innerHTML = `
+      <article class="gizmo-tile">
+        <h2>Camera Orbit Gimbal</h2>
+        <p style="font-size: 11px; color: var(--mut); margin: 0;">Drag handles to orbit. Tap axis to snap.</p>
+        <svg viewBox="0 0 240 240" data-i="1" data-nav="true" aria-label="Camera gimbal"></svg>
+      </article>
+    ` + gizmoNames.map((n, i) => `
+      <article class="gizmo-tile">
+        <h2>0${i + 1} · ${n}</h2>
+        <div class="gizmo-modes">
+          <button data-local-mode="move" class="${mode === 'move' ? 'on' : ''}">Move</button>
+          <button data-local-mode="rotate" class="${mode === 'rotate' ? 'on' : ''}">↻ Rotate</button>
+        </div>
+        <svg viewBox="0 0 240 240" data-i="${i}" aria-label="${n} gizmo"></svg>
+        <div class="gizmo-footer">
+          <span>Scale: ${Math.round(state.s * 100)}%</span>
+          <div style="display:flex; gap:3px;">
+            <button data-size="0.9" title="Smaller">−</button>
+            <button data-size="1.111111" title="Larger">+</button>
+          </div>
+        </div>
+      </article>
+    `).join('');
+
+    function tri(x, y, a, sz, color) {
+      return `<path d="M 0 ${-sz} L ${sz * 0.85} ${sz * 0.65} L ${-sz * 0.85} ${sz * 0.65} Z" transform="translate(${x} ${y}) rotate(${a})" fill="${color}"/>`;
+    }
+
+    const nodes = (nav = false) => [0, 1, 2].flatMap(axis => [-1, 1].map(sign => {
+      let v = [0, 0, 0];
+      v[axis] = sign;
+      let q = mv(camera(), nav ? v : mv(state.r, v));
+      return { axis, sign, x: 120 + q[0] * 79, y: 119 - q[1] * 79, z: q[2], v: q };
+    })).sort((a, b) => a.z - b.z);
+
+    function drawGizmos() {
+      $$('.gizmo-tile svg').forEach(svg => {
+        let i = +svg.dataset.i, nav = svg.dataset.nav === 'true' || target === 'camera', ns = nodes(nav);
+        let out = '';
+        for (let n of ns) {
+          let front = n.z >= 0, col = n.axis === 1 ? '#38bdf8' : '#88929e', fade = front ? 1 : 0.3;
+          out += `<line x1="120" y1="119" x2="${n.x}" y2="${n.y}" stroke="${col}" stroke-width="${front ? 2.5 : 1.5}" opacity="${fade}" ${front ? '' : 'stroke-dasharray="3 4"'}/>`;
+        }
+        for (let n of ns) {
+          let front = n.z >= 0, col = front ? (n.axis === 1 ? '#38bdf8' : '#cbd5e1') : '#475569', label = ['X','Y','Z'][n.axis], a = Math.atan2(n.x - 120, 119 - n.y) * 180 / Math.PI, rad = front ? 15 : 8;
+          let rotationSphere = !nav && n.axis === 2;
+          let triangle = !rotationSphere && !nav && (i === 5 || (i === 0 && n.axis === 1) || (i === 2 && front) || (i === 4 && (n.axis === 1 || (n.axis === 0 && front))));
+          let action = nav ? 'camera' : rotationSphere ? 'turn' : mode === 'size' ? 'scale' : 'axis';
+          if (rotationSphere) rad = 15;
+          out += `<g class="handle" data-action="${action}" data-axis="${n.axis}" data-sign="${n.sign}" tabindex="0" role="button">`;
+          out += `<circle cx="${n.x}" cy="${n.y}" r="20" fill="transparent"/>`;
+          if (triangle) out += tri(n.x, n.y, a, front ? 15 : 9, col);
+          else out += `<circle cx="${n.x}" cy="${n.y}" r="${rad}" fill="${i === 3 && !nav ? 'none' : col}" stroke="${col}" stroke-width="1.5"/>`;
+          if (!rotationSphere && !nav && i === 1 && front) {
+            let dx = (n.x - 120), dy = n.y - 119, d = Math.hypot(dx, dy);
+            out += tri(n.x + dx / d * 22, n.y + dy / d * 22, a, 6, col);
+          }
+          if (rotationSphere) out += `<text x="${n.x}" y="${n.y + 5}" text-anchor="middle" fill="#0f172a" font-size="16" pointer-events="none">↻</text>`;
+          else if (!nav && i === 3) out += tri(n.x, n.y, a, front ? 6 : 3, col);
+          else if (front && !triangle) out += `<text x="${n.x}" y="${n.y + 4}" text-anchor="middle" fill="#0f172a" font-size="10.5" font-weight="bold" pointer-events="none">${n.sign < 0 ? '−' : ''}${label}</text>`;
+          out += '</g>';
+        }
+        out += `<g class="handle" data-action="${nav ? 'camera' : mode === 'move' ? 'plane' : mode === 'size' ? 'scale' : 'roll'}" tabindex="0" role="button">`;
+        out += `<circle cx="120" cy="119" r="20" fill="transparent"/><circle cx="120" cy="119" r="12" fill="#1c202a" stroke="${nav ? '#88929e' : '#38bdf8'}" stroke-width="2"/><text x="120" y="123" text-anchor="middle" font-size="13" fill="#fff" pointer-events="none">${nav ? '↻' : mode === 'move' ? '✥' : mode === 'size' ? '↗' : '↻'}</text></g>`;
+        svg.innerHTML = out;
+        if (mode === 'skew' && !nav) svg.style.opacity = '0.35';
+        else svg.style.opacity = '1';
+        paintFeedback(svg, ns);
+      });
+    }
+
+    // ── 3D Canvas Preview ──
+    const canvas = $('#scene'), ctx = canvas.getContext('2d');
+    function draw3DScene() {
+      let w = canvas.clientWidth, h = canvas.clientHeight, dpr = window.devicePixelRatio || 1;
+      canvas.width = w * dpr; canvas.height = h * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+      let k = Math.min(w, h) * (0.24 * (6.0 / camDist));
+      function p(v) {
+        let q = mv(camera(), v);
+        return [w / 2 + q[0] * k, h / 2 - q[1] * k, q[2]];
+      }
+      function line(a, b, color) {
+        a = p(a); b = p(b);
+        ctx.strokeStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]);
+        ctx.stroke();
+      }
+
+      // Ground grid
+      ctx.lineWidth = 1;
+      for (let i = -6; i <= 6; i++) {
+        line([i, -1.4, -6], [i, -1.4, 6], '#212730');
+        line([-6, -1.4, i], [6, -1.4, i], '#212730');
+      }
+
+      // Central Pillar
+      line([-0.4, -1.4, -0.4], [0.4, -1.4, -0.4], '#334155');
+      line([0.4, -1.4, -0.4], [0.4, -1.4, 0.4], '#334155');
+      line([0.4, -1.4, 0.4], [-0.4, -1.4, 0.4], '#334155');
+      line([-0.4, -1.4, 0.4], [-0.4, -1.4, -0.4], '#334155');
+
+      let verts = $('#shape').value === 'cube'
+        ? [[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]]
+        : [[-1.25,-1,0],[1.25,-1,0],[1.25,1,0],[-1.25,1,0]];
+
+      let world = verts.map(v => mv(state.r, [v[0] + (state.skew || 0) * v[1], v[1], v[2]].map(x => x * state.s)).map((x, i) => x + state.p[i]));
+      let faces = verts.length === 4 ? [[0, 1, 2, 3]] : [[0,1,2,3],[4,7,6,5],[0,4,5,1],[3,2,6,7],[1,5,6,2],[0,3,7,4]];
+
+      faces.sort((a, b) => a.reduce((s, i) => s + p(world[i])[2], 0) - b.reduce((s, i) => s + p(world[i])[2], 0));
+      faces.forEach((face, j) => {
+        ctx.beginPath();
+        face.forEach((i, n) => {
+          let q = p(world[i]);
+          n ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]);
+        });
+        ctx.closePath();
+        ctx.fillStyle = verts.length === 4 ? 'rgba(56, 189, 248, 0.16)' : `hsl(205, 30%, ${20 + j * 6}%)`;
+        ctx.fill();
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      });
+
+      if (verts.length === 4) {
+        const point = v => mv(state.r, [v[0] + (state.skew || 0) * v[1], v[1], v[2]].map(x => x * state.s)).map((x, i) => x + state.p[i]);
+        for (let i = -4; i <= 4; i++) line(point([i * 0.25, -1, 0]), point([i * 0.25, 1, 0]), '#3d4856');
+        for (let i = -3; i <= 3; i++) line(point([-1.25, i * 0.25, 0]), point([1.25, i * 0.25, 0]), '#3d4856');
+        line(point([-0.25, 0, 0]), point([0.25, 0, 0]), '#f59e0b');
+        line(point([0, -0.25, 0]), point([0, 0.25, 0]), '#f59e0b');
+      }
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '11.5px system-ui';
+      ctx.fillText(target === 'camera' ? 'Camera Orbit Mode' : 'Object Manipulation Mode', 14, 22);
+    }
+
+    // ── Axis Projection for Canvas Gimbals ──
+    const AXES = [
+      { lbl: 'X', dir: [1, 0, 0], col: '#ef4444' },
+      { lbl: '-X', dir: [-1, 0, 0], col: '#7f1d1d' },
+      { lbl: 'Y', dir: [0, 1, 0], col: '#22c55e' },
+      { lbl: '-Y', dir: [0, -1, 0], col: '#14532d' },
+      { lbl: 'Z', dir: [0, 0, 1], col: '#38bdf8' },
+      { lbl: '-Z', dir: [0, 0, -1], col: '#0369a1' },
+    ];
+
+    function projectDir(dx, dy, dz, w, h, arm, useMatrix = null) {
+      const m = useMatrix || camera();
+      const q = mv(m, [dx, dy, dz]);
+      return {
+        x: w / 2 + q[0] * arm,
+        y: h / 2 - q[1] * arm,
+        depth: q[2]
+      };
+    }
+
+    // ── Draw Option 1 Gimbal ──
+    function drawGimbal1() {
+      const c = $('#canvas-opt1-cam');
+      if (!c) return;
+      const gctx = c.getContext('2d');
+      const GW = c.width, GH = c.height, G_ARM = 40, G_DOT = 10;
+      gctx.clearRect(0, 0, GW, GH);
+
+      gctx.save();
+      gctx.fillStyle = '#1b1f27';
+      gctx.beginPath();
+      gctx.arc(GW / 2, GH / 2, GW / 2 - 2, 0, Math.PI * 2);
+      gctx.fill();
+      gctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      gctx.stroke();
+      gctx.restore();
+
+      const projected = AXES.map((ax, i) => {
+        const p = projectDir(ax.dir[0], ax.dir[1], ax.dir[2], GW, GH, G_ARM);
+        return { ax, i, p, depth: p.depth };
+      }).sort((a, b) => a.depth - b.depth);
+
+      projected.forEach(({ ax, p, depth }) => {
+        const isFront = depth >= -0.05;
+        gctx.save();
+        gctx.strokeStyle = isFront ? ax.col : 'rgba(255, 255, 255, 0.16)';
+        gctx.lineWidth = isFront ? 2.2 : 1.0;
+        if (!isFront) gctx.setLineDash([2, 2]);
+        gctx.beginPath();
+        gctx.moveTo(GW / 2, GH / 2);
+        gctx.lineTo(p.x, p.y);
+        gctx.stroke();
+        gctx.restore();
+
+        gctx.save();
+        const dotR = G_DOT * (isFront ? 1.0 : 0.75);
+        gctx.beginPath();
+        gctx.arc(p.x, p.y, dotR, 0, Math.PI * 2);
+        if (isFront) {
+          gctx.fillStyle = ax.col;
+          gctx.fill();
+          gctx.fillStyle = '#ffffff';
+          gctx.font = 'bold 8.5px system-ui';
+          gctx.textAlign = 'center';
+          gctx.textBaseline = 'middle';
+          gctx.fillText(ax.lbl, p.x, p.y + 0.5);
+        } else {
+          gctx.fillStyle = 'rgba(255,255,255,0.2)';
+          gctx.fill();
+        }
+        gctx.restore();
+      });
+
+      gctx.save();
+      gctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+      gctx.beginPath();
+      gctx.arc(GW / 2, GH / 2, 2.5, 0, Math.PI * 2);
+      gctx.fill();
+      gctx.restore();
+    }
+
+    // ── Draw Option 2 Gimbal ──
+    function drawGimbal2() {
+      const c = $('#canvas-opt2-gimbal');
+      if (!c) return;
+      const gctx = c.getContext('2d');
+      const G2W = c.width, G2H = c.height, G2_ARM = G2W * 0.32, G2_DOT = G2W * 0.085;
+      gctx.clearRect(0, 0, G2W, G2H);
+
+      const snugRadius = G2W * 0.44;
+      gctx.save();
+      gctx.fillStyle = '#1c202a';
+      gctx.beginPath();
+      gctx.arc(G2W / 2, G2H / 2, snugRadius, 0, Math.PI * 2);
+      gctx.fill();
+      gctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+      gctx.stroke();
+
+      const ringR = snugRadius - 4;
+      gctx.beginPath();
+      gctx.arc(G2W / 2, G2H / 2, ringR, 0, Math.PI * 2);
+      gctx.strokeStyle = opt2SurfaceActive ? 'rgba(56, 189, 248, 0.5)' : 'rgba(255, 255, 255, 0.12)';
+      gctx.lineWidth = 1.4;
+      gctx.stroke();
+      gctx.restore();
+
+      const projected = AXES.map((ax, i) => {
+        const p = projectDir(ax.dir[0], ax.dir[1], ax.dir[2], G2W, G2H, G2_ARM);
+        return { ax, i, p, depth: p.depth };
+      }).sort((a, b) => a.depth - b.depth);
+
+      projected.forEach(({ ax, p, depth }) => {
+        const isFront = depth >= -0.05;
+        gctx.save();
+        gctx.strokeStyle = isFront ? ax.col : 'rgba(255, 255, 255, 0.18)';
+        gctx.lineWidth = isFront ? 2.2 : 1.1;
+        if (!isFront) gctx.setLineDash([2, 2]);
+        gctx.beginPath();
+        gctx.moveTo(G2W / 2, G2H / 2);
+        gctx.lineTo(p.x, p.y);
+        gctx.stroke();
+        gctx.restore();
+
+        gctx.save();
+        const dotR = G2_DOT * (isFront ? 1.0 : 0.78);
+        gctx.beginPath();
+        gctx.arc(p.x, p.y, dotR, 0, Math.PI * 2);
+        if (isFront) {
+          gctx.fillStyle = ax.col;
+          gctx.fill();
+          gctx.fillStyle = '#ffffff';
+          gctx.font = 'bold 8.5px system-ui';
+          gctx.textAlign = 'center';
+          gctx.textBaseline = 'middle';
+          gctx.fillText(ax.lbl, p.x, p.y + 0.5);
+        } else {
+          gctx.fillStyle = 'rgba(255,255,255,0.22)';
+          gctx.fill();
+        }
+        gctx.restore();
+      });
+    }
+
+    // ── Draw Option 3 Gimbal ──
+    function drawGimbal3() {
+      const c = $('#canvas-opt3-gimbal');
+      if (!c) return;
+      const gctx = c.getContext('2d');
+      const G3W = c.width, G3H = c.height, G3_ARM = G3W * 0.36, G3_DOT = G3W * 0.095;
+      gctx.clearRect(0, 0, G3W, G3H);
+
+      const isSurface = opt3Mode === 'surface';
+      const snugRadius = G3_ARM + G3_DOT;
+
+      gctx.save();
+      gctx.fillStyle = '#1c202a';
+      gctx.beginPath();
+      gctx.arc(G3W / 2, G3H / 2, snugRadius, 0, Math.PI * 2);
+      gctx.fill();
+      gctx.strokeStyle = isSurface ? '#38bdf8' : 'rgba(255, 255, 255, 0.06)';
+      gctx.lineWidth = isSurface ? 2 : 1;
+      gctx.stroke();
+
+      if (isSurface) {
+        gctx.strokeStyle = 'rgba(56, 189, 248, 0.3)';
+        gctx.lineWidth = 1;
+        gctx.setLineDash([3, 4]);
+        gctx.beginPath();
+        gctx.arc(G3W / 2, G3H / 2, snugRadius - 4, 0, Math.PI * 2);
+        gctx.stroke();
+        gctx.setLineDash([]);
+      }
+      gctx.restore();
+
+      const useMat = isSurface ? mul(camera(), state.r) : camera();
+      const projected = AXES.map((ax, i) => {
+        const p = projectDir(ax.dir[0], ax.dir[1], ax.dir[2], G3W, G3H, G3_ARM, useMat);
+        return { ax, i, p, depth: p.depth };
+      }).sort((a, b) => a.depth - b.depth);
+
+      projected.forEach(({ ax, p, depth }) => {
+        const isFront = depth >= -0.05;
+        gctx.save();
+        gctx.strokeStyle = isFront ? ax.col : 'rgba(255, 255, 255, 0.18)';
+        gctx.lineWidth = isFront ? 2.4 : 1.2;
+        if (!isFront) gctx.setLineDash([2, 2]);
+        gctx.beginPath();
+        gctx.moveTo(G3W / 2, G3H / 2);
+        gctx.lineTo(p.x, p.y);
+        gctx.stroke();
+        gctx.restore();
+      });
+
+      if (isSurface) {
+        gctx.save();
+        gctx.fillStyle = 'rgba(56, 189, 248, 0.15)';
+        gctx.beginPath();
+        gctx.arc(G3W / 2, G3H / 2, 16, 0, Math.PI * 2);
+        gctx.fill();
+        gctx.strokeStyle = '#38bdf8';
+        gctx.lineWidth = 1.4;
+        gctx.stroke();
+        gctx.restore();
+      }
+
+      projected.forEach(({ ax, p, depth }) => {
+        const isFront = depth >= -0.05;
+        gctx.save();
+        if (isSurface && (ax.lbl === 'Y' || ax.lbl === '-Y')) {
+          const triSize = G3_DOT * 1.3;
+          gctx.beginPath();
+          if (ax.lbl === 'Y') {
+            gctx.moveTo(p.x, p.y - triSize);
+            gctx.lineTo(p.x - triSize * 0.85, p.y + triSize * 0.65);
+            gctx.lineTo(p.x + triSize * 0.85, p.y + triSize * 0.65);
+          } else {
+            gctx.moveTo(p.x, p.y + triSize);
+            gctx.lineTo(p.x - triSize * 0.85, p.y - triSize * 0.65);
+            gctx.lineTo(p.x + triSize * 0.85, p.y - triSize * 0.65);
+          }
+          gctx.closePath();
+          gctx.fillStyle = isFront ? '#38bdf8' : 'rgba(255,255,255,0.3)';
+          gctx.fill();
+          gctx.strokeStyle = '#ffffff';
+          gctx.lineWidth = 1.5;
+          gctx.stroke();
+        } else {
+          const dotR = G3_DOT * (isFront ? 1.0 : 0.78);
+          gctx.beginPath();
+          gctx.arc(p.x, p.y, dotR, 0, Math.PI * 2);
+          gctx.fillStyle = isFront ? ax.col : 'rgba(255, 255, 255, 0.25)';
+          gctx.fill();
+          if (isFront) {
+            gctx.fillStyle = '#ffffff';
+            gctx.font = 'bold 8.5px system-ui';
+            gctx.textAlign = 'center';
+            gctx.textBaseline = 'middle';
+            gctx.fillText(ax.lbl, p.x, p.y + 0.5);
+          }
+        }
+        gctx.restore();
+      });
+    }
+
+    // ── Sync All Tactical Decks ──
+    function syncAllDecks() {
+      // Option 1 & 2 Move Knobs
+      const maxDist = 32;
+      const joyX = Math.max(-maxDist, Math.min(maxDist, state.p[0] * 16));
+      const joyZ = Math.max(-maxDist, Math.min(maxDist, -state.p[2] * 16));
+      $('#knob-opt1-move').style.transform = `translate(${joyX}px, ${joyZ}px)`;
+      $('#knob-opt2-move').style.transform = `translate(${joyX * 0.85}px, ${joyZ * 0.85}px)`;
+
+      // Option 1 & 2 Sliders
+      const pitchDeg = Math.round(pitch * 180 / Math.PI);
+      const elevNorm = Math.max(-32, Math.min(32, state.p[1] * 16));
+      const tiltNorm = Math.max(-32, Math.min(32, (pitchDeg / 90) * 32));
+
+      $('#knob-opt1-tilt').style.transform = `translateY(${-tiltNorm}px)`;
+      $('#knob-opt1-elev').style.transform = `translateY(${-elevNorm}px)`;
+      $('#knob-opt2-tilt').style.transform = `translateY(${-tiltNorm * 0.85}px)`;
+      $('#knob-opt2-elev').style.transform = `translateY(${-elevNorm * 0.85}px)`;
+
+      // Draw All 3 Canvas Gimbals
+      drawGimbal1();
+      drawGimbal2();
+      drawGimbal3();
+    }
+
+    function render() {
+      $$('[data-local-mode]').forEach(b => {
+        b.classList.toggle('on', target === 'object' && mode === b.dataset.localMode);
+      });
+      $('#rotationPanel').hidden = mode !== 'rotate' || target !== 'object';
+      $('#skewPanel').hidden = mode !== 'skew' || target === 'camera';
+      $('#skew').value = state.skew || 0;
+
+      drawGizmos();
+      draw3DScene();
+      syncAllDecks();
+
+      $('#undo').disabled = !history.length;
+      $$('[data-target]').forEach(b => b.classList.toggle('on', b.dataset.target === target));
+      $$('[data-mode]').forEach(b => {
+        b.classList.toggle('on', b.dataset.mode === mode);
+        b.disabled = target === 'camera';
+      });
+      $$('[data-size]').forEach(b => b.disabled = target === 'camera');
+
+      $('#stat-pos').textContent = `Pos: ${state.p.map(x => x.toFixed(2)).join(' / ')}`;
+      $('#stat-rot').textContent = `Rot: ${Math.round(yaw * 180 / Math.PI)}°`;
+      $('#stat-size').textContent = `Size: ${Math.round(state.s * 100)}%`;
+    }
+
+    function discPoints(axis, orientation) {
+      const u = (axis + 1) % 3, v = (axis + 2) % 3;
+      return Array.from({ length: 72 }, (_, i) => {
+        let a = i * Math.PI * 2 / 72, p = [0, 0, 0];
+        p[u] = Math.cos(a); p[v] = Math.sin(a);
+        let q = mv(camera(), mv(orientation, p));
+        return [120 + q[0] * 89, 119 - q[1] * 89];
+      });
+    }
+
+    function paintFeedback(svg, ns) {
+      const d = drag || releaseFeedback;
+      if (!d) return;
+      if (svg.dataset.nav === 'true' && d.target !== 'camera') return;
+      if (svg.dataset.nav !== 'true' && d.target === 'camera' && target !== 'camera') return;
+      const w = drag ? 1 : d.weight, cyan = '#38bdf8', dx = d.dx || 0, dy = d.dy || 0;
+      const scaling = d.target === 'object' && d.action === 'scale';
+      const turn = d.target === 'object' && (d.mode === 'rotate' || d.action === 'turn');
+      const moving = d.target === 'object' && d.mode === 'move' && d.action !== 'turn';
+
+      if (turn) {
+        if (!drag) return;
+        const axis = d.action === 'turn' || d.action === 'roll' ? 2 : d.axis;
+        const points = discPoints(axis, d.base.r);
+        const path = points.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(3)} ${p[1].toFixed(3)}`).join(' ') + ' Z';
+        svg.insertAdjacentHTML('afterbegin', `<path data-rotation-disc="${axis}" d="${path}" fill="#38bdf8" fill-opacity="0.12" stroke="#38bdf8" stroke-width="1.5" pointer-events="none"/>`);
+        [...svg.querySelectorAll('g[data-axis]')].forEach(g => {
+          const selected = +g.dataset.axis === axis;
+          g.style.opacity = selected ? '1' : '0.45';
+        });
+        return;
+      }
+
+      let activeSign = d.sign;
+      if (moving && d.action === 'axis' && d.moved) {
+        let unit = [0, 0, 0]; unit[d.axis] = 1; unit = mv(d.base.r, unit);
+        let delta = state.p.reduce((a, x, i) => a + (x - d.base.p[i]) * unit[i], 0);
+        if (Math.abs(delta) > 0.001) activeSign = Math.sign(delta);
+      }
+
+      const groups = [...svg.querySelectorAll('g[data-axis]')];
+      let lines = [...svg.querySelectorAll(':scope > line')];
+      groups.forEach(g => {
+        let axis = +g.dataset.axis, sign = +g.dataset.sign, n = ns.find(n => n.axis === axis && n.sign === sign);
+        let active = (d.action === 'axis' || d.action === 'turn') ? axis === d.axis && sign === activeSign : d.target === 'camera' ? axis === d.axis && sign === d.sign : scaling;
+        g.style.opacity = active ? '1' : String(1 - 0.58 * w);
+        if (!active) return;
+        let travel = moving ? Math.min(14, Math.hypot(dx, dy) * 0.1) * w : 0;
+        let ux = n.x - 120, uy = n.y - 119, len = Math.hypot(ux, uy) || 1, tx = ux / len * travel, ty = uy / len * travel;
+        let grow = 1 + w * (0.2 + Math.min(0.22, Math.hypot(dx, dy) / 260));
+        if (scaling) grow = 1 + w * Math.max(-0.25, Math.min(0.45, -dy / 180));
+        g.setAttribute('transform', `translate(${n.x + tx} ${n.y + ty}) scale(${grow}) translate(${-n.x} ${-n.y})`);
+        [...g.children].forEach(c => {
+          if (c.getAttribute('fill') === 'transparent' || c.tagName === 'text') return;
+          c.setAttribute('stroke', cyan);
+          if (c.getAttribute('fill') !== 'none') c.setAttribute('fill', cyan);
+        });
+        const idx = ns.indexOf(n);
+        if (lines[idx]) {
+          lines[idx].setAttribute('stroke', cyan);
+          lines[idx].setAttribute('stroke-width', 3 + 2 * w);
+          lines[idx].setAttribute('opacity', 1);
+          lines[idx].setAttribute('x2', n.x + tx);
+          lines[idx].setAttribute('y2', n.y + ty);
+        }
+      });
+    }
+
+    function settleFeedback() {
+      const start = performance.now();
+      const duration = 220;
+      function tick(now) {
+        if (drag || !releaseFeedback) return;
+        let t = Math.min(1, (now - start) / duration);
+        releaseFeedback.weight = (1 - t) ** 3;
+        if (t === 1) releaseFeedback = null;
+        drawGizmos();
+        if (t < 1) feedbackFrame = requestAnimationFrame(tick);
+      }
+      feedbackFrame = requestAnimationFrame(tick);
+    }
+
+    // ── Gizmo Pointer Events ──
+    function begin(e) {
+      let h = e.target.closest('[data-action]');
+      if (!h || drag || e.button > 0) return;
+      let svg = h.closest('svg');
+      if (mode === 'skew' && svg.dataset.nav !== 'true' && target === 'object') return;
+      e.preventDefault();
+      let rect = svg.getBoundingClientRect();
+      drag = {
+        id: e.pointerId,
+        svg,
+        action: h.dataset.action,
+        axis: +h.dataset.axis,
+        sign: +h.dataset.sign,
+        x: e.clientX,
+        y: e.clientY,
+        base: copy(),
+        yaw,
+        pitch,
+        cm: camera(),
+        mode,
+        target: svg.dataset.nav === 'true' ? 'camera' : target,
+        moved: false,
+        cx: rect.left + rect.width / 2,
+        cy: rect.top + rect.height * 119 / 240
+      };
+      svg.setPointerCapture(e.pointerId);
+      releaseFeedback = null;
+      cancelAnimationFrame(feedbackFrame);
+      render();
+    }
+
+    function update(e) {
+      if (!drag || e.pointerId !== drag.id) return;
+      let d = drag, dx = e.clientX - d.x, dy = e.clientY - d.y;
+      if (!d.moved && Math.hypot(dx, dy) < 6) return;
+      d.moved = true; d.dx = dx; d.dy = dy;
+      state = JSON.parse(JSON.stringify(d.base));
+
+      if (d.target === 'camera') {
+        yaw = d.yaw + dx * 0.008;
+        pitch = Math.max(-1.3, Math.min(1.3, d.pitch + dy * 0.008));
+      } else if (d.action === 'turn') {
+        let angle = dx * 0.012;
+        d.angle = angle;
+        state.r = mul(d.base.r, rot(2, angle));
+      } else if (d.action === 'scale') {
+        state.s = Math.max(0.15, Math.min(4, d.base.s * Math.exp(-dy * 0.009)));
+      } else if (d.mode === 'move') {
+        if (d.action === 'plane') {
+          let v = mv(inverse(d.cm), [dx / 85, -dy / 85, 0]);
+          state.p = state.p.map((x, i) => x + v[i]);
+        } else {
+          let v = [0, 0, 0]; v[d.axis] = 1; v = mv(d.base.r, v);
+          let q = mv(d.cm, v), den = q[0] * q[0] + q[1] * q[1];
+          let amount = den > 0.08 ? (dx * q[0] - dy * q[1]) / (85 * den) : -dy / 85;
+          state.p = state.p.map((x, i) => x + v[i] * amount);
+        }
+      } else if (d.mode === 'rotate') {
+        let a;
+        if (d.action === 'roll') {
+          let radius = Math.hypot(d.x - d.cx, d.y - d.cy);
+          a = radius > 45 ? Math.atan2(e.clientY - d.cy, e.clientX - d.cx) - Math.atan2(d.y - d.cy, d.x - d.cx) : dx * 0.012;
+          d.angle = -a;
+          state.r = mul(d.base.r, rot(2, -a));
+        } else {
+          d.angle = dx * 0.012;
+          state.r = mul(d.base.r, rot(d.axis, dx * 0.012));
+        }
+      }
+      render();
+    }
+
+    function end(e, cancel = false) {
+      if (!drag || (e && e.pointerId !== drag.id)) return;
+      let d = drag; drag = null;
+      releaseFeedback = { ...d, weight: 1 };
+      if (cancel) {
+        state = d.base; yaw = d.yaw; pitch = d.pitch;
+      } else if (d.moved && d.target === 'object') {
+        history.push(d.base);
+      } else if (!d.moved && d.target === 'camera' && Number.isFinite(d.axis)) {
+        if (d.axis === 0) { yaw = d.sign > 0 ? -Math.PI / 2 : Math.PI / 2; pitch = 0; }
+        else if (d.axis === 1) { yaw = 0; pitch = d.sign * Math.PI / 2; }
+        else { yaw = d.sign > 0 ? 0 : Math.PI; pitch = 0; }
+      }
+      if (d.svg.hasPointerCapture(d.id)) d.svg.releasePointerCapture(d.id);
+      render();
+      settleFeedback();
+    }
+
+    $$('.gizmo-tile svg').forEach(svg => {
+      svg.addEventListener('pointerdown', begin);
+      svg.addEventListener('pointermove', update);
+      svg.addEventListener('pointerup', e => end(e));
+      svg.addEventListener('pointercancel', e => end(e, true));
+      svg.addEventListener('lostpointercapture', e => { if (drag) end(e, true); });
+    });
+
+    // ── Setup Canvas Gimbal Drag Interactions (Option 1, 2, 3) ──
+    function setupCanvasOrbit(canvasId, isOpt3 = false) {
+      const c = $(canvasId);
+      if (!c) return;
+      let isDragging = false, startX = 0, startY = 0;
+      c.addEventListener('pointerdown', e => {
+        c.setPointerCapture(e.pointerId);
+        isDragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+      });
+      c.addEventListener('pointermove', e => {
+        if (!isDragging) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        startX = e.clientX;
+        startY = e.clientY;
+
+        if (isOpt3 && opt3Mode === 'surface') {
+          save();
+          state.r = mul(state.r, mul(rot(1, dx * 0.01), rot(0, dy * 0.01)));
+        } else {
+          yaw += dx * 0.008;
+          pitch = Math.max(-1.3, Math.min(1.3, pitch + dy * 0.008));
+        }
+        render();
+      });
+      const endDrag = e => {
+        if (isDragging && c.hasPointerCapture(e.pointerId)) {
+          c.releasePointerCapture(e.pointerId);
+          isDragging = false;
+        }
+      };
+      c.addEventListener('pointerup', endDrag);
+      c.addEventListener('pointercancel', endDrag);
+    }
+    setupCanvasOrbit('#canvas-opt1-cam');
+    setupCanvasOrbit('#canvas-opt2-gimbal');
+    setupCanvasOrbit('#canvas-opt3-gimbal', true);
+
+    // ── Setup Option 1 & 2 Move Pads ──
+    function setupMovePad(padId) {
+      const pad = $(padId);
+      if (!pad) return;
+      let padDrag = null;
+      pad.addEventListener('pointerdown', e => {
+        pad.setPointerCapture(e.pointerId);
+        save();
+        padDrag = { id: e.pointerId, startP: [...state.p], startX: e.clientX, startY: e.clientY };
+      });
+      pad.addEventListener('pointermove', e => {
+        if (!padDrag || e.pointerId !== padDrag.id) return;
+        const dx = (e.clientX - padDrag.startX) * 0.03;
+        const dz = (e.clientY - padDrag.startY) * 0.03;
+        state.p[0] = padDrag.startP[0] + dx;
+        state.p[2] = padDrag.startP[2] - dz;
+        render();
+      });
+      const endPad = e => {
+        if (padDrag && e.pointerId === padDrag.id) {
+          if (pad.hasPointerCapture(e.pointerId)) pad.releasePointerCapture(e.pointerId);
+          padDrag = null;
+        }
+      };
+      pad.addEventListener('pointerup', endPad);
+      pad.addEventListener('pointercancel', endPad);
+    }
+    setupMovePad('#pad-opt1-move');
+    setupMovePad('#pad-opt2-move');
+
+    // ── Setup Vertical Slider Rails (Tilt & Elev) ──
+    function setupRail(railId, isElev = false) {
+      const rail = $(railId);
+      if (!rail) return;
+      let railDrag = null;
+      rail.addEventListener('pointerdown', e => {
+        rail.setPointerCapture(e.pointerId);
+        save();
+        railDrag = { id: e.pointerId, startY: e.clientY, baseVal: isElev ? state.p[1] : pitch };
+      });
+      rail.addEventListener('pointermove', e => {
+        if (!railDrag || e.pointerId !== railDrag.id) return;
+        const dy = -(e.clientY - railDrag.startY) * 0.025;
+        if (isElev) {
+          state.p[1] = railDrag.baseVal + dy;
+        } else {
+          pitch = Math.max(-1.3, Math.min(1.3, railDrag.baseVal + dy));
+        }
+        render();
+      });
+      const endRail = e => {
+        if (railDrag && e.pointerId === railDrag.id) {
+          if (rail.hasPointerCapture(e.pointerId)) rail.releasePointerCapture(e.pointerId);
+          railDrag = null;
+        }
+      };
+      rail.addEventListener('pointerup', endRail);
+      rail.addEventListener('pointercancel', endRail);
+    }
+    setupRail('#rail-opt1-tilt', false);
+    setupRail('#rail-opt1-elev', true);
+    setupRail('#rail-opt2-tilt', false);
+    setupRail('#rail-opt2-elev', true);
+
+    // ── Option 1 Segmented Pill Toggle ──
+    $('#pill-opt1').onclick = () => {
+      opt1Mode = opt1Mode === 'camera' ? 'surface' : 'camera';
+      $('#pill-opt1').classList.toggle('surface-active', opt1Mode === 'surface');
+      $('#panel-opt1-cam').classList.toggle('active', opt1Mode === 'camera');
+      $('#panel-opt1-surf').classList.toggle('active', opt1Mode === 'surface');
+    };
+
+    // Zoom Buttons
+    $('#btn-zoom-in').onclick = () => { camDist = Math.max(2.5, camDist - 0.5); render(); };
+    $('#btn-zoom-out').onclick = () => { camDist = Math.min(12, camDist + 0.5); render(); };
+
+    // Option 1 Yaw Spin Strip
+    $('#btn-opt1-ccw').onclick = () => { save(); state.r = mul(state.r, rot(2, -Math.PI / 4)); render(); };
+    $('#btn-opt1-cw').onclick = () => { save(); state.r = mul(state.r, rot(2, Math.PI / 4)); render(); };
+
+    let spinTrackDrag = null;
+    const spinTrack = $('#track-opt1-yaw');
+    spinTrack.addEventListener('pointerdown', e => {
+      spinTrack.setPointerCapture(e.pointerId);
+      save();
+      spinTrackDrag = { id: e.pointerId, startX: e.clientX, baseR: [...state.r] };
+    });
+    spinTrack.addEventListener('pointermove', e => {
+      if (!spinTrackDrag || e.pointerId !== spinTrackDrag.id) return;
+      const dx = (e.clientX - spinTrackDrag.startX) * 0.015;
+      state.r = mul(spinTrackDrag.baseR, rot(2, dx));
+      render();
+    });
+    const endSpinTrack = e => {
+      if (spinTrackDrag && e.pointerId === spinTrackDrag.id) {
+        if (spinTrack.hasPointerCapture(e.pointerId)) spinTrack.releasePointerCapture(e.pointerId);
+        spinTrackDrag = null;
+      }
+    };
+    spinTrack.addEventListener('pointerup', endSpinTrack);
+    spinTrack.addEventListener('pointercancel', endSpinTrack);
+
+    // Option 2 Surface Toggle & Reset
+    $('#btn-opt2-toggle').onclick = () => {
+      opt2SurfaceActive = !opt2SurfaceActive;
+      $('#btn-opt2-toggle').textContent = opt2SurfaceActive ? 'Surface: On' : 'Surface: Off';
+      render();
+    };
+    $('#btn-opt2-reset').onclick = () => { save(); state = fresh(); render(); };
+    $('#btn-opt1-reset').onclick = () => { save(); state = fresh(); render(); };
+
+    // Option 3 Mode Toggle & Reset
+    $('#btn-opt3-mode').onclick = () => {
+      opt3Mode = opt3Mode === 'surface' ? 'camera' : 'surface';
+      $('#text-opt3-mode').textContent = opt3Mode === 'surface' ? 'Gizmo: Surface' : 'Gizmo: Camera';
+      render();
+    };
+    $('#btn-opt3-reset').onclick = () => { save(); state = fresh(); yaw = 0.65; pitch = 0.4; render(); };
+
+    // ── Global Presets Bar ──
+    $$('[data-preset]').forEach(b => b.onclick = () => {
+      save();
+      const p = b.dataset.preset;
+      if (p === 'ground') { state.r = I(); }
+      else if (p === 'wall') { state.r = rot(0, Math.PI / 2); }
+      else if (p === 'slant') { state.r = rot(0, Math.PI / 4); }
+      else if (p === 'align') { state.r = mul(rot(1, -yaw), rot(0, -pitch)); }
+      else if (p === 'reset') { state = fresh(); yaw = 0.65; pitch = 0.4; }
+      render();
+    });
+
+    // ── Option 4 Lexical Stepper ──
+    $('#lex-x-neg').onclick = () => { save(); state.p[0] -= 0.25; render(); };
+    $('#lex-x-pos').onclick = () => { save(); state.p[0] += 0.25; render(); };
+    $('#lex-y-neg').onclick = () => { save(); state.p[1] -= 0.25; render(); };
+    $('#lex-y-pos').onclick = () => { save(); state.p[1] += 0.25; render(); };
+    $('#lex-rot-neg').onclick = () => turnCanvas(-15);
+    $('#lex-rot-pos').onclick = () => turnCanvas(15);
+    $('#lex-tilt-neg').onclick = () => { save(); state.r = mul(state.r, rot(0, -15 * Math.PI / 180)); render(); };
+    $('#lex-tilt-pos').onclick = () => { save(); state.r = mul(state.r, rot(0, 15 * Math.PI / 180)); render(); };
+
+    // ── Toolbar & Top Controls ──
+    $$('[data-mode]').forEach(b => b.onclick = () => { if (drag) end(null, true); mode = b.dataset.mode; render(); });
+    $$('[data-target]').forEach(b => b.onclick = () => { if (drag) end(null, true); target = b.dataset.target; mode = 'move'; render(); });
+    $$('[data-size]').forEach(b => b.onclick = () => {
+      save(); state.s = Math.max(0.15, Math.min(4, state.s * (+b.dataset.size))); render();
+    });
+    $('#undo').onclick = () => { if (drag) end(null, true); if (history.length) state = history.pop(); render(); };
+    $('#reset').onclick = () => { if (drag) end(null, true); save(); state = fresh(); render(); };
+    $('#viewReset').onclick = () => { if (drag) end(null, true); yaw = 0.65; pitch = 0.4; camDist = 6.0; render(); };
+
+    function turnCanvas(degrees) {
+      if (drag) end(null, true);
+      releaseFeedback = null;
+      save();
+      target = 'object'; mode = 'rotate';
+      state.r = mul(state.r, rot(2, degrees * Math.PI / 180));
+      $('#rotationValue').textContent = (degrees > 0 ? '+' : '') + degrees + '°';
+      render();
+    }
+    $('#turnLeft').onclick = () => turnCanvas(-15);
+    $('#turnRight').onclick = () => turnCanvas(15);
+
+    let rotationStart = null;
+    $('#rotationSlider').oninput = e => {
+      if (!rotationStart) rotationStart = copy();
+      const degrees = +e.target.value;
+      state.r = mul(rotationStart.r, rot(+$('#rotationAxis').value, degrees * Math.PI / 180));
+      $('#rotationValue').textContent = degrees + '°';
+      render();
+    };
+    $('#rotationSlider').onchange = () => {
+      if (rotationStart) history.push(rotationStart);
+      rotationStart = null;
+      $('#rotationSlider').value = 0;
+      render();
+    };
+    $('#rotationAxis').onchange = () => {
+      rotationStart = null;
+      $('#rotationSlider').value = 0;
+      $('#rotationValue').textContent = '0°';
+    };
+
+    let skewStart = null;
+    $('#skew').oninput = e => { if (!skewStart) skewStart = copy(); state.skew = +e.target.value; render(); };
+    $('#skew').onchange = () => { if (skewStart) history.push(skewStart); skewStart = null; render(); };
+    $('#clearSkew').onclick = () => { save(); state.skew = 0; render(); };
+    $('#shape').onchange = render;
+
+    // Theme Switcher
+    $('#themeToggle').onclick = () => {
+      const isDark = document.body.classList.contains('theme-dark');
+      document.body.classList.toggle('theme-dark', !isDark);
+      document.body.classList.toggle('theme-light', isDark);
+      render();
+    };
+
+    // View Filter Bar
+    $$('.view-filter-bar button').forEach(btn => {
+      btn.onclick = () => {
+        $$('.view-filter-bar button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const v = btn.dataset.view;
+        $('#section-decks').hidden = (v === 'gizmos');
+        $('#section-gizmos').hidden = (v === 'decks');
+      };
+    });
+
+    // One-Click Instant HTML File Download
+    $('#downloadHtml').onclick = () => {
+      const htmlContent = '<!doctype html>\n' + document.documentElement.outerHTML;
+      const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'navigator-unified-sandbox.html';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    };
+
+    // Global Key Events
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') end(null, true);
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        $('#undo').click();
+      }
+    });
+
+    window.addEventListener('resize', render);
+    render();
+  </script>
+</body>
+</html>

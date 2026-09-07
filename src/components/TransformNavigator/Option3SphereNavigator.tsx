@@ -2,8 +2,6 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import * as THREE from 'three';
 import { StudioEngine } from '../../core/studioEngine';
 import { TransformTargetScope } from '../../types';
-import { subscribeCameraPose, getCameraPose } from '../../core/telemetryStore';
-import { haptics } from '../../utils/haptics';
 import './navigatorStyles.css';
 
 export interface Option3SphereNavigatorProps {
@@ -15,1251 +13,1310 @@ export interface Option3SphereNavigatorProps {
   onLockChange?: (locked: boolean) => void;
   onClose?: () => void;
   uiScale?: number;
-  isSimple?: boolean;
+  layers?: any[];
+  activeLayerId?: string | null;
+  onSelectLayer?: (id: string) => void;
+  models?: any[];
+  activeModelId?: string | null;
+  onSelectModel?: (id: string) => void;
 }
 
-const DEG = Math.PI / 180;
-const SIZES = [140, 172, 210];
+interface TargetItem {
+  id: string;
+  name: string;
+  note?: string;
+  object: THREE.Object3D;
+  home?: { p: THREE.Vector3; q: THREE.Quaternion };
+}
 
 interface AxisDef {
-  key: 'y' | 'x' | 'z';
   dir: [number, number, number];
   lbl: string;
   back: string;
   tone: string;
-  label: string;
-  word: string;
-  viewName: 'top' | 'bottom' | 'front' | 'back' | 'left' | 'right';
 }
+
+const AXES: AxisDef[] = [
+  { dir: [0, 1, 0], lbl: 'Up', back: 'Down', tone: '#e0822a' },
+  { dir: [1, 0, 0], lbl: 'Side', back: 'Side', tone: '#2f80c4' },
+  { dir: [0, 0, 1], lbl: 'Front', back: 'Back', tone: '#3f9a62' }
+];
+
+const ROT_STEPS = [
+  { v: 0, lbl: 'Free' },
+  { v: 5, lbl: '5°' },
+  { v: 15, lbl: '15°' },
+  { v: 45, lbl: '45°' }
+];
+const MOVE_STEPS = [
+  { v: 0, lbl: 'Free' },
+  { v: 0.25, lbl: '0.25' },
+  { v: 0.5, lbl: '0.5' },
+  { v: 1, lbl: '1' }
+];
+
+const DEG = Math.PI / 180;
+const CROP = 0.055;
 
 export const Option3SphereNavigator: React.FC<Option3SphereNavigatorProps> = ({
   engine,
-  theme = 'light',
-  targetScope = 'all',
-  onSelectTargetScope,
-  isLocked = false,
-  onLockChange,
-  uiScale = 1.0,
-  isSimple = true,
+  theme = 'dark',
+  layers = [],
+  activeLayerId,
+  onSelectLayer,
+  models = [],
+  activeModelId,
+  onSelectModel,
 }) => {
-  const isDark = theme === 'dark';
+  const [isOpen, setIsOpen] = useState(true);
+  const [corner, setCorner] = useState<'br' | 'bl' | 'tr' | 'tl'>('br');
+  const [isListOpen, setIsListOpen] = useState(false);
+  const [isStepsOpen, setIsStepsOpen] = useState(false);
+  const [targetsList, setTargetsList] = useState<TargetItem[]>([]);
+  const [currentIdx, setCurrentIdx] = useState<number>(0);
+  const [mode, setModeState] = useState<'move' | 'rotate' | 'look'>('move');
+  const [rotStep, setRotStep] = useState<number>(15);
+  const [moveStep, setMoveStep] = useState<number>(0.5);
+  const [hintText, setHintText] = useState<string>('Drag an arrow to slide Canvas.');
+  const [isLiveHint, setIsLiveHint] = useState<boolean>(false);
+  const [isTourHint, setIsTourHint] = useState<boolean>(false);
+  const [historyLen, setHistoryLen] = useState<number>(0);
+  const [isTourRunning, setIsTourRunning] = useState<boolean>(false);
 
-  // Sizing: 140 (Small), 172 (Medium), 210 (Large). Kids defaults to 214, Pro defaults to 172
-  const [sizeIdx, setSizeIdx] = useState<number>(() => {
-    try {
-      const saved = localStorage.getItem('paperrocket_gizmo_size_idx');
-      if (saved !== null) {
-        const n = parseInt(saved, 10);
-        if (n >= 0 && n < SIZES.length) return n;
-      }
-    } catch (_) {}
-    return isSimple ? 2 : 1;
+  const nvRef = useRef<HTMLDivElement | null>(null);
+  const boxRef = useRef<HTMLDivElement | null>(null);
+  const headRef = useRef<HTMLDivElement | null>(null);
+  const puckRef = useRef<HTMLButtonElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const puckCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const readRef = useRef<HTMLSpanElement | null>(null);
+
+  // Mutable math state (exact mirror of reference script)
+  const gzRef = useRef({
+    size: 168,
+    mode: 'move' as 'move' | 'rotate' | 'look',
+    rotStep: 15,
+    moveStep: 0.5,
+    active: null as any,
+    hover: null as any,
+    ring: null as any,
   });
 
-  const gzSize = isSimple ? 214 : SIZES[sizeIdx];
+  const objRef = useRef({ pos: new THREE.Vector3(), quat: new THREE.Quaternion() });
+  const dispRef = useRef({ pos: new THREE.Vector3(), quat: new THREE.Quaternion() });
+  const targetObjRef = useRef<THREE.Object3D | null>(null);
+  const targetsRef = useRef<TargetItem[]>([]);
+  const currentRef = useRef<number>(0);
 
-  // Mode: move | rotate | look
-  const [mode, setMode] = useState<'move' | 'rotate' | 'look'>('move');
-
-  // Snapping: Kids is always snapped; Pro is toggleable via Snap button or 'S' key
-  const [isSnapOn, setIsSnapOn] = useState<boolean>(() => {
-    if (isSimple) return true;
-    try {
-      const saved = localStorage.getItem('paperrocket_gizmo_pro_snap');
-      if (saved !== null) return saved === 'true';
-    } catch (_) {}
-    return isLocked || false;
+  const camRef = useRef({
+    radius: 11,
+    theta: 0.78,
+    phi: 1.05,
+    target: new THREE.Vector3(0, 1.1, 0)
   });
 
-  // Keep parent lock state in sync
-  const toggleSnap = useCallback(() => {
-    setIsSnapOn((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem('paperrocket_gizmo_pro_snap', String(next));
-      } catch (_) {}
-      onLockChange?.(next);
-      return next;
-    });
-  }, [onLockChange]);
-
-  // Keys panel toggle for Pro mode
-  const [isKeysOpen, setIsKeysOpen] = useState<boolean>(false);
-
-  // Pro mode intro banner: "Tap an axis to face it. Drag it to change it."
-  const [showIntro, setShowIntro] = useState<boolean>(!isSimple);
-  const [introFading, setIntroFading] = useState<boolean>(false);
+  const selBoxRef = useRef(new THREE.Box3());
+  const localBoxRef = useRef(new THREE.Box3());
+  const outlineRef = useRef<THREE.Box3Helper | null>(null);
+  const historyRef = useRef<Array<{ o: THREE.Object3D; p: THREE.Vector3; q: THREE.Quaternion }>>([]);
+  const flightRef = useRef<{ p0: number; t0: number; p1: number; t1: number; start: number; ms: number } | null>(null);
+  const tourRef = useRef<any>(null);
+  const themeRef = useRef<any>({
+    up: '#e0822a',
+    side: '#2f80c4',
+    front: '#3f9a62',
+    ghost: 'rgba(51,46,40,.22)',
+    hub: 'rgba(255,255,255,.96)',
+    ink: '#332e28',
+    onColor: '#ffffff',
+    line: 'rgba(51,46,40,.13)'
+  });
+  const lastStepRef = useRef<any>(null);
+  const dragRef = useRef<any>(null);
+  const hintTimerRef = useRef<any>(null);
+  const reduceMotionRef = useRef<boolean>(false);
 
   useEffect(() => {
-    if (isSimple) {
-      setShowIntro(false);
+    reduceMotionRef.current = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }, []);
+
+  // Theme checking
+  const isDark = useCallback(() => {
+    if (theme === 'dark') return true;
+    if (theme === 'light') return false;
+    const root = document.documentElement;
+    const forced = root.dataset.nvTheme;
+    if (forced === 'dark') return true;
+    if (forced === 'light') return false;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }, [theme]);
+
+  const readTheme = useCallback(() => {
+    const nvEl = nvRef.current || document.getElementById('nv');
+    if (!nvEl) return;
+    const cs = getComputedStyle(nvEl);
+    const v = (n: string) => cs.getPropertyValue(n).trim();
+    themeRef.current = {
+      up: v('--nv-up') || '#e0822a',
+      side: v('--nv-side') || '#2f80c4',
+      front: v('--nv-front') || '#3f9a62',
+      ghost: v('--nv-ghost') || 'rgba(51,46,40,.22)',
+      hub: v('--nv-hub') || 'rgba(255,255,255,.96)',
+      ink: v('--nv-ink') || '#332e28',
+      onColor: v('--nv-on-color') || '#ffffff',
+      line: v('--nv-line') || 'rgba(51,46,40,.13)'
+    };
+    AXES[0].tone = themeRef.current.up;
+    AXES[1].tone = themeRef.current.side;
+    AXES[2].tone = themeRef.current.front;
+
+    if (outlineRef.current) {
+      const dark = isDark();
+      (outlineRef.current.material as THREE.LineBasicMaterial).color.set(dark ? 0xf2ede6 : 0x332e28);
+    }
+  }, [isDark]);
+
+  // Safe area placement
+  const cssPx = (n: string) => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(n)) || 0;
+  const safeBox = useCallback(() => {
+    const g = cssPx('--nv-gap') || 10;
+    return {
+      left: (cssPx('--nv-left') || 60) + g,
+      top: (cssPx('--nv-top') || 60) + g,
+      right: window.innerWidth - (cssPx('--nv-right') || 8) - g,
+      bottom: window.innerHeight - (cssPx('--nv-bottom') || 30) - g
+    };
+  }, []);
+
+  const place = useCallback((x: number, y: number) => {
+    const el = isOpen ? boxRef.current : puckRef.current;
+    if (!el) return;
+    const s = safeBox();
+    el.style.left = Math.round(Math.max(s.left, Math.min(s.right - el.offsetWidth, x))) + 'px';
+    el.style.top = Math.round(Math.max(s.top, Math.min(s.bottom - el.offsetHeight, y))) + 'px';
+  }, [isOpen, safeBox]);
+
+  const toCorner = useCallback((c: 'br' | 'bl' | 'tr' | 'tl') => {
+    setCorner(c);
+    const box = boxRef.current;
+    const puck = puckRef.current;
+    if (box) {
+      box.style.left = '';
+      box.style.top = '';
+    }
+    if (puck) {
+      puck.style.left = '';
+      puck.style.top = '';
+    }
+  }, []);
+
+  const nearestCorner = useCallback(() => {
+    const el = isOpen ? boxRef.current : puckRef.current;
+    if (!el) return 'br';
+    const r = el.getBoundingClientRect();
+    const isTop = r.top + r.height / 2 < window.innerHeight / 2;
+    const isLeft = r.left + r.width / 2 < window.innerWidth / 2;
+    return (isTop ? 't' : 'b') + (isLeft ? 'l' : 'r') as 'br' | 'bl' | 'tr' | 'tl';
+  }, [isOpen]);
+
+  // Selection outline
+  const markSelection = useCallback(() => {
+    const targetObj = targetObjRef.current;
+    const outline = outlineRef.current;
+    if (!targetObj || !outline) {
+      if (outline) outline.visible = false;
       return;
     }
-    const t1 = setTimeout(() => setIntroFading(true), 5200);
-    const t2 = setTimeout(() => setShowIntro(false), 7000);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-    };
-  }, [isSimple]);
+    targetObj.updateWorldMatrix(true, false);
+    localBoxRef.current.setFromObject(targetObj);
+    if (localBoxRef.current.isEmpty()) {
+      outline.visible = false;
+      return;
+    }
+    targetObj.worldToLocal(localBoxRef.current.min);
+    targetObj.worldToLocal(localBoxRef.current.max);
+    selBoxRef.current.copy(localBoxRef.current).applyMatrix4(targetObj.matrixWorld).expandByScalar(0.09);
+    outline.visible = true;
+    engine?.markDirty();
+  }, [engine]);
 
-  // Walkthrough Tour State for Kids Mode ("Show me how")
-  const [isTourActive, setIsTourActive] = useState<boolean>(false);
-  const [caption, setCaption] = useState<{ main: string; sub?: string } | null>(null);
-  const tourRef = useRef<{
-    start: number;
-    step: number;
-    ring: { type: 'axis' | 'hub'; i?: number } | null;
-    rafId: number | null;
-  } | null>(null);
+  // Target synchronization
+  const syncFromTarget = useCallback(() => {
+    const targetObj = targetObjRef.current;
+    if (!targetObj) return;
+    targetObj.updateWorldMatrix(true, false);
+    targetObj.getWorldPosition(objRef.current.pos);
+    targetObj.getWorldQuaternion(objRef.current.quat);
+    dispRef.current.pos.copy(objRef.current.pos);
+    dispRef.current.quat.copy(objRef.current.quat);
+  }, []);
 
-  // Position on screen
-  const [pos, setPos] = useState<{ x: number; y: number }>(() => {
-    const screenW = typeof window !== 'undefined' ? window.innerWidth : 1200;
-    const screenH = typeof window !== 'undefined' ? window.innerHeight : 800;
-    const defX = Math.max(14, screenW - (isSimple ? 256 : 220));
-    const defY = Math.max(80, screenH - (isSimple ? 380 : 340));
-    try {
-      const saved = localStorage.getItem('paperrocket_opt3_coords_v3');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
-          return {
-            x: Math.max(10, Math.min(screenW - 160, parsed.x)),
-            y: Math.max(10, Math.min(screenH - 240, parsed.y)),
-          };
-        }
-      }
-    } catch (_) {}
-    return { x: defX, y: defY };
-  });
-
-  const [isDraggingRoot, setIsDraggingRoot] = useState<boolean>(false);
-  const rootDragRef = useRef<{ startX: number; startY: number; origX: number; origY: number }>({
-    startX: 0,
-    startY: 0,
-    origX: 0,
-    origY: 0,
-  });
-
-  // Dynamic Hint Text
-  const [hintText, setHintText] = useState<string>(
-    isSimple ? 'Drag an arrow to slide it. Tap a dot to look from there.' : 'Drag an axis to slide · hub to float'
-  );
-  const [isHintLive, setIsHintLive] = useState<boolean>(false);
-  const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const idleHint = useCallback(() => {
-    setIsHintLive(false);
-    if (isSimple) {
-      if (mode === 'look') setHintText('Drag to spin around it. Tap a dot to look from there.');
-      else if (mode === 'move') setHintText('Drag an arrow to slide it. Tap a dot to look from there.');
-      else setHintText('Drag an arrow to turn it. Tap the middle to go back to Move.');
+  const commit = useCallback(() => {
+    const targetObj = targetObjRef.current;
+    if (!targetObj) return;
+    const p = targetObj.parent;
+    if (p) {
+      p.updateWorldMatrix(true, false);
+      targetObj.position.copy(p.worldToLocal(dispRef.current.pos.clone()));
+      targetObj.quaternion.copy(
+        p.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(dispRef.current.quat)
+      );
     } else {
-      if (mode === 'look') setHintText('Tap an axis to face it');
-      else if (mode === 'move') setHintText('Drag an axis to slide · hub to float');
-      else setHintText('Drag an axis to turn around it');
+      targetObj.position.copy(dispRef.current.pos);
+      targetObj.quaternion.copy(dispRef.current.quat);
     }
-  }, [isSimple, mode]);
+    targetObj.updateMatrixWorld(true);
+    markSelection();
+    engine?.markDirty();
+  }, [markSelection, engine]);
 
-  const say = useCallback((text: string, live: boolean = false) => {
-    setHintText(text);
-    setIsHintLive(live);
-    if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
-    if (live) {
-      hintTimerRef.current = setTimeout(idleHint, isSimple ? 1500 : 1300);
+  const jumpDisplay = useCallback(() => {
+    dispRef.current.pos.copy(objRef.current.pos);
+    dispRef.current.quat.copy(objRef.current.quat);
+    commit();
+  }, [commit]);
+
+  const easeDisplay = useCallback((dt: number) => {
+    const gz = gzRef.current;
+    if (reduceMotionRef.current || !(gz.rotStep || gz.moveStep)) {
+      jumpDisplay();
+      return false;
     }
-  }, [idleHint, isSimple]);
-
-  // Telemetry Readout State
-  const [telemetry, setTelemetry] = useState<{
-    height: string;
-    tilt: string;
-    turnOrSpin: string;
-    bank: string;
-  }>({
-    height: isSimple ? '1.1' : '0.00',
-    tilt: '0°',
-    turnOrSpin: '0°',
-    bank: '0°',
-  });
-
-  // Helper to obtain target quaternion (follows the plane/model orientation in 3D)
-  const getTargetQuaternion = useCallback((): THREE.Quaternion => {
-    if (!engine) return new THREE.Quaternion();
-    if (targetScope === 'plane') {
-      const plane = engine.getDrawingPlane();
-      if (plane) {
-        const q = new THREE.Quaternion();
-        plane.getWorldQuaternion(q);
-        return q;
+    const near = dispRef.current.pos.distanceToSquared(objRef.current.pos) < 1e-7 &&
+                 1 - Math.abs(dispRef.current.quat.dot(objRef.current.quat)) < 1e-8;
+    if (near) {
+      if (!dispRef.current.pos.equals(objRef.current.pos) || !dispRef.current.quat.equals(objRef.current.quat)) {
+        jumpDisplay();
+        return true;
       }
-    } else if (targetScope === 'model') {
-      if (engine.modelRoot) {
-        const q = new THREE.Quaternion();
-        engine.modelRoot.getWorldQuaternion(q);
-        return q;
-      }
-    } else {
-      const plane = engine.getDrawingPlane();
-      if (plane) {
-        const q = new THREE.Quaternion();
-        plane.getWorldQuaternion(q);
-        return q;
-      }
-      if (engine.modelRoot) {
-        const q = new THREE.Quaternion();
-        engine.modelRoot.getWorldQuaternion(q);
-        return q;
-      }
+      return false;
     }
-    return new THREE.Quaternion();
-  }, [engine, targetScope]);
+    const k = 1 - Math.exp(-Math.min(dt, 0.05) * 20);
+    dispRef.current.pos.lerp(objRef.current.pos, k);
+    dispRef.current.quat.slerp(objRef.current.quat, k);
+    commit();
+    return true;
+  }, [jumpDisplay, commit]);
 
-  const updateTelemetry = useCallback(() => {
-    if (!engine) return;
-    const center = engine.getSelectionCenter(targetScope);
-    const quat = getTargetQuaternion();
-    const e = new THREE.Euler().setFromQuaternion(quat, 'YXZ');
-    setTelemetry({
-      height: isSimple ? center.y.toFixed(1) : center.y.toFixed(2),
-      tilt: Math.round(e.x / DEG) + '°',
-      turnOrSpin: Math.round(e.y / DEG) + '°',
-      bank: Math.round(e.z / DEG) + '°',
+  // Gizmo Canvas Metrics
+  const metrics = (S: number) => ({ S, c: S / 2, arm: S * 0.235, hand: S * 0.102, hub: S * 0.112 });
+
+  const fitGizmo = (size: number) => {
+    const gzc = canvasRef.current;
+    if (!gzc) return;
+    const gctx = gzc.getContext('2d');
+    if (!gctx) return;
+    const dpr = Math.min(window.devicePixelRatio, 2);
+    const h = Math.round(size * (1 - CROP * 2));
+    gzc.style.width = size + 'px';
+    gzc.style.height = h + 'px';
+    gzc.width = Math.round(size * dpr);
+    gzc.height = Math.round(h * dpr);
+    gctx.setTransform(dpr, 0, 0, dpr, 0, -size * CROP * dpr);
+  };
+
+  const fit = (canvas: HTMLCanvasElement | null, ctx: CanvasRenderingContext2D | null, size: number) => {
+    if (!canvas || !ctx) return;
+    const dpr = Math.min(window.devicePixelRatio, 2);
+    canvas.style.width = size + 'px';
+    canvas.style.height = size + 'px';
+    canvas.width = Math.round(size * dpr);
+    canvas.height = Math.round(size * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  };
+
+  const axisDir = (a: AxisDef) => {
+    const v = new THREE.Vector3(a.dir[0], a.dir[1], a.dir[2]);
+    if (gzRef.current.mode !== 'look') v.applyQuaternion(dispRef.current.quat);
+    return v.normalize();
+  };
+
+  // Spherical camera projection from reference prototype
+  const project = useCallback((axisWorldDir: THREE.Vector3, m: ReturnType<typeof metrics>) => {
+    const cam = camRef.current;
+    const sp = Math.sin(cam.phi), cp = Math.cos(cam.phi);
+    const st = Math.sin(cam.theta), ct = Math.cos(cam.theta);
+    const sx = axisWorldDir.x * ct + axisWorldDir.z * -st;
+    const sy = axisWorldDir.x * (-cp * st) + axisWorldDir.y * sp + axisWorldDir.z * (-cp * ct);
+    const depth = axisWorldDir.x * (sp * st) + axisWorldDir.y * cp + axisWorldDir.z * (sp * ct);
+    return { x: m.c + sx * m.arm, y: m.c - sy * m.arm, depth, len: Math.hypot(sx, sy) };
+  }, []);
+
+  const handles = useCallback((m: ReturnType<typeof metrics>) => {
+    const out: any[] = [];
+    AXES.forEach((a, i) => {
+      const d = axisDir(a);
+      out.push({ a, i, sign: 1, dir: d, p: project(d, m) });
+      const n = d.clone().negate();
+      out.push({ a, i, sign: -1, dir: n, p: project(n, m) });
     });
-  }, [engine, getTargetQuaternion, isSimple, targetScope]);
+    return out;
+  }, [project]);
 
-  // Axis definitions
-  // Kids mode: Orange Up, Blue Side, Green Front
-  // Pro mode: Precision Monochromatic Grayscale (Y: #111111/#f4f4f5, X: #7c7c7a/#a1a1aa, Z: #c2c2be/#71717a)
-  const AXES: AxisDef[] = isSimple
-    ? [
-        { key: 'y', dir: [0, 1, 0], lbl: 'Up', back: 'Down', tone: '#ec8a2c', label: '#ffffff', word: 'up', viewName: 'top' },
-        { key: 'x', dir: [1, 0, 0], lbl: 'Side', back: 'Side', tone: '#2f7fd0', label: '#ffffff', word: 'sideways', viewName: 'right' },
-        { key: 'z', dir: [0, 0, 1], lbl: 'Front', back: 'Back', tone: '#3f9e63', label: '#ffffff', word: 'forward', viewName: 'front' },
-      ]
-    : isDark
-    ? [
-        { key: 'y', dir: [0, 1, 0], lbl: 'Y', back: '-Y', tone: '#f4f4f5', label: '#09090b', word: 'Height', viewName: 'top' },
-        { key: 'x', dir: [1, 0, 0], lbl: 'X', back: '-X', tone: '#a1a1aa', label: '#09090b', word: 'Across', viewName: 'right' },
-        { key: 'z', dir: [0, 0, 1], lbl: 'Z', back: '-Z', tone: '#71717a', label: '#ffffff', word: 'Depth', viewName: 'front' },
-      ]
-    : [
-        { key: 'y', dir: [0, 1, 0], lbl: 'Y', back: '-Y', tone: '#111111', label: '#ffffff', word: 'Height', viewName: 'top' },
-        { key: 'x', dir: [1, 0, 0], lbl: 'X', back: '-X', tone: '#7c7c7a', label: '#ffffff', word: 'Across', viewName: 'right' },
-        { key: 'z', dir: [0, 0, 1], lbl: 'Z', back: '-Z', tone: '#c2c2be', label: '#111111', word: 'Depth', viewName: 'front' },
-      ];
+  const labelFont = (ctx: CanvasRenderingContext2D, text: string, r: number) => {
+    let size = r * 0.66;
+    const fam = getComputedStyle(document.body).fontFamily || 'sans-serif';
+    for (let i = 0; i < 6; i++) {
+      ctx.font = '600 ' + size.toFixed(1) + 'px ' + fam;
+      if (ctx.measureText(text).width <= r * 1.62) break;
+      size *= 0.9;
+    }
+  };
 
-  const GHOST = isDark ? 'rgba(255,255,255,0.22)' : 'rgba(17,17,17,0.20)';
-  const HAIR = isDark ? 'rgba(255,255,255,0.14)' : 'rgba(17,17,17,0.13)';
-
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  const activeInteractionRef = useRef<{
-    type: 'axis' | 'hub' | 'orbit';
-    i?: number;
-    sign?: number;
-  } | null>(null);
-
-  const hoverRef = useRef<{ i: number; sign: number } | null>(null);
-
-  const dragSessionRef = useRef<{
-    startX: number;
-    startY: number;
-    moved: boolean;
-    hit: { a: AxisDef; i: number; sign: number; dir: THREE.Vector3; viewName: AxisDef['viewName'] } | null;
-    startTheta: number;
-    startPhi: number;
-    startAngle: number;
-    lastAppliedAmount: number;
-    lastAppliedDeg: number;
-    lastAppliedFloatX: number;
-    lastAppliedFloatY: number;
-    lastAppliedAy: number;
-    lastAppliedAx: number;
-  } | null>(null);
-
-  const gzMetrics = useCallback(() => {
-    const S = gzSize;
-    return {
-      S,
-      c: S / 2,
-      arm: isSimple ? S * 0.26 : S * 0.30,
-      hand: isSimple ? S * 0.105 : S * 0.082,
-      hub: isSimple ? S * 0.12 : S * 0.105,
-      ring: S * 0.455,
-    };
-  }, [gzSize, isSimple]);
-
-  const axisDir = useCallback(
-    (a: AxisDef) => {
-      const v = new THREE.Vector3(a.dir[0], a.dir[1], a.dir[2]);
-      if (mode !== 'look') {
-        v.applyQuaternion(getTargetQuaternion());
+  const hubIcon = (ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number) => {
+    const T = themeRef.current;
+    ctx.save();
+    ctx.strokeStyle = T.ink; ctx.fillStyle = T.ink; ctx.lineWidth = 1.5;
+    if (gzRef.current.mode === 'move') {
+      for (let k = 0; k < 4; k++) {
+        ctx.save(); ctx.translate(cx, cy); ctx.rotate(k * Math.PI / 2);
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(r * 0.86, 0); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(r * 0.6, -r * 0.32); ctx.lineTo(r * 0.6, r * 0.32);
+        ctx.closePath(); ctx.fill(); ctx.restore();
       }
-      return v.normalize();
-    },
-    [getTargetQuaternion, mode]
-  );
+    } else if (gzRef.current.mode === 'rotate') {
+      ctx.beginPath(); ctx.arc(cx, cy, r * 0.82, -2.5, 1.7); ctx.stroke();
+      const ax = cx + Math.cos(1.7) * r * 0.82, ay = cy + Math.sin(1.7) * r * 0.82;
+      ctx.beginPath();
+      ctx.moveTo(ax + 3.6, ay - 0.4); ctx.lineTo(ax - 1.5, ay + 3.6); ctx.lineTo(ax - 2.8, ay - 2.6);
+      ctx.closePath(); ctx.fill();
+    } else {
+      ctx.beginPath(); ctx.arc(cx, cy, r * 0.34, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx, cy, r * 0.9, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.restore();
+  };
 
-  const project = useCallback(
-    (v: THREE.Vector3, m: ReturnType<typeof gzMetrics>, cam: { phi: number; theta: number }) => {
-      const sp = Math.sin(cam.phi),
-        cp = Math.cos(cam.phi);
-      const st = Math.sin(cam.theta),
-        ct = Math.cos(cam.theta);
-      const sx = v.x * ct + v.z * -st;
-      const sy = v.x * (-cp * st) + v.y * sp + v.z * (-cp * ct);
-      const depth = v.x * (sp * st) + v.y * cp + v.z * (sp * ct);
-      return { x: m.c + sx * m.arm, y: m.c - sy * m.arm, depth, len: Math.hypot(sx, sy) };
-    },
-    []
-  );
+  const pulse = (ctx: CanvasRenderingContext2D, m: ReturnType<typeof metrics>, now?: number) => {
+    const gz = gzRef.current;
+    const t = ((now || performance.now()) % 1100) / 1100;
+    let x = m.c, y = m.c, r0 = m.hub * 1.4;
+    if (gz.ring.type === 'axis') {
+      const h = handles(m).filter((k: any) => k.i === gz.ring.i && k.sign === 1)[0];
+      if (h) { x = h.p.x; y = h.p.y; r0 = m.hand * 1.4; }
+    }
+    ctx.save();
+    ctx.strokeStyle = themeRef.current.ink;
+    ctx.globalAlpha = 0.5 * (1 - t);
+    ctx.lineWidth = 2.6;
+    ctx.beginPath();
+    ctx.arc(x, y, r0 + t * m.hand * 1.6, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  };
 
-  const getHandles = useCallback(
-    (m: ReturnType<typeof gzMetrics>, cam: { phi: number; theta: number }) => {
-      const out: Array<{
-        a: AxisDef;
-        i: number;
-        sign: number;
-        dir: THREE.Vector3;
-        viewName: AxisDef['viewName'];
-        p: ReturnType<typeof project>;
-      }> = [];
+  const paint = useCallback((ctx: CanvasRenderingContext2D, m: ReturnType<typeof metrics>, live: boolean, now?: number) => {
+    const gz = gzRef.current;
+    const T = themeRef.current;
+    ctx.clearRect(-2, -2, m.S + 4, m.S + 4);
+    const hs = handles(m).sort((p: any, q: any) => p.p.depth - q.p.depth);
 
-      const oppView: Record<string, AxisDef['viewName']> = {
-        top: 'bottom',
-        bottom: 'top',
-        right: 'left',
-        left: 'right',
-        front: 'back',
-        back: 'front',
-      };
+    hs.forEach((h: any) => {
+      const front = h.p.depth >= -0.04;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(m.c, m.c);
+      ctx.lineTo(h.p.x, h.p.y);
+      if (h.sign > 0 && front) { ctx.strokeStyle = h.a.tone; ctx.lineWidth = 3; }
+      else { ctx.strokeStyle = T.ghost; ctx.lineWidth = 1.2; ctx.setLineDash([3, 4]); }
+      ctx.stroke();
+      ctx.restore();
+    });
 
-      AXES.forEach((a, i) => {
-        const d = axisDir(a);
-        out.push({ a, i, sign: 1, dir: d, viewName: a.viewName, p: project(d, m, cam) });
-        const n = d.clone().negate();
-        out.push({ a, i, sign: -1, dir: n, viewName: oppView[a.viewName] || 'front', p: project(n, m, cam) });
-      });
-      return out;
-    },
-    [AXES, axisDir, project]
-  );
+    hs.forEach((h: any) => {
+      const front = h.p.depth >= -0.04;
+      const on = live && gz.active && gz.active.type === 'axis' && gz.active.i === h.i && gz.active.sign === h.sign;
+      const hov = live && gz.hover && gz.hover.i === h.i && gz.hover.sign === h.sign;
 
-  const drawHubIcon = useCallback(
-    (g: CanvasRenderingContext2D, cx: number, cy: number, r: number) => {
-      g.save();
-      const col = isDark ? '#f4f4f5' : '#111111';
-      g.strokeStyle = col;
-      g.fillStyle = col;
-      g.lineWidth = isSimple ? 1.5 : 1.3;
-      if (mode === 'move') {
-        for (let k = 0; k < 4; k++) {
-          g.save();
-          g.translate(cx, cy);
-          g.rotate((k * Math.PI) / 2);
-          g.beginPath();
-          g.moveTo(0, 0);
-          g.lineTo(r * 0.86, 0);
-          g.stroke();
-          g.beginPath();
-          g.moveTo(r, 0);
-          g.lineTo(r * 0.6, -r * 0.32);
-          g.lineTo(r * 0.6, r * 0.32);
-          g.closePath();
-          g.fill();
-          g.restore();
-        }
-      } else if (mode === 'rotate') {
-        g.beginPath();
-        g.arc(cx, cy, r * 0.82, -2.5, 1.7);
-        g.stroke();
-        const ax = cx + Math.cos(1.7) * r * 0.82,
-          ay = cy + Math.sin(1.7) * r * 0.82;
-        g.beginPath();
-        g.moveTo(ax + (isSimple ? 3.8 : 3.4), ay - 0.4);
-        g.lineTo(ax - (isSimple ? 1.6 : 1.4), ay + 3.4);
-        g.lineTo(ax - (isSimple ? 2.9 : 2.6), ay - 2.4);
-        g.closePath();
-        g.fill();
-      } else {
-        g.beginPath();
-        g.arc(cx, cy, r * 0.34, 0, Math.PI * 2);
-        g.fill();
-        g.beginPath();
-        g.arc(cx, cy, r * 0.9, 0, Math.PI * 2);
-        g.stroke();
+      if (h.sign < 0 || !front) {
+        ctx.beginPath();
+        ctx.arc(h.p.x, h.p.y, m.hand * (h.sign < 0 ? 0.58 : 0.72), 0, Math.PI * 2);
+        ctx.fillStyle = (on || hov) ? T.ink : T.ghost;
+        ctx.fill();
+        return;
       }
-      g.restore();
-    },
-    [isDark, isSimple, mode]
-  );
-
-  const drawGizmo = useCallback(
-    (now?: number) => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const g = canvas.getContext('2d');
-      if (!g) return;
-
-      const m = gzMetrics();
-      const pose = getCameraPose();
-      const cam = { phi: pose.phi, theta: pose.theta };
-
-      g.clearRect(0, 0, m.S, m.S);
-
-      // See-through circular disc
-      g.beginPath();
-      g.arc(m.c, m.c, m.ring, 0, Math.PI * 2);
-      g.fillStyle = isDark ? 'rgba(255,255,255,0.06)' : isSimple ? 'rgba(255,255,255,0.34)' : 'rgba(255,255,255,0.30)';
-      g.fill();
-      g.strokeStyle =
-        activeInteractionRef.current?.type === 'orbit'
-          ? isDark
-            ? 'rgba(255,255,255,0.36)'
-            : 'rgba(17,17,17,0.34)'
-          : HAIR;
-      g.lineWidth = 1;
-      g.stroke();
-
-      const hs = getHandles(m, cam).sort((p, q) => p.p.depth - q.p.depth);
-
-      // Stems (back to front)
-      hs.forEach((h) => {
-        const front = h.p.depth >= -0.04;
-        g.save();
-        g.beginPath();
-        g.moveTo(m.c, m.c);
-        g.lineTo(h.p.x, h.p.y);
-        if (h.sign > 0 && front) {
-          g.strokeStyle = h.a.tone;
-          g.lineWidth = isSimple ? 3 : 2.4;
+      if (h.p.len > (gz.mode === 'rotate' ? 0.34 : 0.22)) {
+        const ux = (h.p.x - m.c) / (m.arm * h.p.len), uy = (h.p.y - m.c) / (m.arm * h.p.len);
+        ctx.save();
+        ctx.translate(h.p.x, h.p.y);
+        ctx.rotate(Math.atan2(uy, ux));
+        ctx.fillStyle = h.a.tone; ctx.strokeStyle = h.a.tone;
+        if (gz.mode === 'rotate') {
+          ctx.lineWidth = 2.6;
+          ctx.beginPath();
+          ctx.arc(0, 0, m.hand * 1.4, -0.92, 0.92);
+          ctx.stroke();
+          const ax = Math.cos(0.92) * m.hand * 1.4, ay = Math.sin(0.92) * m.hand * 1.4;
+          ctx.beginPath();
+          ctx.moveTo(ax + 3.6, ay + 1.2); ctx.lineTo(ax - 3, ay + 3.8); ctx.lineTo(ax - 1.2, ay - 2.9);
+          ctx.closePath(); ctx.fill();
         } else {
-          g.strokeStyle = GHOST;
-          g.lineWidth = isSimple ? 1.2 : 1;
-          g.setLineDash([3, 4]);
+          const base = m.hand * 1.02, wide = m.hand * 0.56;
+          ctx.beginPath();
+          ctx.moveTo(base + m.hand * 0.98, 0);
+          ctx.lineTo(base, -wide);
+          ctx.lineTo(base, wide);
+          ctx.closePath(); ctx.fill();
         }
-        g.stroke();
-        g.restore();
-      });
-
-      // Handles (back to front)
-      hs.forEach((h) => {
-        const front = h.p.depth >= -0.04;
-        const act = activeInteractionRef.current;
-        const on = act && act.type === 'axis' && act.i === h.i && act.sign === h.sign;
-        const hov = hoverRef.current && hoverRef.current.i === h.i && hoverRef.current.sign === h.sign;
-
-        if (h.sign < 0 || !front) {
-          g.beginPath();
-          g.arc(h.p.x, h.p.y, m.hand * (h.sign < 0 ? (isSimple ? 0.6 : 0.66) : (isSimple ? 0.74 : 0.78)), 0, Math.PI * 2);
-          g.fillStyle = on || hov ? (isDark ? 'rgba(255,255,255,0.5)' : 'rgba(17,17,17,0.42)') : GHOST;
-          g.fill();
-          return;
-        }
-
-        // Cap arrow points where drag goes
-        if (h.p.len > (mode === 'rotate' ? 0.34 : 0.22)) {
-          const ux = (h.p.x - m.c) / (m.arm * h.p.len);
-          const uy = (h.p.y - m.c) / (m.arm * h.p.len);
-          const base = m.hand * (isSimple ? 1.1 : 1.12);
-          const wide = m.hand * (isSimple ? 0.6 : 0.62);
-          g.save();
-          g.translate(h.p.x, h.p.y);
-          g.rotate(Math.atan2(uy, ux));
-          g.fillStyle = h.a.tone;
-          if (mode === 'rotate') {
-            g.beginPath();
-            g.arc(0, 0, m.hand * (isSimple ? 1.48 : 1.5), -0.95, 0.95);
-            g.strokeStyle = h.a.tone;
-            g.lineWidth = isSimple ? 2.6 : 2;
-            g.stroke();
-            const ax = Math.cos(0.95) * m.hand * (isSimple ? 1.48 : 1.5);
-            const ay = Math.sin(0.95) * m.hand * (isSimple ? 1.48 : 1.5);
-            g.beginPath();
-            g.moveTo(ax + (isSimple ? 4 : 3.2), ay + (isSimple ? 1.4 : 1.2));
-            g.lineTo(ax - (isSimple ? 3.2 : 2.6), ay + (isSimple ? 4.2 : 3.4));
-            g.lineTo(ax - (isSimple ? 1.4 : 1.1), ay - (isSimple ? 3.2 : 2.6));
-            g.closePath();
-            g.fill();
-          } else {
-            g.beginPath();
-            g.moveTo(base + m.hand * (isSimple ? 1.1 : 1.15), 0);
-            g.lineTo(base, -wide);
-            g.lineTo(base, wide);
-            g.closePath();
-            g.fill();
-          }
-          g.restore();
-        }
-
-        // Handle circle
-        g.beginPath();
-        g.arc(h.p.x, h.p.y, m.hand * (on || hov ? (isSimple ? 1.08 : 1.1) : 1), 0, Math.PI * 2);
-        g.fillStyle = h.a.tone;
-        g.fill();
-        if (on || hov) {
-          g.strokeStyle = isDark ? '#ffffff' : '#111111';
-          g.lineWidth = isSimple ? 2 : 1.6;
-          g.beginPath();
-          g.arc(h.p.x, h.p.y, m.hand * (isSimple ? 1.34 : 1.42), 0, Math.PI * 2);
-          g.stroke();
-        }
-        g.fillStyle = isSimple ? '#ffffff' : h.a.label;
-        g.font = '600 ' + (m.hand * (isSimple ? 0.6 : 1.05)).toFixed(1) + 'px ui-sans-serif, -apple-system, sans-serif';
-        g.textAlign = 'center';
-        g.textBaseline = 'middle';
-        g.fillText(h.a.lbl, h.p.x, h.p.y + 0.5);
-      });
-
-      // Center Hub
-      g.beginPath();
-      g.arc(m.c, m.c, m.hub, 0, Math.PI * 2);
-      g.fillStyle = isDark ? 'rgba(30,32,38,0.92)' : isSimple ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.88)';
-      g.fill();
-      const isHubActive = activeInteractionRef.current && activeInteractionRef.current.type === 'hub';
-      g.strokeStyle = isHubActive
-        ? isDark
-          ? '#ffffff'
-          : '#111111'
-        : isDark
-        ? 'rgba(255,255,255,0.45)'
-        : 'rgba(17,17,17,0.42)';
-      g.lineWidth = isHubActive ? (isSimple ? 2 : 1.8) : isSimple ? 1.4 : 1.2;
-      g.stroke();
-      drawHubIcon(g, m.c, m.c, m.hub * (isSimple ? 0.6 : 0.62));
-
-      // Draw Pulsing Tour Ring in Kids Mode
-      if (isSimple && tourRef.current?.ring) {
-        const ring = tourRef.current.ring;
-        const t = ((now || performance.now()) % 1100) / 1100;
-        let rx = m.c,
-          ry = m.c,
-          r0 = m.hub * 1.5;
-        if (ring.type === 'axis' && typeof ring.i === 'number') {
-          const h = hs.find((k) => k.i === ring.i && k.sign === 1);
-          if (h) {
-            rx = h.p.x;
-            ry = h.p.y;
-            r0 = m.hand * 1.5;
-          }
-        }
-        g.save();
-        g.strokeStyle = isDark
-          ? 'rgba(255,255,255,' + (0.55 * (1 - t)).toFixed(3) + ')'
-          : 'rgba(17,17,17,' + (0.55 * (1 - t)).toFixed(3) + ')';
-        g.lineWidth = 2.4;
-        g.beginPath();
-        g.arc(rx, ry, r0 + t * m.hand * 1.5, 0, Math.PI * 2);
-        g.stroke();
-        g.restore();
+        ctx.restore();
       }
-    },
-    [drawHubIcon, getHandles, gzMetrics, isDark, isSimple, mode]
-  );
-
-  // Subscribe to telemetry camera pose
-  useEffect(() => {
-    const unsub = subscribeCameraPose(() => {
-      drawGizmo();
-      updateTelemetry();
+      ctx.beginPath();
+      ctx.arc(h.p.x, h.p.y, m.hand * (on || hov ? 1.08 : 1), 0, Math.PI * 2);
+      ctx.fillStyle = h.a.tone;
+      ctx.fill();
+      if (on || hov) {
+        ctx.strokeStyle = T.ink;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(h.p.x, h.p.y, m.hand * 1.36, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#ffffff';
+      labelFont(ctx, h.a.lbl, m.hand);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(h.a.lbl, h.p.x, h.p.y + 0.5);
     });
-    return unsub;
-  }, [drawGizmo, updateTelemetry]);
 
-  // Size canvas when gzSize changes
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.style.width = `${gzSize}px`;
-    canvas.style.height = `${gzSize}px`;
-    canvas.width = Math.round(gzSize * dpr);
-    canvas.height = Math.round(gzSize * dpr);
-    const ctx = canvas.getContext('2d');
-    if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.beginPath();
+    ctx.arc(m.c, m.c, m.hub, 0, Math.PI * 2);
+    ctx.fillStyle = T.hub;
+    ctx.fill();
+    ctx.strokeStyle = live && gz.active && gz.active.type === 'hub' ? T.ink : T.ghost;
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
+    hubIcon(ctx, m.c, m.c, m.hub * 0.6);
+
+    if (live && gz.ring) pulse(ctx, m, now);
+  }, [handles]);
+
+  const drawGizmo = useCallback((now?: number) => {
+    const nvEl = nvRef.current;
+    const open = nvEl ? nvEl.getAttribute('data-open') === 'true' : isOpen;
+    if (open && canvasRef.current) {
+      const ctx = canvasRef.current.getContext('2d');
+      if (ctx) paint(ctx, metrics(gzRef.current.size), true, now);
+    } else if (puckCanvasRef.current) {
+      fit(puckCanvasRef.current, puckCanvasRef.current.getContext('2d'), 56);
+      const ctx = puckCanvasRef.current.getContext('2d');
+      if (ctx) paint(ctx, metrics(56), false, now);
+    }
+  }, [isOpen, paint]);
+
+  const applyObject = useCallback(() => {
+    if (reduceMotionRef.current || !(gzRef.current.rotStep || gzRef.current.moveStep)) jumpDisplay();
+    const e = new THREE.Euler().setFromQuaternion(objRef.current.quat, 'YXZ');
+    if (readRef.current) {
+      readRef.current.innerHTML = 'height <b>' + objRef.current.pos.y.toFixed(1) + '</b> · tilt <b>' +
+        Math.round(e.x / DEG) + '°</b> · spin <b>' + Math.round(e.y / DEG) + '°</b>';
+    }
     drawGizmo();
-  }, [gzSize, drawGizmo]);
+  }, [jumpDisplay, drawGizmo]);
 
-  const gzPoint = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    const r = e.currentTarget.getBoundingClientRect();
-    return {
-      x: (e.clientX - r.left) * (gzSize / r.width),
-      y: (e.clientY - r.top) * (gzSize / r.height),
-    };
+  const applyCamera = useCallback(() => {
+    const cam = camRef.current;
+    if (engine) {
+      engine.setCameraView(cam.theta, cam.phi, cam.radius, true);
+      engine.cameraTarget.copy(cam.target);
+      engine.markDirty();
+    }
+    drawGizmo();
+  }, [engine, drawGizmo]);
+
+  // Hints
+  const idleHint = useCallback(() => {
+    if (tourRef.current) return;
+    setIsLiveHint(false);
+    setIsTourHint(false);
+    const targets = targetsRef.current;
+    const current = currentRef.current;
+    const what = targets[current] ? targets[current].name : 'it';
+    const m = gzRef.current.mode;
+    setHintText(m === 'look' ? 'Drag to spin around. Tap a dot to look from there.'
+      : m === 'move' ? 'Drag an arrow to slide ' + what + '.'
+      : 'Drag an arrow to turn ' + what + '.');
+  }, []);
+
+  const say = useCallback((text: string, live?: boolean) => {
+    setHintText(text);
+    setIsLiveHint(!!live);
+    setIsTourHint(false);
+    if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
+    if (live) hintTimerRef.current = setTimeout(idleHint, 1400);
+  }, [idleHint]);
+
+  // Handle snapping & tick
+  const snap = (v: number, step: number) => Math.round(v / step) * step;
+
+  const clampPos = () => {
+    objRef.current.pos.x = Math.max(-12, Math.min(12, objRef.current.pos.x));
+    objRef.current.pos.y = Math.max(-3, Math.min(9, objRef.current.pos.y));
+    objRef.current.pos.z = Math.max(-12, Math.min(12, objRef.current.pos.z));
+  };
+
+  const tick = (step: any) => {
+    if (lastStepRef.current === step) return;
+    lastStepRef.current = step;
+    if (navigator.vibrate) { try { navigator.vibrate(4); } catch (_) {} }
+  };
+
+  // Camera basis & pixel scale
+  const camBasis = () => {
+    const camera = engine?.getCamera();
+    if (camera) {
+      const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+      const up = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
+      return { right, up };
+    }
+    const cam = camRef.current;
+    const sp = Math.sin(cam.phi), cp = Math.cos(cam.phi);
+    const st = Math.sin(cam.theta), ct = Math.cos(cam.theta);
+    return { right: new THREE.Vector3(ct, 0, -st), up: new THREE.Vector3(-cp * st, sp, -cp * ct) };
+  };
+
+  const unitsPerPixel = () => {
+    const camera = engine?.getCamera();
+    const H = window.innerHeight || 900;
+    if (camera && camera instanceof THREE.PerspectiveCamera) {
+      const targetPos = new THREE.Vector3();
+      if (targetObjRef.current) targetObjRef.current.getWorldPosition(targetPos);
+      else targetPos.copy(camRef.current.target);
+      const distanceToTarget = camera.position.distanceTo(targetPos) || camRef.current.radius || 10;
+      return (2 * distanceToTarget * Math.tan((camera.fov * DEG) / 2)) / H;
+    }
+    return (2 * camRef.current.radius * Math.tan((46 * DEG) / 2)) / H;
+  };
+
+  // History
+  const pushHistory = () => {
+    const targetObj = targetObjRef.current;
+    if (!targetObj) return;
+    historyRef.current.push({ o: targetObj, p: objRef.current.pos.clone(), q: objRef.current.quat.clone() });
+    if (historyRef.current.length > 40) historyRef.current.shift();
+    setHistoryLen(historyRef.current.length);
+  };
+
+  const undo = () => {
+    const s = historyRef.current.pop();
+    if (!s) return;
+    if (s.o !== targetObjRef.current) {
+      const idx = targetsRef.current.findIndex(t => t.object === s.o);
+      if (idx >= 0) selectTarget(idx, true);
+    }
+    objRef.current.pos.copy(s.p);
+    objRef.current.quat.copy(s.q);
+    applyObject();
+    setHistoryLen(historyRef.current.length);
+    say('Undone', true);
+  };
+
+  // Flight animation
+  const flyTo = (phi: number, theta: number, ms?: number) => {
+    const cam = camRef.current;
+    let t = theta;
+    while (t - cam.theta > Math.PI) t -= Math.PI * 2;
+    while (t - cam.theta < -Math.PI) t += Math.PI * 2;
+    const p1 = Math.max(0.06, Math.min(Math.PI - 0.06, phi));
+    if (reduceMotionRef.current) {
+      cam.phi = p1; cam.theta = t;
+      applyCamera();
+      return;
+    }
+    flightRef.current = { p0: cam.phi, t0: cam.theta, p1, t1: t, start: performance.now(), ms: ms || 500 };
+  };
+
+  const stepFlight = (now: number) => {
+    const flight = flightRef.current;
+    if (!flight) return;
+    const k = Math.min(1, (now - flight.start) / flight.ms);
+    const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+    camRef.current.phi = flight.p0 + (flight.p1 - flight.p0) * e;
+    camRef.current.theta = flight.t0 + (flight.t1 - flight.t0) * e;
+    applyCamera();
+    if (k >= 1) flightRef.current = null;
+  };
+
+  const faceDirection = (dir: THREE.Vector3, label?: string) => {
+    const d = dir.clone().normalize();
+    flyTo(Math.acos(Math.max(-1, Math.min(1, d.y))), Math.atan2(d.x, d.z));
+    if (label) say('Looking from the ' + label.toLowerCase() + ' side', true);
+    if (navigator.vibrate) { try { navigator.vibrate(8); } catch (_) {} }
+  };
+
+  // Pointer Picking
+  const gzPoint = (e: React.PointerEvent<HTMLCanvasElement> | PointerEvent) => {
+    const gzc = canvasRef.current;
+    if (!gzc) return { x: 0, y: 0 };
+    const r = gzc.getBoundingClientRect();
+    const k = gzRef.current.size / r.width;
+    return { x: (e.clientX - r.left) * k, y: (e.clientY - r.top) * k + gzRef.current.size * CROP };
   };
 
   const pickHandle = (pt: { x: number; y: number }) => {
-    const m = gzMetrics();
-    const pose = getCameraPose();
-    const cam = { phi: pose.phi, theta: pose.theta };
-    let best: ReturnType<typeof getHandles>[0] | null = null;
-    let bd = Infinity;
-
-    getHandles(m, cam).forEach((h) => {
+    const m = metrics(gzRef.current.size);
+    const near: any[] = [];
+    handles(m).forEach((h: any) => {
       const d = Math.hypot(pt.x - h.p.x, pt.y - h.p.y);
-      const reach = m.hand * (h.sign > 0 ? (isSimple ? 1.8 : 1.85) : (isSimple ? 1.45 : 1.5));
-      const score = d - (h.p.depth >= -0.04 ? m.hand * 0.5 : 0);
-      if (d < reach && score < bd) {
-        bd = score;
-        best = h;
-      }
+      if (d < m.hand * (h.sign > 0 ? 1.8 : 1.45)) near.push({ h, d, front: h.p.depth >= -0.04 });
     });
-    return best;
+    if (!near.length) return null;
+    near.sort((a: any, b: any) => a.d - b.d);
+    const tie = near.find((c: any) => c.front && c.d <= near[0].d + m.hand * 0.4);
+    return (tie || near[0]).h;
   };
 
-  const stopTour = useCallback(() => {
-    if (!tourRef.current) return;
-    if (tourRef.current.rafId) cancelAnimationFrame(tourRef.current.rafId);
+  // Modes
+  const setMode = (m: 'move' | 'rotate' | 'look') => {
+    gzRef.current.mode = m;
+    setModeState(m);
+    idleHint();
+    drawGizmo();
+  };
+
+  // Orientations
+  const setOrient = (pitch: number, roll: number, label: string) => {
+    stopTour(); pushHistory();
+    const e = new THREE.Euler().setFromQuaternion(objRef.current.quat, 'YXZ');
+    objRef.current.quat.setFromEuler(new THREE.Euler(pitch * DEG, e.y, roll * DEG, 'YXZ'));
+    applyObject(); say(label, true);
+  };
+
+  const lookAtIt = () => {
+    stopTour();
+    camRef.current.target.copy(objRef.current.pos);
+    faceDirection(new THREE.Vector3(0, 1, 0).applyQuaternion(objRef.current.quat), '');
+    say('Looking straight at it', true);
+  };
+
+  const resetTarget = () => {
+    stopTour(); pushHistory();
+    const targets = targetsRef.current;
+    const current = currentRef.current;
+    const targetObj = targetObjRef.current;
+    const home = targets[current] && targets[current].home;
+    if (home && targetObj) {
+      targetObj.position.copy(home.p);
+      targetObj.quaternion.copy(home.q);
+    }
+    syncFromTarget();
+    camRef.current.target.copy(objRef.current.pos);
+    applyObject(); applyCamera();
+    say((targets[current] ? targets[current].name : 'It') + ' back to the start', true);
+  };
+
+  // Tour
+  const TOUR = [
+    { t: 0, dur: 4200, ring: { type: 'axis', i: 0 }, cap: 'Drag the orange arrow to lift it up.' },
+    { t: 4200, dur: 4200, ring: { type: 'axis', i: 1 }, cap: 'Tap a dot to look from that side. Tapping never moves it.' },
+    { t: 8400, dur: 4600, ring: { type: 'hub' }, cap: 'Tap the middle circle to switch to Turn.' },
+    { t: 13000, dur: 2200, ring: null, cap: 'Your turn. Undo fixes anything.' }
+  ];
+
+  const stopTour = () => {
+    const tour = tourRef.current;
+    if (!tour) return;
+    const s = tour.save;
+    objRef.current.pos.copy(s.pos);
+    objRef.current.quat.copy(s.quat);
+    camRef.current.phi = s.phi;
+    camRef.current.theta = s.theta;
+    flightRef.current = null;
+    gzRef.current.ring = null;
     tourRef.current = null;
-    setIsTourActive(false);
-    setCaption(null);
-    drawGizmo();
-  }, [drawGizmo]);
-
-  const startTour = useCallback(() => {
-    stopTour();
-    setIsTourActive(true);
-    setMode('move');
-    const TOUR = [
-      { t: 0, dur: 4200, ring: { type: 'axis' as const, i: 0 }, cap: 'Drag the orange arrow to lift it up.', sub: 'Every arrow slides it a different way.' },
-      { t: 4200, dur: 4200, ring: { type: 'axis' as const, i: 1 }, cap: 'Tap a dot to look from that side.', sub: 'Tapping never moves your thing.' },
-      { t: 8400, dur: 4600, ring: { type: 'hub' as const }, cap: 'Tap the middle circle to switch to Turn.', sub: 'Then the arrows spin it instead.' },
-      { t: 13000, dur: 2000, ring: null, cap: 'Your turn. Undo fixes anything.', sub: '' }
-    ];
-
-    const startTime = performance.now();
-    tourRef.current = { start: startTime, step: -1, ring: { type: 'axis', i: 0 }, rafId: null };
-
-    const tick = (now: number) => {
-      if (!tourRef.current) return;
-      const el = Math.max(0, now - startTime);
-      let idx = 0;
-      for (let i = 0; i < TOUR.length; i++) {
-        if (el >= TOUR[i].t) idx = i;
-      }
-      const last = TOUR[TOUR.length - 1];
-      if (el > last.t + last.dur) {
-        stopTour();
-        return;
-      }
-
-      if (idx !== tourRef.current.step) {
-        tourRef.current.step = idx;
-        const s = TOUR[idx];
-        tourRef.current.ring = s.ring;
-        setCaption({ main: s.cap, sub: s.sub });
-        if (idx === 1) {
-          engine?.snapToView('right');
-        } else if (idx === 2) {
-          setMode('rotate');
-        } else if (idx === 3) {
-          setMode('move');
-          engine?.resetCamera();
-        }
-      }
-      drawGizmo(now);
-      tourRef.current.rafId = requestAnimationFrame(tick);
-    };
-    tourRef.current.rafId = requestAnimationFrame(tick);
-  }, [drawGizmo, engine, stopTour]);
-
-  const snapTo = (v: number, step: number) => Math.round(v / step) * step;
-  const fmt = (v: number) => (v >= 0 ? '+' : '') + v.toFixed(2);
-
-  // Pro mode keyboard shortcuts
-  useEffect(() => {
-    if (isSimple) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.metaKey || e.altKey || e.ctrlKey) return;
-      const target = e.target as HTMLElement | null;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
-        return;
-      }
-      const k = e.key.toLowerCase();
-      if (k === 'g') {
-        setMode('move');
-        say('Mode: Move', true);
-      } else if (k === 'r') {
-        setMode('rotate');
-        say('Mode: Rotate', true);
-      } else if (k === 'l') {
-        setMode('look');
-        say('Mode: Look', true);
-      } else if (k === 'f') {
-        engine?.alignSurfaceToCamera(targetScope);
-        say('Facing the surface', true);
-        updateTelemetry();
-      } else if (k === 's') {
-        toggleSnap();
-        say(!isSnapOn ? 'Snapping to 0.25 m and 15°' : 'Snapping off', true);
-      } else if (k === 'z') {
-        e.preventDefault();
-        engine?.undo();
-        say('Undone', true);
-        updateTelemetry();
-      } else if (k === '0') {
-        engine?.resetTransform(targetScope);
-        engine?.resetCamera();
-        say('Surface reset', true);
-        updateTelemetry();
-      } else if (k.startsWith('arrow')) {
-        e.preventDefault();
-        const step = e.shiftKey ? 1.0 : 0.25;
-        if (k === 'arrowleft' || k === 'arrowright') {
-          const s = k === 'arrowright' ? step : -step;
-          engine?.translateScreenSpace(s, 0, targetScope, false);
-          say('Nudged ' + fmt(s) + ' m', true);
-        } else if (k === 'arrowup' || k === 'arrowdown') {
-          const s = k === 'arrowup' ? step : -step;
-          engine?.translateScreenSpace(0, -s, targetScope, false);
-          say('Nudged ' + fmt(s) + ' m', true);
-        }
-        updateTelemetry();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [engine, isSimple, isSnapOn, say, targetScope, toggleSnap, updateTelemetry]);
-
-  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    stopTour();
-
-    const pt = gzPoint(e);
-    const m = gzMetrics();
-    const r = Math.hypot(pt.x - m.c, pt.y - m.c);
-    const hit = pickHandle(pt);
-
-    if (hit) {
-      activeInteractionRef.current = { type: 'axis', i: hit.i, sign: hit.sign };
-    } else if (r <= m.hub * 1.25 && mode !== 'look') {
-      activeInteractionRef.current = { type: 'hub' };
-    } else {
-      activeInteractionRef.current = { type: 'orbit' };
-    }
-
-    const pose = getCameraPose();
-    dragSessionRef.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      moved: false,
-      hit,
-      startTheta: pose.theta,
-      startPhi: pose.phi,
-      startAngle: Math.atan2(pt.y - m.c, pt.x - m.c),
-      lastAppliedAmount: 0,
-      lastAppliedDeg: 0,
-      lastAppliedFloatX: 0,
-      lastAppliedFloatY: 0,
-      lastAppliedAy: 0,
-      lastAppliedAx: 0,
-    };
-
-    if (mode === 'move' || mode === 'rotate') {
-      engine?.beginTransform(targetScope);
-    }
-
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch (_) {}
-    drawGizmo();
+    setIsTourRunning(false);
+    setMode(s.mode);
+    applyObject(); applyCamera(); idleHint();
   };
 
-  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    const session = dragSessionRef.current;
-    if (!session) {
-      const hit = pickHandle(gzPoint(e));
-      hoverRef.current = hit ? { i: hit.i, sign: hit.sign } : null;
-      e.currentTarget.style.cursor = hit ? 'pointer' : 'grab';
-      drawGizmo();
-      return;
-    }
-
-    const dx = e.clientX - session.startX;
-    const dy = e.clientY - session.startY;
-    if (!session.moved && Math.hypot(dx, dy) < (isSimple ? 4 : 3.5)) return;
-    session.moved = true;
-
-    const act = activeInteractionRef.current;
-    if (!act) return;
-
-    // Orbit camera in look mode or empty disc drag
-    if (act.type === 'orbit' || (act.type === 'axis' && mode === 'look')) {
-      const sens = 0.006 * (engine?.navigatorSensitivity || 1);
-      engine?.orbitNavigator(dx * sens, dy * sens);
-      session.startX = e.clientX;
-      session.startY = e.clientY;
-      say(isSimple ? 'Walking around it' : 'Orbiting', true);
-      return;
-    }
-
-    // Units per pixel scale
-    const pose = getCameraPose();
-    const H = typeof window !== 'undefined' ? window.innerHeight : 800;
-    const FOV = 46;
-    const unitsPerPixel = (2 * pose.radius * Math.tan((FOV * DEG) / 2)) / H;
-
-    // Floating Screen Pan / Trackball Tumble on Hub
-    if (act.type === 'hub') {
-      if (mode === 'move') {
-        let fx = dx * unitsPerPixel;
-        let fy = -dy * unitsPerPixel;
-        if (isSimple || isSnapOn) {
-          const step = isSimple ? 0.5 : 0.25;
-          fx = snapTo(fx, step);
-          fy = snapTo(fy, step);
-        }
-        const deltaX = fx - session.lastAppliedFloatX;
-        const deltaY = fy - session.lastAppliedFloatY;
-        if (Math.abs(deltaX) > 0.0001 || Math.abs(deltaY) > 0.0001) {
-          engine?.translateScreenSpace(deltaX, -deltaY, targetScope, false);
-          session.lastAppliedFloatX = fx;
-          session.lastAppliedFloatY = fy;
-          updateTelemetry();
-        }
-        say(isSimple ? 'Sliding it around' : `Floating  ${fmt(fx)} , ${fmt(fy)}`, true);
-      } else {
-        let ay = -dx * 0.5;
-        let ax = -dy * 0.5;
-        if (isSimple || isSnapOn) {
-          ay = snapTo(ay, 15);
-          ax = snapTo(ax, 15);
-        }
-        const deltaAy = ay - session.lastAppliedAy;
-        const deltaAx = ax - session.lastAppliedAx;
-        if (Math.abs(deltaAy) > 0.0001 || Math.abs(deltaAx) > 0.0001) {
-          engine?.rotateTrackball(deltaAy * 2, deltaAx * 2, targetScope);
-          session.lastAppliedAy = ay;
-          session.lastAppliedAx = ax;
-          updateTelemetry();
-        }
-        say(isSimple ? 'Tumbling it' : 'Turning freely', true);
+  const startTour = () => {
+    stopTour();
+    tourRef.current = {
+      start: performance.now(),
+      step: -1,
+      save: {
+        pos: objRef.current.pos.clone(),
+        quat: objRef.current.quat.clone(),
+        phi: camRef.current.phi,
+        theta: camRef.current.theta,
+        mode: gzRef.current.mode
       }
-      return;
+    };
+    setMode('move');
+    setIsTourRunning(true);
+  };
+
+  const stepTour = (now: number) => {
+    const tour = tourRef.current;
+    if (!tour) return;
+    const el = Math.max(0, now - tour.start);
+    let idx = 0;
+    for (let i = 0; i < TOUR.length; i++) if (el >= TOUR[i].t) idx = i;
+    const last = TOUR[TOUR.length - 1];
+    if (el > last.t + last.dur) { stopTour(); return; }
+
+    if (idx !== tour.step) {
+      tour.step = idx;
+      const s = TOUR[idx];
+      gzRef.current.ring = s.ring;
+      setHintText(s.cap);
+      setIsTourHint(true);
+      setIsLiveHint(false);
+      if (idx === 1) {
+        const h = handles(metrics(gzRef.current.size)).filter((k: any) => k.i === 1 && k.sign === 1)[0];
+        if (h) faceDirection(h.dir, '');
+      }
+      if (idx === 2) setMode('rotate');
+      if (idx === 3) { setMode('move'); flyTo(tour.save.phi, tour.save.theta, 600); }
+    }
+    const s = TOUR[idx];
+    const wave = Math.sin(Math.min(1, (el - s.t) / s.dur * 1.25) * Math.PI);
+    if (idx === 0) {
+      objRef.current.pos.copy(tour.save.pos);
+      objRef.current.pos.y = tour.save.pos.y + wave * 1.6;
+      applyObject();
+    } else if (idx === 2) {
+      objRef.current.quat.copy(tour.save.quat).premultiply(
+        new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), wave * 50 * DEG)
+      );
+      applyObject();
+    }
+    drawGizmo(now);
+  };
+
+  // Select target
+  const selectTarget = useCallback((i: number, quiet?: boolean) => {
+    const targets = targetsRef.current;
+    if (i < 0 || !targets[i]) return;
+    currentRef.current = i;
+    setCurrentIdx(i);
+    targetObjRef.current = targets[i].object;
+    syncFromTarget();
+    jumpDisplay();
+    markSelection();
+    applyObject();
+    if (!quiet) say('Now moving ' + targets[i].name, true);
+    if (targets[i].id) {
+      onSelectLayer?.(targets[i].id);
+      onSelectModel?.(targets[i].id);
+    }
+  }, [syncFromTarget, jumpDisplay, markSelection, applyObject, say, onSelectLayer, onSelectModel]);
+
+  const setTargets = useCallback((list: TargetItem[]) => {
+    const formatted = list.map(t => {
+      t.object.updateWorldMatrix(true, false);
+      return Object.assign({}, t, {
+        home: { p: t.object.position.clone(), q: t.object.quaternion.clone() }
+      });
+    });
+    targetsRef.current = formatted;
+    setTargetsList(formatted);
+    selectTarget(Math.min(currentRef.current, formatted.length - 1), true);
+  }, [selectTarget]);
+
+  // Populate targets from engine
+  useEffect(() => {
+    if (!engine) return;
+    const list: TargetItem[] = [];
+    const drawingPlane = engine.getDrawingPlane();
+    const sceneRoot = engine.getModelRoot();
+    const loadedModel = sceneRoot?.children?.find(
+      c => c !== drawingPlane && (c as any).name !== 'DrawingPlaneCanvas' && !(c as any).isLine && !(c as any).isPoints
+    );
+
+    if (sceneRoot) list.push({ id: 'scene', name: 'Everything', note: 'model + canvas', object: sceneRoot });
+    if (loadedModel) list.push({ id: 'model', name: 'Model', note: 'the 3D shape', object: loadedModel });
+    if (drawingPlane) list.push({ id: 'canvas', name: 'Canvas', note: 'what you draw on', object: drawingPlane });
+
+    if (layers && layers.length > 0) {
+      layers.forEach(l => {
+        const layerObj = (drawingPlane?.getObjectByName?.(l.id) || (drawingPlane?.children?.find((c: any) => c.userData?.layerId === l.id))) as THREE.Object3D;
+        if (layerObj) {
+          list.push({ id: l.id, name: l.name || 'Layer', note: l.type || 'layer', object: layerObj });
+        }
+      });
     }
 
-    // Axis Dragging
-    if (session.hit) {
-      const h = session.hit;
-      const m = gzMetrics();
-      const p = project(h.dir, m, { phi: pose.phi, theta: pose.theta });
+    if (list.length === 0) {
+      const dummy = new THREE.Group();
+      list.push({ id: 'canvas', name: 'Canvas', note: 'what you draw on', object: dummy });
+    }
 
-      if (mode === 'move') {
-        const len = Math.max(0.001, p.len);
-        const nx = (p.x - m.c) / (m.arm * len);
-        const ny = (p.y - m.c) / (m.arm * len);
-        const along = dx * nx + dy * ny;
-        let amount = (along * unitsPerPixel) / Math.max(0.3, len);
-        if (isSimple || isSnapOn) {
-          const step = isSimple ? 0.5 : 0.25;
-          amount = snapTo(amount, step);
-        }
-        const delta = amount - session.lastAppliedAmount;
-        if (Math.abs(delta) > 0.0001) {
-          engine?.translateAxis3D(h.a.key, delta * h.sign, targetScope, false);
-          session.lastAppliedAmount = amount;
-          updateTelemetry();
-        }
-        if (isSimple) {
-          const label = h.sign > 0 ? h.a.lbl : h.a.back;
-          say(`${label}  ${amount >= 0 ? '' : 'back '}${Math.abs(amount).toFixed(1)} steps`, true);
+    setTargets(list);
+    const canvasIdx = list.findIndex(t => t.id === 'canvas');
+    selectTarget(canvasIdx >= 0 ? canvasIdx : 0, true);
+  }, [engine, layers, setTargets, selectTarget]);
+
+  // Keep target selection in sync when app activeLayerId changes
+  useEffect(() => {
+    if (activeLayerId) {
+      const idx = targetsRef.current.findIndex(t => t.id === activeLayerId);
+      if (idx >= 0 && idx !== currentRef.current) {
+        selectTarget(idx, true);
+      }
+    }
+  }, [activeLayerId, selectTarget]);
+
+  // Size to box and fit
+  const sizeToBox = useCallback(() => {
+    const box = boxRef.current;
+    if (!box) return;
+    const s = Math.max(140, Math.min(212, Math.round(box.clientWidth - 14)));
+    if (s !== gzRef.current.size) {
+      gzRef.current.size = s;
+      fitGizmo(s);
+    }
+  }, []);
+
+  const setOpen = useCallback((open: boolean) => {
+    setIsOpen(open);
+    requestAnimationFrame(() => {
+      if (open) sizeToBox();
+      else fit(puckCanvasRef.current, puckCanvasRef.current?.getContext('2d') || null, 56);
+      toCorner(corner);
+      drawGizmo();
+    });
+  }, [sizeToBox, toCorner, corner, drawGizmo]);
+
+  // Pointer dragging on head or puck
+  useEffect(() => {
+    const head = headRef.current;
+    const box = boxRef.current;
+    const puck = puckRef.current;
+    if (!head || !box || !puck) return;
+
+    const listeners: Array<() => void> = [];
+    [[head, box], [puck, puck]].forEach(([handle, el]: [HTMLElement, HTMLElement]) => {
+      let d: any = null;
+      const onDown = (e: PointerEvent) => {
+        if ((e.target as HTMLElement).closest('.nv-icon')) return;
+        e.preventDefault();
+        const r = el.getBoundingClientRect();
+        d = { x: e.clientX, y: e.clientY, left: r.left, top: r.top, moved: false };
+        handle.setPointerCapture(e.pointerId);
+      };
+      const onMove = (e: PointerEvent) => {
+        if (!d) return;
+        if (!d.moved && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 4) return;
+        d.moved = true;
+        place(d.left + e.clientX - d.x, d.top + e.clientY - d.y);
+      };
+      const onUp = (e: PointerEvent) => {
+        if (!d) return;
+        const moved = d.moved;
+        d = null;
+        try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
+        if (moved) toCorner(nearestCorner());
+        else if (handle === puck) setOpen(true);
+      };
+      handle.addEventListener('pointerdown', onDown);
+      handle.addEventListener('pointermove', onMove);
+      handle.addEventListener('pointerup', onUp);
+      listeners.push(() => {
+        handle.removeEventListener('pointerdown', onDown);
+        handle.removeEventListener('pointermove', onMove);
+        handle.removeEventListener('pointerup', onUp);
+      });
+    });
+
+    return () => listeners.forEach(un => un());
+  }, [place, toCorner, nearestCorner, setOpen]);
+
+  // Pointer events on gizmo canvas
+  useEffect(() => {
+    const gzc = canvasRef.current;
+    if (!gzc) return;
+
+    const onDown = (e: PointerEvent) => {
+      e.preventDefault(); e.stopPropagation();
+      stopTour();
+      const pt = gzPoint(e);
+      const m = metrics(gzRef.current.size);
+      const r = Math.hypot(pt.x - m.c, pt.y - m.c);
+      const hit = pickHandle(pt);
+      if (hit) gzRef.current.active = { type: 'axis', i: hit.i, sign: hit.sign };
+      else if (r <= m.hub * 1.3 && gzRef.current.mode !== 'look') gzRef.current.active = { type: 'hub' };
+      else gzRef.current.active = { type: 'orbit' };
+
+      dragRef.current = {
+        startX: e.clientX, startY: e.clientY, moved: false, hit,
+        pos: objRef.current.pos.clone(), quat: objRef.current.quat.clone(),
+        theta: camRef.current.theta, phi: camRef.current.phi,
+        startAngle: Math.atan2(pt.y - m.c, pt.x - m.c), committed: false
+      };
+      lastStepRef.current = null;
+      nvRef.current?.classList.add('nv-grabbing', 'nv-focus');
+      gzc.setPointerCapture(e.pointerId);
+      drawGizmo();
+    };
+
+    const onMove = (e: PointerEvent) => {
+      const m = metrics(gzRef.current.size);
+      const drag = dragRef.current;
+      if (!drag) {
+        const hit = pickHandle(gzPoint(e));
+        const changed = (hit ? hit.i + ':' + hit.sign : '') !== (gzRef.current.hover ? gzRef.current.hover.i + ':' + gzRef.current.hover.sign : '');
+        gzRef.current.hover = hit ? { i: hit.i, sign: hit.sign } : null;
+        gzc.style.cursor = hit ? 'pointer' : 'grab';
+        if (changed) drawGizmo();
+        return;
+      }
+      const dx = e.clientX - drag.startX, dy = e.clientY - drag.startY;
+      if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+      drag.moved = true;
+      const act = gzRef.current.active;
+
+      if (act.type === 'orbit' || (act.type === 'axis' && gzRef.current.mode === 'look')) {
+        camRef.current.theta = drag.theta - dx * 0.0062;
+        camRef.current.phi = Math.max(0.06, Math.min(Math.PI - 0.06, drag.phi - dy * 0.0062));
+        applyCamera();
+        say('Walking around it', true);
+        return;
+      }
+      if (!drag.committed) { pushHistory(); drag.committed = true; }
+
+      if (act.type === 'hub') {
+        if (gzRef.current.mode === 'move') {
+          const b = camBasis(), k = unitsPerPixel();
+          objRef.current.pos.copy(drag.pos).addScaledVector(b.right, dx * k).addScaledVector(b.up, -dy * k);
+          if (gzRef.current.moveStep) {
+            objRef.current.pos.x = snap(objRef.current.pos.x, gzRef.current.moveStep);
+            objRef.current.pos.y = snap(objRef.current.pos.y, gzRef.current.moveStep);
+            objRef.current.pos.z = snap(objRef.current.pos.z, gzRef.current.moveStep);
+          }
+          clampPos(); applyObject();
+          tick(objRef.current.pos.x + ':' + objRef.current.pos.y + ':' + objRef.current.pos.z);
+          say('Sliding it around', true);
         } else {
-          say(`Along ${h.a.lbl}  ${fmt(amount)} m`, true);
+          const b = camBasis();
+          let ay = -dx * 0.5, ax = -dy * 0.5;
+          if (gzRef.current.rotStep) { ay = snap(ay, gzRef.current.rotStep); ax = snap(ax, gzRef.current.rotStep); }
+          const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), ay * DEG)
+            .multiply(new THREE.Quaternion().setFromAxisAngle(b.right, ax * DEG));
+          objRef.current.quat.copy(drag.quat).premultiply(q);
+          applyObject();
+          tick(ay + ':' + ax);
+          say('Tumbling it', true);
         }
-      } else if (mode === 'rotate') {
+        return;
+      }
+
+      const h = drag.hit, a = AXES[h.i], worldDir = h.dir, p = project(worldDir, m);
+      if (gzRef.current.mode === 'move') {
+        const len = Math.max(0.001, p.len);
+        const nx = (p.x - m.c) / (m.arm * len), ny = (p.y - m.c) / (m.arm * len);
+        let amount = (dx * nx + dy * ny) * unitsPerPixel() / Math.max(0.30, len);
+        if (gzRef.current.moveStep) amount = snap(amount, gzRef.current.moveStep);
+        objRef.current.pos.copy(drag.pos).addScaledVector(worldDir, amount);
+        clampPos(); applyObject();
+        tick(amount);
+        say((h.sign > 0 ? a.lbl : a.back) + '  ' + Math.abs(amount).toFixed(gzRef.current.moveStep && gzRef.current.moveStep >= 0.5 ? 1 : 2), true);
+      } else {
         const pt = gzPoint(e);
-        let d = Math.atan2(pt.y - m.c, pt.x - m.c) - session.startAngle;
+        let d = Math.atan2(pt.y - m.c, pt.x - m.c) - drag.startAngle;
         while (d > Math.PI) d -= Math.PI * 2;
         while (d < -Math.PI) d += Math.PI * 2;
         let deg = -(d / DEG) * (p.depth >= 0 ? 1 : -1);
-        if (isSimple || isSnapOn) {
-          deg = snapTo(deg, 15);
-        }
-        const deltaDeg = deg - session.lastAppliedDeg;
-        if (Math.abs(deltaDeg) > 0.0001) {
-          engine?.rotateAxis3D(h.a.key, deltaDeg * DEG * h.sign, targetScope, false);
-          session.lastAppliedDeg = deg;
-          updateTelemetry();
-        }
-        if (isSimple) {
-          say(`Turned ${Math.round(Math.abs(deg))}°`, true);
-        } else {
-          say(`Turn around ${h.a.lbl}  ${deg > 0 ? '+' : ''}${Math.round(deg)}°`, true);
-        }
+        if (gzRef.current.rotStep) deg = snap(deg, gzRef.current.rotStep);
+        objRef.current.quat.copy(drag.quat).premultiply(new THREE.Quaternion().setFromAxisAngle(worldDir, deg * DEG));
+        applyObject();
+        tick(deg);
+        say('Turned ' + Math.round(Math.abs(deg)) + '°', true);
       }
-    }
-  };
-
-  const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    const session = dragSessionRef.current;
-    if (session) {
-      if (!session.moved && session.hit) {
-        haptics.trigger('light');
-        engine?.snapToView(session.hit.viewName);
-        if (isSimple) {
-          const label = session.hit.sign > 0 ? session.hit.a.lbl : session.hit.a.back;
-          say(`Looking from the ${label.toLowerCase()} side`, true);
-        } else {
-          say(`Facing ${session.hit.sign < 0 ? '−' : ''}${session.hit.a.lbl}`, true);
-        }
-      } else if (!session.moved && activeInteractionRef.current?.type === 'hub') {
-        setMode((curr) => (curr === 'move' ? 'rotate' : 'move'));
-      }
-    }
-
-    if (mode === 'move' || mode === 'rotate') {
-      engine?.endTransform();
-    }
-
-    activeInteractionRef.current = null;
-    dragSessionRef.current = null;
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch (_) {}
-    drawGizmo();
-    idleHint();
-    updateTelemetry();
-  };
-
-  const handleGripPointerDown = (e: React.PointerEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    stopTour();
-    setIsDraggingRoot(true);
-    rootDragRef.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      origX: pos.x,
-      origY: pos.y,
     };
-    try {
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    } catch (_) {}
-  };
 
-  const handleGripPointerMove = (e: React.PointerEvent) => {
-    if (!isDraggingRoot) return;
-    const dx = e.clientX - rootDragRef.current.startX;
-    const dy = e.clientY - rootDragRef.current.startY;
-    const screenW = window.innerWidth;
-    const screenH = window.innerHeight;
-    const newX = Math.max(6, Math.min(screenW - gzSize - 10, rootDragRef.current.origX + dx));
-    const newY = Math.max(30, Math.min(screenH - gzSize - 140, rootDragRef.current.origY + dy));
-    setPos({ x: newX, y: newY });
-  };
+    const onUp = (e: PointerEvent) => {
+      const drag = dragRef.current;
+      if (!drag) return;
+      if (!drag.moved && drag.hit) faceDirection(drag.hit.dir, drag.hit.sign > 0 ? drag.hit.a.lbl : drag.hit.a.back);
+      else if (!drag.moved && gzRef.current.active && gzRef.current.active.type === 'hub') setMode(gzRef.current.mode === 'move' ? 'rotate' : 'move');
+      gzRef.current.active = null; dragRef.current = null;
+      nvRef.current?.classList.remove('nv-grabbing', 'nv-focus');
+      try { gzc.releasePointerCapture(e.pointerId); } catch (_) {}
+      drawGizmo(); idleHint();
+      setHistoryLen(historyRef.current.length);
+    };
 
-  const handleGripPointerUp = (e: React.PointerEvent) => {
-    if (isDraggingRoot) {
-      setIsDraggingRoot(false);
-      try {
-        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-      } catch (_) {}
-      try {
-        localStorage.setItem('paperrocket_opt3_coords_v3', JSON.stringify(pos));
-      } catch (_) {}
+    gzc.addEventListener('pointerdown', onDown);
+    gzc.addEventListener('pointermove', onMove);
+    gzc.addEventListener('pointerup', onUp);
+    gzc.addEventListener('pointercancel', onUp);
+
+    return () => {
+      gzc.removeEventListener('pointerdown', onDown);
+      gzc.removeEventListener('pointermove', onMove);
+      gzc.removeEventListener('pointerup', onUp);
+      gzc.removeEventListener('pointercancel', onUp);
+    };
+  }, [drawGizmo, applyCamera, applyObject, idleHint, say]);
+
+  // Dimming while drawing on canvas
+  useEffect(() => {
+    const onDocDown = (e: PointerEvent) => {
+      if (nvRef.current && !nvRef.current.contains(e.target as Node)) {
+        nvRef.current.classList.add('nv-dim');
+      }
+    };
+    const onDocUp = () => {
+      nvRef.current?.classList.remove('nv-dim');
+    };
+    document.addEventListener('pointerdown', onDocDown, true);
+    document.addEventListener('pointerup', onDocUp, true);
+    document.addEventListener('pointercancel', onDocUp, true);
+
+    return () => {
+      document.removeEventListener('pointerdown', onDocDown, true);
+      document.removeEventListener('pointerup', onDocUp, true);
+      document.removeEventListener('pointercancel', onDocUp, true);
+    };
+  }, []);
+
+  // Set up 3D Selection outline in scene
+  useEffect(() => {
+    if (!engine) return;
+    const scene = engine.getScene();
+    const dark = isDark();
+    const outline = new THREE.Box3Helper(selBoxRef.current, dark ? 0xf2ede6 : 0x332e28);
+    const mat = outline.material as THREE.LineBasicMaterial;
+    if (mat) {
+      mat.transparent = true;
+      mat.opacity = 0.55;
     }
-  };
+    outline.visible = false;
+    scene.add(outline);
+    outlineRef.current = outline;
 
-  const handleToggleSize = () => {
-    const next = (sizeIdx + 1) % SIZES.length;
-    setSizeIdx(next);
-    try {
-      localStorage.setItem('paperrocket_gizmo_size_idx', String(next));
-    } catch (_) {}
-    say(`Gizmo ${['small', 'medium', 'large'][next]}`, true);
-  };
+    return () => {
+      scene.remove(outline);
+      outline.dispose?.();
+    };
+  }, [engine, isDark]);
 
-  const handleSaveCopy = () => {
-    try {
-      const filename = isSimple ? 'navigator-gizmo-kids.html' : 'navigator-gizmo.html';
-      const fileUrl = isSimple ? '/simple_gizmo.html' : '/new_gizmo.html';
-      const a = document.createElement('a');
-      a.href = fileUrl;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => a.remove(), 800);
-      say('Downloaded copy', true);
-    } catch (_) {}
-  };
+  // Main Animation Loop
+  useEffect(() => {
+    let animId: number;
+    let lastFrame = 0;
+
+    const loop = (now: number) => {
+      animId = requestAnimationFrame(loop);
+      const dt = lastFrame ? Math.min(0.06, (now - lastFrame) / 1000) : 0.016;
+      lastFrame = now;
+
+      stepFlight(now);
+      stepTour(now);
+
+      // Camera sync from main viewport
+      if (!dragRef.current && !flightRef.current && !tourRef.current && engine) {
+        const engCam = engine.cameraSpherical;
+        if (
+          Math.abs(camRef.current.theta - engCam.theta) > 1e-4 ||
+          Math.abs(camRef.current.phi - engCam.phi) > 1e-4
+        ) {
+          camRef.current.theta = engCam.theta;
+          camRef.current.phi = engCam.phi;
+          camRef.current.radius = engCam.radius;
+          camRef.current.target.copy(engine.cameraTarget);
+          drawGizmo(now);
+        }
+      }
+
+      if (easeDisplay(dt)) drawGizmo(now);
+    };
+
+    fit(puckCanvasRef.current, puckCanvasRef.current?.getContext('2d') || null, 56);
+    sizeToBox();
+    document.documentElement.dataset.nvTheme = theme;
+    readTheme();
+    applyObject();
+    if (engine?.cameraSpherical) {
+      camRef.current.theta = engine.cameraSpherical.theta;
+      camRef.current.phi = engine.cameraSpherical.phi;
+      camRef.current.radius = engine.cameraSpherical.radius;
+      if (engine.cameraTarget) {
+        camRef.current.target.copy(engine.cameraTarget);
+      }
+    }
+    idleHint();
+    toCorner('br');
+    drawGizmo();
+
+    animId = requestAnimationFrame(loop);
+
+    const onResize = () => {
+      sizeToBox();
+      toCorner(corner);
+      drawGizmo();
+    };
+    window.addEventListener('resize', onResize);
+
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [sizeToBox, readTheme, applyObject, applyCamera, idleHint, toCorner, corner, drawGizmo, easeDisplay, engine]);
+
+  // Theme change
+  useEffect(() => {
+    document.documentElement.dataset.nvTheme = theme;
+    readTheme();
+    drawGizmo();
+  }, [theme, readTheme, drawGizmo]);
+
+  const currentTarget = targetsList[currentIdx];
+  const rStepObj = ROT_STEPS.find(o => o.v === rotStep);
+  const mStepObj = MOVE_STEPS.find(o => o.v === moveStep);
+  const stepLabel = mode === 'rotate' ? (rStepObj ? rStepObj.lbl : 'Free') : (mStepObj ? mStepObj.lbl : 'Free');
 
   return (
-    <>
-      {/* Intro Toast for Pro Mode */}
-      {showIntro && !isSimple && (
-        <div className={`paper-gz-intro ${introFading ? 'gone' : ''}`}>
-          Tap an axis to face it. Drag it to change it.
-        </div>
-      )}
-
-      {/* Tour Caption for Kids Mode */}
-      {caption && isSimple && (
-        <div className="paper-gz-caption on">
-          {caption.main}
-          {caption.sub && <small>{caption.sub}</small>}
-        </div>
-      )}
-
-      <div
-        className={`paper-gz-root ${isSimple ? 'kids' : 'pro'} ${isDark ? 'dark' : ''} ${
-          isDraggingRoot ? 'dragging moved' : ''
-        }`}
-        style={{
-          left: `${pos.x}px`,
-          top: `${pos.y}px`,
-          transform: `scale(${uiScale})`,
-          transformOrigin: 'top left',
-        }}
-      >
-        {/* Telemetry Readout Pill */}
-        <div className="paper-gz-readout">
-          <span>
-            Height <b>{telemetry.height}</b>
-          </span>
-          <span>
-            Tilt <b>{telemetry.tilt}</b>
-          </span>
-          <span className={isSimple ? 'wide' : ''}>
-            {isSimple ? 'Spin' : 'Turn'} <b>{telemetry.turnOrSpin}</b>
-          </span>
-          {!isSimple && (
-            <span className="wide">
-              Bank <b>{telemetry.bank}</b>
-            </span>
-          )}
-        </div>
-
-        {/* Scope Row / Header Bar */}
-        <div className="paper-gz-scope-row">
-          {(['all', 'model', 'plane'] as TransformTargetScope[]).map((sc) => (
-            <button
-              key={sc}
-              className={`paper-gz-scope-btn ${targetScope === sc ? 'active' : ''}`}
-              onClick={() => onSelectTargetScope?.(sc)}
-            >
-              {sc === 'all' ? 'All' : sc === 'model' ? 'Model' : 'Surface'}
-            </button>
-          ))}
-          {isSimple ? (
-            <button
-              className="paper-gz-scope-btn tour-btn"
-              style={{ fontWeight: 600, color: isTourActive ? '#ec8a2c' : undefined }}
-              onClick={isTourActive ? stopTour : startTour}
-            >
-              {isTourActive ? 'Stop' : 'Show me how'}
-            </button>
-          ) : (
-            <>
-              <button
-                className={`paper-gz-scope-btn ${isKeysOpen ? 'active' : ''}`}
-                onClick={() => setIsKeysOpen((prev) => !prev)}
-              >
-                Keys
-              </button>
-              <button className="paper-gz-scope-btn" onClick={handleSaveCopy} title="Save HTML sandbox copy">
-                Save
-              </button>
-            </>
-          )}
-        </div>
-
-        {/* Keys Panel Popover for Pro Mode */}
-        {isKeysOpen && !isSimple && (
-          <div className="paper-gz-keys-panel">
-            <dl>
-              <dt>G</dt>
-              <dd>Move</dd>
-              <dt>R</dt>
-              <dd>Rotate</dd>
-              <dt>L</dt>
-              <dd>Look</dd>
-              <dt>F</dt>
-              <dd>Face surface</dd>
-              <dt>S</dt>
-              <dd>Snap on / off</dd>
-              <dt>Z</dt>
-              <dd>Undo</dd>
-              <dt>0</dt>
-              <dd>Reset surface</dd>
-              <dt>↑↓←→</dt>
-              <dd>Nudge</dd>
-            </dl>
-            <p>Drag scene to orbit. Two fingers or scroll to zoom.</p>
-          </div>
-        )}
-
-        {/* Grip Handle */}
-        <div
-          className="paper-gz-grip"
-          title={isSimple ? 'Drag to move this control' : 'Drag to reposition'}
-          onPointerDown={handleGripPointerDown}
-          onPointerMove={handleGripPointerMove}
-          onPointerUp={handleGripPointerUp}
-          onPointerCancel={handleGripPointerUp}
-        >
-          <svg width={isSimple ? '12' : '10'} height={isSimple ? '12' : '10'} viewBox="0 0 10 10" aria-hidden="true">
-            <circle cx="2" cy="2" r="1.2" fill="currentColor" />
-            <circle cx="8" cy="2" r="1.2" fill="currentColor" />
-            <circle cx="2" cy="8" r="1.2" fill="currentColor" />
-            <circle cx="8" cy="8" r="1.2" fill="currentColor" />
-          </svg>
-        </div>
-
-        {/* Size Switcher (Pro Mode Only) */}
-        {!isSimple && (
-          <button className="paper-gz-size" title="Gizmo size" onClick={handleToggleSize}>
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 12 12"
-              aria-hidden="true"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.4"
-              strokeLinecap="round"
-            >
-              <path d="M1.5 4.5v-3h3M10.5 7.5v3h-3M1.7 1.7l3.1 3.1M10.3 10.3L7.2 7.2" />
-            </svg>
-          </button>
-        )}
-
-        {/* Interactive 3D Canvas */}
-        <canvas
-          ref={canvasRef}
-          className="paper-gz-canvas"
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
-        />
-
-        {/* Modes Bar */}
-        <div className="paper-gz-modes">
+    <div id="nv" ref={nvRef} data-open={isOpen ? 'true' : 'false'} data-corner={corner}>
+      <div className="nv-box" id="nv-box" ref={boxRef}>
+        <div className="nv-head" id="nv-head" ref={headRef}>
+          <span className="nv-grip"><i></i><i></i><i></i><i></i></span>
+          <span className="nv-read" id="nv-read" ref={readRef}></span>
           <button
-            className="paper-gz-mode-btn"
-            aria-pressed={mode === 'move'}
+            className="nv-icon"
+            id="nv-tour"
+            title={isTourRunning ? 'Stop' : 'Show me how'}
+            onClick={() => (isTourRunning ? stopTour() : startTour())}
+          >
+            {isTourRunning ? '✕' : '?'}
+          </button>
+          <button className="nv-icon" id="nv-fold" title="Tuck away" onClick={() => setOpen(false)}>–</button>
+        </div>
+        <div className="nv-row">
+          <button
+            className={`nv-target ${mode === 'look' ? 'nv-mute' : ''}`}
+            id="nv-target"
+            aria-expanded={isListOpen}
             onClick={() => {
               stopTour();
-              setMode('move');
-              say(isSimple ? 'Mode: Move' : 'Mode: Move', true);
+              setIsStepsOpen(false);
+              setIsListOpen(!isListOpen);
             }}
+          >
+            <span>Moving</span><b id="nv-target-name">{currentTarget?.name || 'Canvas'}</b><span>▾</span>
+          </button>
+          <button
+            className={`nv-step ${mode === 'look' ? 'nv-mute' : ''}`}
+            id="nv-step"
+            aria-expanded={isStepsOpen}
+            title={`Step size · turning ${rStepObj ? rStepObj.lbl : 'Free'}, sliding ${mStepObj ? mStepObj.lbl : 'Free'}`}
+            onClick={() => {
+              stopTour();
+              setIsListOpen(false);
+              setIsStepsOpen(!isStepsOpen);
+            }}
+          >
+            {stepLabel}
+          </button>
+        </div>
+
+        <div className={`nv-list ${isListOpen ? 'nv-on' : ''}`} id="nv-list" role="listbox">
+          {targetsList.map((t, idx) => (
+            <button
+              key={t.id + '_' + idx}
+              className="nv-opt"
+              role="option"
+              aria-selected={currentIdx === idx}
+              onClick={() => {
+                selectTarget(idx);
+                setIsListOpen(false);
+              }}
+            >
+              <span className="nv-swatch"></span>
+              <span>{t.name}{t.note ? <em> {t.note}</em> : null}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className={`nv-steps ${isStepsOpen ? 'nv-on' : ''}`} id="nv-steps">
+          <h4>Turning steps</h4>
+          <div id="nv-rot-steps">
+            {ROT_STEPS.map(o => (
+              <button
+                key={o.v}
+                className="nv-chip"
+                aria-pressed={rotStep === o.v}
+                onClick={() => {
+                  gzRef.current.rotStep = o.v;
+                  setRotStep(o.v);
+                  say(o.lbl === 'Free' ? 'Free movement' : 'Steps of ' + o.lbl, true);
+                }}
+              >
+                {o.lbl}
+              </button>
+            ))}
+          </div>
+          <h4>Sliding steps</h4>
+          <div id="nv-move-steps">
+            {MOVE_STEPS.map(o => (
+              <button
+                key={o.v}
+                className="nv-chip"
+                aria-pressed={moveStep === o.v}
+                onClick={() => {
+                  gzRef.current.moveStep = o.v;
+                  setMoveStep(o.v);
+                  say(o.lbl === 'Free' ? 'Free movement' : 'Steps of ' + o.lbl, true);
+                }}
+              >
+                {o.lbl}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <canvas className="nv-canvas" id="nv-canvas" ref={canvasRef}></canvas>
+
+        <div className="nv-modes">
+          <button
+            className="nv-mode"
+            id="nv-look"
+            aria-pressed={mode === 'look'}
+            onClick={() => { stopTour(); setMode('look'); }}
+          >
+            Look
+          </button>
+          <button
+            className="nv-mode"
+            id="nv-move"
+            aria-pressed={mode === 'move'}
+            onClick={() => { stopTour(); setMode('move'); }}
           >
             Move
           </button>
           <button
-            className="paper-gz-mode-btn"
+            className="nv-mode"
+            id="nv-turn"
             aria-pressed={mode === 'rotate'}
-            onClick={() => {
-              stopTour();
-              setMode('rotate');
-              say(isSimple ? 'Mode: Turn' : 'Mode: Rotate', true);
-            }}
+            onClick={() => { stopTour(); setMode('rotate'); }}
           >
-            {isSimple ? 'Turn' : 'Rotate'}
-          </button>
-          <button
-            className="paper-gz-mode-btn"
-            aria-pressed={mode === 'look'}
-            onClick={() => {
-              stopTour();
-              setMode('look');
-              say('Mode: Look', true);
-            }}
-          >
-            Look
+            Turn
           </button>
         </div>
 
-        {/* Dynamic Hint */}
-        <div className={`paper-gz-hint ${isHintLive ? 'live' : ''}`}>{hintText}</div>
+        <div className={`nv-hint ${isLiveHint ? 'nv-live' : ''} ${isTourHint ? 'nv-tour' : ''}`} id="nv-hint">
+          {hintText}
+        </div>
 
-        {/* Presets Action Bar */}
-        <div className="paper-gz-bar">
-          <button
-            className="paper-gz-bar-btn"
-            onClick={() => {
-              stopTour();
-              engine?.snapActiveToGround(targetScope);
-              say(isSimple ? 'Flat like a table' : 'Flat', true);
-              updateTelemetry();
-            }}
-          >
-            {isSimple ? 'Lay flat' : 'Flat'}
-          </button>
-          <button
-            className="paper-gz-bar-btn"
-            onClick={() => {
-              stopTour();
-              engine?.rotateAxis3D('x', Math.PI / 2, targetScope, false);
-              say(isSimple ? 'Up like a wall' : 'Wall', true);
-              updateTelemetry();
-            }}
-          >
-            {isSimple ? 'Stand up' : 'Wall'}
-          </button>
-          <button
-            className="paper-gz-bar-btn"
-            onClick={() => {
-              stopTour();
-              engine?.rotateAxis3D('x', Math.PI / 4, targetScope, false);
-              say(isSimple ? 'Lean like a ramp' : '45°', true);
-              updateTelemetry();
-            }}
-          >
-            {isSimple ? 'Lean' : '45°'}
-          </button>
-          <button
-            className="paper-gz-bar-btn"
-            onClick={() => {
-              stopTour();
-              engine?.alignSurfaceToCamera(targetScope);
-              say(isSimple ? 'Looking straight at it' : 'Face', true);
-              updateTelemetry();
-            }}
-          >
-            {isSimple ? 'Look at it' : 'Face'}
-          </button>
-          {!isSimple && (
-            <button
-              className="paper-gz-bar-btn"
-              aria-pressed={isSnapOn}
-              onClick={() => {
-                toggleSnap();
-                say(!isSnapOn ? 'Snapping to 0.25 m and 15°' : 'Snapping off', true);
-              }}
-            >
-              Snap
-            </button>
-          )}
-          <button
-            className="paper-gz-bar-btn"
-            onClick={() => {
-              stopTour();
-              engine?.undo?.();
-              say('Undone', true);
-              updateTelemetry();
-            }}
-          >
-            Undo
-          </button>
-          <button
-            className="paper-gz-bar-btn"
-            onClick={() => {
-              stopTour();
-              engine?.resetTransform(targetScope);
-              engine?.resetCamera();
-              say(isSimple ? 'Back to the start' : 'Reset', true);
-              updateTelemetry();
-            }}
-          >
-            {isSimple ? 'Start over' : 'Reset'}
-          </button>
+        <div className="nv-acts">
+          <button className="nv-act" id="nv-flat" onClick={() => setOrient(0, 0, 'Flat like a table')}>Lay flat</button>
+          <button className="nv-act" id="nv-wall" onClick={() => setOrient(90, 0, 'Up like a wall')}>Stand up</button>
+          <button className="nv-act" id="nv-lean" onClick={() => setOrient(45, 0, 'Leaning like a ramp')}>Lean</button>
+          <button className="nv-act" id="nv-face" onClick={lookAtIt}>Look at it</button>
+          <button className="nv-act" id="nv-undo" disabled={historyLen === 0} onClick={() => { stopTour(); undo(); }}>Undo</button>
+          <button className="nv-act" id="nv-reset" onClick={resetTarget}>Start over</button>
         </div>
       </div>
-    </>
+
+      <button
+        className="nv-puck"
+        id="nv-puck"
+        ref={puckRef}
+        title="Open"
+        onClick={() => setOpen(true)}
+      >
+        <canvas id="nv-puck-canvas" ref={puckCanvasRef}></canvas>
+      </button>
+    </div>
   );
 };

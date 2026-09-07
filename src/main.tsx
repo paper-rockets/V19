@@ -1,4 +1,4 @@
-import React, { StrictMode, lazy, Suspense } from 'react';
+import React, { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import { registerPWA } from './registerServiceWorker';
@@ -57,26 +57,6 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 }
 
-const SandboxFallback = () => (
-  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', width: '100vw', background: '#0c0d10', color: '#94a3b8', fontFamily: 'monospace', fontSize: '0.875rem' }}>
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-      <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#38bdf8' }} />
-      <span>Loading Navigator Studio...</span>
-    </div>
-  </div>
-);
-
-// Standalone Nav Tool Sandbox route check
-const isSandbox =
-  typeof window !== 'undefined' &&
-  (window.location.pathname.includes('sandbox') ||
-    new URLSearchParams(window.location.search).has('sandbox') ||
-    window.location.port === '8000');
-
-const StandaloneNavSandbox = lazy(() =>
-  import('./components/Sandbox/StandaloneNavSandbox').then((m) => ({ default: m.StandaloneNavSandbox }))
-);
-
 // Resolve the adaptive quality profile before the first render so the low-power
 // UI rules are already in place when the initial paint happens.
 const profile = getQualityProfile();
@@ -87,21 +67,13 @@ console.info(
   `[perf] tier=${profile.tier} dpr<=${profile.maxPixelRatio} shadows=${profile.shadows} post=${profile.postProcessing} - ${profile.reason}`
 );
 
-// Initialize Progressive Web App registration only for the main app
-if (!isSandbox) {
-  registerPWA();
-}
+// Initialize Progressive Web App registration for the drawings app
+registerPWA();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
-      {isSandbox ? (
-        <Suspense fallback={<SandboxFallback />}>
-          <StandaloneNavSandbox />
-        </Suspense>
-      ) : (
-        <App />
-      )}
+      <App />
     </ErrorBoundary>
   </StrictMode>,
 );

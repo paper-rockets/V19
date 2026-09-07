@@ -1,0 +1,1287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>NAVIGATOR - Merged 3D Spatial Controller</title>
+  <script src="js/three.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+    :root {
+      --bg: #101216;
+      --card-bg: #1b1e24;
+      --card-subtle: #242932;
+      --ink: #eef2f6;
+      --mut: #8b95a5;
+      --bdr: rgba(255, 255, 255, 0.10);
+      --accent-blue: #3b82f6;
+      --accent-red: #ef4444;
+      --accent-green: #22c55e;
+      --accent-tilt: #10b981;
+      --accent-move: #f59e0b;
+      --accent-cam: #38bdf8;
+      --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      font-family: var(--font-main);
+      color: var(--ink);
+      touch-action: none;
+    }
+    #viewport-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+      z-index: 1;
+    }
+
+    /* Top HUD Readouts */
+    #top-bar {
+      position: fixed;
+      top: 12px;
+      left: 14px;
+      right: 14px;
+      z-index: 100;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+    }
+    .top-pill {
+      background: rgba(24, 28, 36, 0.92);
+      border: 1px solid var(--bdr);
+      border-radius: 18px;
+      padding: 6px 14px;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--ink);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .top-pill span.val-cam { color: var(--accent-cam); font-weight: 700; }
+    .top-pill span.val-move { color: var(--accent-move); font-weight: 700; }
+    .top-pill span.val-tilt { color: var(--accent-tilt); font-weight: 700; }
+
+    .top-actions {
+      display: flex;
+      gap: 6px;
+      pointer-events: auto;
+    }
+    .top-btn {
+      height: 28px;
+      padding: 0 12px;
+      border-radius: 14px;
+      background: rgba(24, 28, 36, 0.92);
+      border: 1px solid var(--bdr);
+      color: var(--ink);
+      font-size: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      backdrop-filter: blur(16px);
+      letter-spacing: 0.03em;
+    }
+    .top-btn:hover, .top-btn.on {
+      background: var(--accent-cam);
+      color: #0f172a;
+    }
+
+    /* UNIFIED MERGED FLOATING CONTROLLER CARD */
+    #unified-card {
+      position: fixed;
+      bottom: 16px;
+      left: 16px;
+      z-index: 200;
+      width: 310px;
+      background: var(--card-bg);
+      border: 1px solid var(--bdr);
+      border-radius: 22px;
+      box-shadow: 0 16px 44px rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(24px);
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      touch-action: none;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    /* Top Bar with Big White-Knob Toggle Switch */
+    .card-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 32px;
+      padding: 0 2px;
+    }
+
+    /* Big Capsule Toggle Switch: White button flips between Camera (left) and Surface (right) */
+    .capsule-toggle {
+      width: 68px;
+      height: 28px;
+      border-radius: 14px;
+      background: #111317;
+      position: relative;
+      cursor: pointer;
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      display: flex;
+      align-items: center;
+      padding: 2px;
+      transition: background 0.2s ease;
+    }
+    .capsule-knob {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+      transform: translateX(0px);
+      transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .capsule-toggle.surface-mode .capsule-knob {
+      transform: translateX(38px);
+    }
+
+    .topbar-btns {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .topbar-text-btn {
+      background: transparent;
+      border: none;
+      color: var(--mut);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: var(--font-main);
+      letter-spacing: 0.02em;
+    }
+    .topbar-text-btn:hover { color: var(--ink); }
+
+    .topbar-badge {
+      background: #111317;
+      border: 1px solid var(--bdr);
+      border-radius: 6px;
+      padding: 3px 7px;
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--mut);
+      letter-spacing: 0.04em;
+    }
+
+    /* VIEW PANELS */
+    .view-panel {
+      width: 100%;
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .view-panel.active {
+      display: flex;
+    }
+
+    /* ── 1. CAMERA GIMBAL VIEW ── */
+    .gimbal-body {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      height: 140px;
+      padding: 2px 4px;
+    }
+    .gimbal-canvas-wrap {
+      flex: 1;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    #gimbal-canvas {
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      cursor: grab;
+      display: block;
+    }
+    #gimbal-canvas:active { cursor: grabbing; }
+
+    .zoom-col {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .zoom-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      background: #111317;
+      border: 1px solid var(--bdr);
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .zoom-btn:active { background: var(--card-subtle); color: var(--accent-cam); }
+
+    .card-bottom-pill {
+      background: #111317;
+      border: 1px solid var(--bdr);
+      border-radius: 8px;
+      padding: 5px 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 8.5px;
+      font-weight: 600;
+      color: var(--mut);
+    }
+    .pill-group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .pill-opt {
+      padding: 2px 4px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .pill-opt:hover, .pill-opt.on {
+      background: var(--card-subtle);
+      color: var(--ink);
+      font-weight: 700;
+    }
+
+    /* ── 2. SURFACE / PLANE CONTROLLER VIEW ── */
+    .deck-row {
+      display: flex;
+      gap: 6px;
+      height: 112px;
+      width: 100%;
+    }
+
+    .joystick-pad {
+      flex: 1;
+      height: 100%;
+      background: #15181e;
+      border: 1px solid var(--bdr);
+      border-radius: 12px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: crosshair;
+      overflow: hidden;
+      touch-action: none;
+    }
+    .joystick-pad.tilt-pad { border-color: rgba(16, 185, 129, 0.35); }
+    .joystick-pad.move-pad { border-color: rgba(245, 158, 11, 0.35); }
+
+    .pad-circle-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: #1c2028;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 8px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      position: absolute;
+      pointer-events: none;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+      transform: translate(0, 0);
+    }
+    .pad-circle-btn.tilt-btn {
+      border: 2px solid var(--accent-tilt);
+      color: var(--accent-tilt);
+      box-shadow: 0 0 14px rgba(16, 185, 129, 0.35);
+    }
+    .pad-circle-btn.move-btn {
+      border: 2px solid var(--accent-move);
+      color: var(--accent-move);
+      box-shadow: 0 0 14px rgba(245, 158, 11, 0.35);
+    }
+
+    .pad-sublabel {
+      position: absolute;
+      bottom: 5px;
+      font-size: 7.5px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+    .pad-sublabel.tilt-sub { color: var(--accent-tilt); }
+    .pad-sublabel.move-sub { color: var(--accent-move); }
+
+    .elev-rail {
+      width: 32px;
+      height: 100%;
+      background: #15181e;
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 2px;
+      position: relative;
+      cursor: ns-resize;
+      touch-action: none;
+    }
+    .rail-tag {
+      font-size: 7px;
+      font-weight: 800;
+      color: var(--accent-move);
+      pointer-events: none;
+    }
+    .elev-knob {
+      width: 26px;
+      height: 20px;
+      border-radius: 5px;
+      border: 1.5px solid var(--accent-move);
+      background: #1c2028;
+      color: var(--accent-move);
+      font-size: 7px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: absolute;
+      top: calc(50% - 10px);
+      pointer-events: none;
+      box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+    }
+
+    .spin-strip {
+      background: #111317;
+      border: 1px solid var(--bdr);
+      border-radius: 8px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 2px 4px;
+    }
+    .spin-step-btn {
+      height: 20px;
+      padding: 0 6px;
+      border-radius: 4px;
+      background: var(--card-subtle);
+      border: 1px solid var(--bdr);
+      color: var(--ink);
+      font-size: 8.5px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .spin-step-btn:active { background: var(--accent-move); color: #0f172a; }
+
+    .spin-label-track {
+      flex: 1;
+      text-align: center;
+      font-size: 8px;
+      font-weight: 700;
+      color: var(--mut);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      cursor: ew-resize;
+      padding: 4px 0;
+    }
+
+    .presets-row {
+      display: flex;
+      gap: 3px;
+      width: 100%;
+    }
+    .preset-btn {
+      flex: 1;
+      height: 22px;
+      border-radius: 6px;
+      background: #111317;
+      border: 1px solid var(--bdr);
+      color: var(--ink);
+      font-size: 7.5px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+    .preset-btn:hover, .preset-btn.on {
+      background: var(--card-subtle);
+      border-color: var(--accent-move);
+      color: var(--accent-move);
+    }
+
+    /* Restore Mini FAB */
+    #restore-fab {
+      display: none;
+      position: fixed;
+      bottom: 16px;
+      left: 16px;
+      z-index: 251;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--card-bg);
+      border: 1px solid var(--bdr);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+      color: var(--accent-cam);
+      font-size: 10.5px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    #restore-fab.visible { display: flex; align-items: center; justify-content: center; }
+
+    /* Toast Notification */
+    #toast {
+      position: fixed;
+      bottom: 90px;
+      left: 50%;
+      transform: translateX(-50%) translateY(6px);
+      background: rgba(24, 28, 36, 0.95);
+      color: var(--ink);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      padding: 6px 14px;
+      border-radius: 18px;
+      border: 1px solid var(--bdr);
+      z-index: 500;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s, transform 0.15s;
+      white-space: nowrap;
+    }
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="viewport-canvas"></canvas>
+
+  <!-- Top Readout Bar -->
+  <div id="top-bar">
+    <div class="top-pill">
+      <div>CAM DIST: <span id="readout-cam-dist" class="val-cam">10.0m</span></div>
+      <div>ELEV: <span id="readout-elevation" class="val-move">0.00</span></div>
+      <div>PITCH: <span id="readout-pitch" class="val-tilt">0 deg</span></div>
+      <div>ROLL: <span id="readout-roll" class="val-tilt">0 deg</span></div>
+      <div>YAW: <span id="readout-yaw" class="val-move">0 deg</span></div>
+    </div>
+    <div class="top-actions">
+      <button class="top-btn" id="btn-toggle-grid">Grid: ON</button>
+      <button class="top-btn" id="btn-toggle-theme">Theme: Dark</button>
+    </div>
+  </div>
+
+  <!-- UNIFIED MERGED CONTROLLER CARD -->
+  <div id="unified-card">
+    <!-- Card Header with the White-Button Mode Toggle -->
+    <div class="card-topbar">
+      <div class="capsule-toggle" id="mode-toggle" title="Click white knob to switch between Camera and Surface controls">
+        <div class="capsule-knob"></div>
+      </div>
+      <div class="topbar-btns">
+        <span class="topbar-badge" id="mode-badge">MODE: CAM</span>
+        <button class="topbar-text-btn" id="btn-card-reset">Reset</button>
+        <button class="topbar-text-btn" id="btn-card-hide">Hide</button>
+      </div>
+    </div>
+
+    <!-- VIEW 1: CAMERA 3D GIMBAL CONTROLLER -->
+    <div class="view-panel active" id="view-camera">
+      <div class="gimbal-body">
+        <div class="gimbal-canvas-wrap">
+          <canvas id="gimbal-canvas" width="140" height="140"></canvas>
+        </div>
+        <div class="zoom-col">
+          <button class="zoom-btn" id="btn-zoom-in" title="Zoom in">+</button>
+          <button class="zoom-btn" id="btn-zoom-out" title="Zoom out">-</button>
+        </div>
+      </div>
+
+      <div class="card-bottom-pill">
+        <div class="pill-group">
+          <span>BG:</span>
+          <span class="pill-opt" id="opt-bg-wht">WHT</span>
+          <span class="pill-opt" id="opt-bg-gry">GRY</span>
+          <span class="pill-opt on" id="opt-bg-drk">DRK</span>
+        </div>
+        <div class="pill-group">
+          <span>SUN:</span>
+          <span class="pill-opt on" id="opt-sun-45">45 deg, 60 deg</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 2: SURFACE / PLANE CONTROLLER -->
+    <div class="view-panel" id="view-surface">
+      <div class="deck-row">
+        <!-- 1. 3D Tilt Pad (Pitch & Roll) -->
+        <div class="joystick-pad tilt-pad" id="pad-plane-tilt">
+          <div class="pad-circle-btn tilt-btn" id="knob-plane-tilt">TILT</div>
+          <div class="pad-sublabel tilt-sub">3D SKEW / TILT</div>
+        </div>
+
+        <!-- 2. Planar Move Pad (X & Z Move) -->
+        <div class="joystick-pad move-pad" id="pad-plane-move">
+          <div class="pad-circle-btn move-btn" id="knob-plane-move">MOVE</div>
+          <div class="pad-sublabel move-sub">X / Z MOVE</div>
+        </div>
+
+        <!-- 3. Elevation Rail (UP & DN) -->
+        <div class="elev-rail" id="rail-plane-elev">
+          <span class="rail-tag">UP</span>
+          <div class="elev-knob" id="knob-plane-elev">ELEV</div>
+          <span class="rail-tag">DN</span>
+        </div>
+      </div>
+
+      <!-- 4. Plane Yaw Spin Strip -->
+      <div class="spin-strip" id="strip-plane-yaw">
+        <button class="spin-step-btn" id="btn-spin-ccw">-45</button>
+        <div class="spin-label-track" id="track-spin-yaw">SWIPE TO SPIN YAW</div>
+        <button class="spin-step-btn" id="btn-spin-cw">+45</button>
+      </div>
+
+      <!-- 5. Orientation Presets Row -->
+      <div class="presets-row">
+        <button class="preset-btn on" id="preset-ground">GROUND</button>
+        <button class="preset-btn" id="preset-wall">WALL</button>
+        <button class="preset-btn" id="preset-45slant">45 SLANT</button>
+        <button class="preset-btn" id="preset-align-view">ALIGN VIEW</button>
+        <button class="preset-btn" id="preset-reset">RESET</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Restore Badge -->
+  <button id="restore-fab" title="Restore Controller Card">NAV</button>
+
+  <!-- Toast Notification -->
+  <div id="toast"></div>
+
+  <script>
+    // ── Global Toast ──
+    let toastTimer = null;
+    function toast(msg) {
+      const el = document.getElementById('toast');
+      if (!el) return;
+      el.textContent = msg;
+      el.classList.add('show');
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { el.classList.remove('show'); }, 1500);
+    }
+
+    // ── 1. Three.js Scene Setup (Y is UP) ──
+    const canvas = document.getElementById('viewport-canvas');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x101216);
+    scene.fog = new THREE.Fog(0x101216, 16, 50);
+
+    let W = window.innerWidth;
+    let H = window.innerHeight;
+    const camera = new THREE.PerspectiveCamera(50, W / H, 0.1, 1000);
+    camera.position.set(6, 5, 8);
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setSize(W, H);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    // Lights
+    const ambLight = new THREE.AmbientLight(0xffffff, 0.95);
+    scene.add(ambLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.4);
+    dirLight.position.set(10, 16, 10);
+    dirLight.castShadow = true;
+    scene.add(dirLight);
+
+    // Ground Grid on XZ plane
+    const gridHelper = new THREE.GridHelper(24, 24, 0x38bdf8, 0x242932);
+    gridHelper.position.y = -0.01;
+    scene.add(gridHelper);
+
+    // Reference Center Pillar
+    const pillarGeo = new THREE.BoxGeometry(0.8, 1.6, 0.8);
+    const pillarMat = new THREE.MeshStandardMaterial({ color: 0x242932, roughness: 0.4 });
+    const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+    pillar.position.set(0, 0.8, 0);
+    pillar.castShadow = true;
+    scene.add(pillar);
+
+    // ── 2. Interactive 3D Drawing Plane ──
+    const planeGroup = new THREE.Group();
+    planeGroup.position.set(0, 0, 0);
+    scene.add(planeGroup);
+
+    const planeSize = 3.6;
+    const planeGeo = new THREE.PlaneGeometry(planeSize, planeSize);
+    planeGeo.rotateX(-Math.PI / 2); // horizontal on XZ
+
+    const planeFillMat = new THREE.MeshBasicMaterial({
+      color: 0xf59e0b,
+      transparent: true,
+      opacity: 0.16,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    });
+    const planeFillMesh = new THREE.Mesh(planeGeo, planeFillMat);
+    planeGroup.add(planeFillMesh);
+
+    // Grid Texture for Plane
+    function createGridTexture() {
+      const cvs = document.createElement('canvas');
+      cvs.width = 256; cvs.height = 256;
+      const ctx = cvs.getContext('2d');
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.75)';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(1, 1, 254, 254);
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.35)';
+      ctx.lineWidth = 1;
+      for (let i = 32; i < 256; i += 32) {
+        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 256); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(256, i); ctx.stroke();
+      }
+      const tex = new THREE.CanvasTexture(cvs);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      return tex;
+    }
+
+    const planeGridMat = new THREE.MeshBasicMaterial({
+      map: createGridTexture(),
+      transparent: true,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    });
+    const planeGridMesh = new THREE.Mesh(planeGeo, planeGridMat);
+    planeGridMesh.renderOrder = 2;
+    planeGroup.add(planeGridMesh);
+
+    // Plane Transform State
+    const planeState = {
+      x: 0, y: 0, z: 0,
+      pitch: 0, roll: 0, yaw: 0
+    };
+
+    function updatePlaneTransform() {
+      planeGroup.position.set(planeState.x, planeState.y, planeState.z);
+      const euler = new THREE.Euler(
+        THREE.MathUtils.degToRad(planeState.pitch),
+        THREE.MathUtils.degToRad(planeState.yaw),
+        THREE.MathUtils.degToRad(planeState.roll),
+        'YXZ'
+      );
+      planeGroup.rotation.copy(euler);
+
+      document.getElementById('readout-elevation').textContent = planeState.y.toFixed(2);
+      document.getElementById('readout-pitch').textContent = Math.round(planeState.pitch) + ' deg';
+      document.getElementById('readout-roll').textContent = Math.round(planeState.roll) + ' deg';
+      document.getElementById('readout-yaw').textContent = Math.round(planeState.yaw) + ' deg';
+    }
+
+    // ── 3. Spherical Camera Model ──
+    const camState = {
+      radius: 10,
+      theta: 0.85,
+      phi: 1.05,
+      target: new THREE.Vector3(0, 0.8, 0)
+    };
+
+    function updateCamera() {
+      const sinP = Math.sin(camState.phi), cosP = Math.cos(camState.phi);
+      const sinT = Math.sin(camState.theta), cosT = Math.cos(camState.theta);
+
+      const eyeX = camState.target.x + camState.radius * sinP * sinT;
+      const eyeY = camState.target.y + camState.radius * cosP;
+      const eyeZ = camState.target.z + camState.radius * sinP * cosT;
+
+      camera.position.set(eyeX, eyeY, eyeZ);
+      camera.lookAt(camState.target);
+
+      document.getElementById('readout-cam-dist').textContent = camState.radius.toFixed(1) + 'm';
+      drawGimbal();
+    }
+
+    // ── 4. 3D Camera Orientation Gimbal ──
+    const gCanvas = document.getElementById('gimbal-canvas');
+    const gCtx = gCanvas.getContext('2d');
+    const GW = gCanvas.width, GH = gCanvas.height;
+    const GCX = GW / 2, GCY = GH / 2;
+    const G_ARM = 42;
+    const G_DOT = 12;
+
+    const AXES = [
+      { dir: [0, 1, 0], col: '#3b82f6', lbl: 'Y', name: 'Top', snapPhi: 0.01, snapTheta: 0 },
+      { dir: [0, -1, 0], col: '#3b82f6', lbl: '-Y', name: 'Bottom', snapPhi: Math.PI - 0.01, snapTheta: 0 },
+      { dir: [-1, 0, 0], col: '#ef4444', lbl: 'X', name: 'Left', snapPhi: Math.PI / 2, snapTheta: -Math.PI / 2 },
+      { dir: [1, 0, 0], col: '#ef4444', lbl: '-X', name: 'Right', snapPhi: Math.PI / 2, snapTheta: Math.PI / 2 },
+      { dir: [0, 0, 1], col: '#22c55e', lbl: 'Z', name: 'Front', snapPhi: Math.PI / 2, snapTheta: 0 },
+      { dir: [0, 0, -1], col: '#22c55e', lbl: '-Z', name: 'Back', snapPhi: Math.PI / 2, snapTheta: Math.PI }
+    ];
+
+    function projectGimbalDir(dx, dy, dz) {
+      const sinT = Math.sin(camState.theta), cosT = Math.cos(camState.theta);
+      const sinP = Math.sin(camState.phi), cosP = Math.cos(camState.phi);
+
+      const rx = cosT, ry = 0, rz = -sinT;
+      const ux = -cosP * sinT, uy = sinP, uz = -cosP * cosT;
+      const fx = sinP * sinT, fy = cosP, fz = sinP * cosT;
+
+      const sx = dx * rx + dy * ry + dz * rz;
+      const sy = dx * ux + dy * uy + dz * uz;
+      const depth = dx * fx + dy * fy + dz * fz;
+
+      return { x: GCX + sx * G_ARM, y: GCY - sy * G_ARM, depth };
+    }
+
+    let hovGimbalAxis = -1;
+
+    function hitGimbalAxis(mx, my) {
+      let best = -1, bestD = Infinity;
+      AXES.forEach((ax, i) => {
+        const p = projectGimbalDir(ax.dir[0], ax.dir[1], ax.dir[2]);
+        const d = Math.hypot(mx - p.x, my - p.y);
+        if (d < G_DOT * 2.0 && d < bestD) {
+          bestD = d;
+          best = i;
+        }
+      });
+      return best;
+    }
+
+    function drawGimbal() {
+      gCtx.clearRect(0, 0, GW, GH);
+
+      // Outer Scope Circle & Background Disc
+      gCtx.save();
+      gCtx.fillStyle = 'rgba(17, 19, 23, 0.95)';
+      gCtx.beginPath();
+      gCtx.arc(GCX, GCY, GW / 2 - 4, 0, Math.PI * 2);
+      gCtx.fill();
+
+      gCtx.strokeStyle = 'rgba(255, 255, 255, 0.10)';
+      gCtx.lineWidth = 1.5;
+      gCtx.stroke();
+      gCtx.restore();
+
+      const projected = AXES.map((ax, i) => {
+        const p = projectGimbalDir(ax.dir[0], ax.dir[1], ax.dir[2]);
+        return { ax, i, p, depth: p.depth };
+      }).sort((a, b) => a.depth - b.depth);
+
+      projected.forEach(({ ax, i, p, depth }) => {
+        const isFront = depth >= -0.05;
+        const isHov = hovGimbalAxis === i;
+
+        // Axis Line
+        gCtx.save();
+        gCtx.strokeStyle = isFront ? ax.col : 'rgba(255, 255, 255, 0.2)';
+        gCtx.lineWidth = isFront ? 2.5 : 1.2;
+        if (!isFront) gCtx.setLineDash([3, 3]);
+        gCtx.beginPath();
+        gCtx.moveTo(GCX, GCY);
+        gCtx.lineTo(p.x, p.y);
+        gCtx.stroke();
+        gCtx.restore();
+
+        // Tip Dot
+        gCtx.save();
+        const dotR = G_DOT * (isFront ? 1.0 : 0.8);
+        gCtx.beginPath();
+        gCtx.arc(p.x, p.y, dotR, 0, Math.PI * 2);
+
+        if (isFront) {
+          gCtx.fillStyle = ax.col;
+          gCtx.fill();
+          if (isHov) {
+            gCtx.strokeStyle = '#ffffff';
+            gCtx.lineWidth = 2;
+            gCtx.stroke();
+          }
+          gCtx.fillStyle = '#ffffff';
+          gCtx.font = 'bold 9px Inter, sans-serif';
+          gCtx.textAlign = 'center';
+          gCtx.textBaseline = 'middle';
+          gCtx.fillText(ax.lbl, p.x, p.y + 0.5);
+        } else {
+          gCtx.fillStyle = isHov ? 'rgba(255, 255, 255, 0.45)' : 'rgba(255, 255, 255, 0.22)';
+          gCtx.fill();
+        }
+        gCtx.restore();
+      });
+
+      // Center Dot
+      gCtx.save();
+      gCtx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      gCtx.beginPath();
+      gCtx.arc(GCX, GCY, 3, 0, Math.PI * 2);
+      gCtx.fill();
+      gCtx.restore();
+    }
+
+    // Gimbal Interaction
+    let isGimbalDragging = false;
+    let gStartX = 0, gStartY = 0;
+    let gMoved = false;
+
+    function getGimbalPos(e) {
+      const r = gCanvas.getBoundingClientRect();
+      return {
+        x: (e.clientX - r.left) * (GW / r.width),
+        y: (e.clientY - r.top) * (GH / r.height)
+      };
+    }
+
+    gCanvas.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      isGimbalDragging = true;
+      gMoved = false;
+      const pos = getGimbalPos(e);
+      gStartX = pos.x;
+      gStartY = pos.y;
+      gCanvas.setPointerCapture(e.pointerId);
+    });
+
+    gCanvas.addEventListener('pointermove', (e) => {
+      const pos = getGimbalPos(e);
+      if (isGimbalDragging) {
+        const dx = pos.x - gStartX;
+        const dy = pos.y - gStartY;
+        if (Math.hypot(dx, dy) > 2) gMoved = true;
+        gStartX = pos.x;
+        gStartY = pos.y;
+
+        camState.theta -= dx * 0.02;
+        camState.phi = Math.max(0.05, Math.min(Math.PI - 0.05, camState.phi - dy * 0.02));
+        updateCamera();
+      } else {
+        const hit = hitGimbalAxis(pos.x, pos.y);
+        if (hit !== hovGimbalAxis) {
+          hovGimbalAxis = hit;
+          drawGimbal();
+        }
+      }
+    });
+
+    gCanvas.addEventListener('pointerup', (e) => {
+      if (isGimbalDragging) {
+        const pos = getGimbalPos(e);
+        if (!gMoved) {
+          const hit = hitGimbalAxis(pos.x, pos.y);
+          if (hit > -1) {
+            const targetAx = AXES[hit];
+            camState.phi = targetAx.snapPhi;
+            camState.theta = targetAx.snapTheta;
+            updateCamera();
+            toast('Snap to ' + targetAx.name + ' View');
+          }
+        }
+        isGimbalDragging = false;
+        try { gCanvas.releasePointerCapture(e.pointerId); } catch (_) {}
+      }
+      drawGimbal();
+    });
+
+    // ── 5. Surface Controls (Tilt, Move, Elev, Spin) ──
+    const padTilt = document.getElementById('pad-plane-tilt');
+    const knobTilt = document.getElementById('knob-plane-tilt');
+    let isTiltDragging = false;
+
+    function handleTiltMove(e) {
+      const r = padTilt.getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+      const maxR = r.width / 2 - 24;
+
+      let dx = e.clientX - cx;
+      let dy = e.clientY - cy;
+      const dist = Math.hypot(dx, dy);
+      if (dist > maxR) {
+        dx = (dx / dist) * maxR;
+        dy = (dy / dist) * maxR;
+      }
+
+      knobTilt.style.transform = `translate(${dx}px, ${dy}px)`;
+      planeState.roll = (dx / maxR) * 60;
+      planeState.pitch = (dy / maxR) * 60;
+      updatePlaneTransform();
+    }
+
+    padTilt.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      isTiltDragging = true;
+      padTilt.setPointerCapture(e.pointerId);
+      handleTiltMove(e);
+    });
+    padTilt.addEventListener('pointermove', (e) => {
+      if (isTiltDragging) handleTiltMove(e);
+    });
+    padTilt.addEventListener('pointerup', (e) => {
+      isTiltDragging = false;
+      try { padTilt.releasePointerCapture(e.pointerId); } catch (_) {}
+    });
+
+    const padMove = document.getElementById('pad-plane-move');
+    const knobMove = document.getElementById('knob-plane-move');
+    let isMoveDragging = false;
+    let moveOriginX = 0, moveOriginZ = 0;
+    let startPointerX = 0, startPointerY = 0;
+
+    padMove.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      isMoveDragging = true;
+      startPointerX = e.clientX;
+      startPointerY = e.clientY;
+      moveOriginX = planeState.x;
+      moveOriginZ = planeState.z;
+      padMove.setPointerCapture(e.pointerId);
+    });
+
+    padMove.addEventListener('pointermove', (e) => {
+      if (!isMoveDragging) return;
+      const r = padMove.getBoundingClientRect();
+      const maxR = r.width / 2 - 24;
+      const dx = e.clientX - startPointerX;
+      const dy = e.clientY - startPointerY;
+
+      const clampedX = Math.max(-maxR, Math.min(maxR, dx));
+      const clampedY = Math.max(-maxR, Math.min(maxR, dy));
+      knobMove.style.transform = `translate(${clampedX}px, ${clampedY}px)`;
+
+      planeState.x = moveOriginX + (dx / maxR) * 3.5;
+      planeState.z = moveOriginZ + (dy / maxR) * 3.5;
+      updatePlaneTransform();
+    });
+
+    padMove.addEventListener('pointerup', (e) => {
+      isMoveDragging = false;
+      try { padMove.releasePointerCapture(e.pointerId); } catch (_) {}
+      knobMove.style.transform = `translate(0px, 0px)`;
+    });
+
+    const railElev = document.getElementById('rail-plane-elev');
+    const knobElev = document.getElementById('knob-plane-elev');
+    let isElevDragging = false;
+
+    function handleElevMove(e) {
+      const r = railElev.getBoundingClientRect();
+      const cy = r.top + r.height / 2;
+      const maxH = r.height / 2 - 14;
+      const dy = Math.max(-maxH, Math.min(maxH, e.clientY - cy));
+
+      knobElev.style.top = `calc(50% - 10px + ${dy}px)`;
+      planeState.y = (-dy / maxH) * 4.0;
+      updatePlaneTransform();
+    }
+
+    railElev.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      isElevDragging = true;
+      railElev.setPointerCapture(e.pointerId);
+      handleElevMove(e);
+    });
+    railElev.addEventListener('pointermove', (e) => {
+      if (isElevDragging) handleElevMove(e);
+    });
+    railElev.addEventListener('pointerup', (e) => {
+      isElevDragging = false;
+      try { railElev.releasePointerCapture(e.pointerId); } catch (_) {}
+    });
+
+    const spinTrack = document.getElementById('track-spin-yaw');
+    let isSpinDragging = false;
+    let startSpinX = 0, originYaw = 0;
+
+    spinTrack.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      isSpinDragging = true;
+      startSpinX = e.clientX;
+      originYaw = planeState.yaw;
+      spinTrack.setPointerCapture(e.pointerId);
+    });
+    spinTrack.addEventListener('pointermove', (e) => {
+      if (!isSpinDragging) return;
+      const dx = e.clientX - startSpinX;
+      planeState.yaw = originYaw + dx * 0.8;
+      updatePlaneTransform();
+    });
+    spinTrack.addEventListener('pointerup', (e) => {
+      isSpinDragging = false;
+      try { spinTrack.releasePointerCapture(e.pointerId); } catch (_) {}
+    });
+
+    document.getElementById('btn-spin-ccw').addEventListener('click', () => {
+      planeState.yaw = (Math.round(planeState.yaw / 45) - 1) * 45;
+      updatePlaneTransform();
+      toast('Yaw -45 deg');
+    });
+    document.getElementById('btn-spin-cw').addEventListener('click', () => {
+      planeState.yaw = (Math.round(planeState.yaw / 45) + 1) * 45;
+      updatePlaneTransform();
+      toast('Yaw +45 deg');
+    });
+
+    // ── 6. Presets ──
+    const presetButtons = {
+      ground: document.getElementById('preset-ground'),
+      wall: document.getElementById('preset-wall'),
+      slant45: document.getElementById('preset-45slant'),
+      align: document.getElementById('preset-align-view'),
+      reset: document.getElementById('preset-reset')
+    };
+
+    function setActivePresetBtn(btn) {
+      Object.values(presetButtons).forEach(b => b.classList.remove('on'));
+      if (btn) btn.classList.add('on');
+    }
+
+    presetButtons.ground.addEventListener('click', () => {
+      planeState.pitch = 0; planeState.roll = 0; planeState.yaw = 0; planeState.y = 0;
+      knobTilt.style.transform = 'translate(0, 0)';
+      knobElev.style.top = 'calc(50% - 10px)';
+      updatePlaneTransform();
+      setActivePresetBtn(presetButtons.ground);
+      toast('Ground Plane Preset');
+    });
+
+    presetButtons.wall.addEventListener('click', () => {
+      planeState.pitch = 90; planeState.roll = 0;
+      updatePlaneTransform();
+      setActivePresetBtn(presetButtons.wall);
+      toast('Vertical Wall Preset');
+    });
+
+    presetButtons.slant45.addEventListener('click', () => {
+      planeState.pitch = 45; planeState.roll = 0;
+      updatePlaneTransform();
+      setActivePresetBtn(presetButtons.slant45);
+      toast('45 Slant Plane Preset');
+    });
+
+    presetButtons.align.addEventListener('click', () => {
+      const radPitch = THREE.MathUtils.degToRad(planeState.pitch);
+      const radYaw = THREE.MathUtils.degToRad(planeState.yaw);
+      camState.phi = Math.PI / 2 - radPitch;
+      camState.theta = radYaw;
+      camState.target.set(planeState.x, planeState.y + 0.8, planeState.z);
+      updateCamera();
+      toast('Camera Aligned to Plane');
+    });
+
+    presetButtons.reset.addEventListener('click', () => {
+      planeState.x = 0; planeState.y = 0; planeState.z = 0;
+      planeState.pitch = 0; planeState.roll = 0; planeState.yaw = 0;
+      knobTilt.style.transform = 'translate(0, 0)';
+      knobMove.style.transform = 'translate(0, 0)';
+      knobElev.style.top = 'calc(50% - 10px)';
+      updatePlaneTransform();
+      setActivePresetBtn(presetButtons.ground);
+      toast('Plane Reset to Origin');
+    });
+
+    // ── 7. White-Knob Capsule Switch: Toggle between Camera and Surface ──
+    const modeToggle = document.getElementById('mode-toggle');
+    const modeBadge = document.getElementById('mode-badge');
+    const viewCamera = document.getElementById('view-camera');
+    const viewSurface = document.getElementById('view-surface');
+
+    let isSurfaceMode = false;
+
+    function setControllerMode(toSurface) {
+      isSurfaceMode = toSurface;
+      if (isSurfaceMode) {
+        modeToggle.classList.add('surface-mode');
+        modeBadge.textContent = 'MODE: SURF';
+        modeBadge.style.color = 'var(--accent-move)';
+        viewCamera.classList.remove('active');
+        viewSurface.classList.add('active');
+        toast('Surface Plane Mode');
+      } else {
+        modeToggle.classList.remove('surface-mode');
+        modeBadge.textContent = 'MODE: CAM';
+        modeBadge.style.color = 'var(--accent-cam)';
+        viewSurface.classList.remove('active');
+        viewCamera.classList.add('active');
+        drawGimbal();
+        toast('Camera Gimbal Mode');
+      }
+    }
+
+    modeToggle.addEventListener('click', () => {
+      setControllerMode(!isSurfaceMode);
+    });
+
+    // Reset and Hide Controls
+    const unifiedCard = document.getElementById('unified-card');
+    const restoreFab = document.getElementById('restore-fab');
+
+    document.getElementById('btn-card-reset').addEventListener('click', () => {
+      if (isSurfaceMode) {
+        presetButtons.reset.click();
+      } else {
+        camState.radius = 10;
+        camState.theta = 0.85;
+        camState.phi = 1.05;
+        camState.target.set(0, 0.8, 0);
+        updateCamera();
+        toast('Camera View Reset');
+      }
+    });
+
+    document.getElementById('btn-card-hide').addEventListener('click', () => {
+      unifiedCard.style.display = 'none';
+      restoreFab.classList.add('visible');
+    });
+
+    restoreFab.addEventListener('click', () => {
+      unifiedCard.style.display = 'flex';
+      restoreFab.classList.remove('visible');
+      if (!isSurfaceMode) drawGimbal();
+    });
+
+    document.getElementById('btn-zoom-in').addEventListener('click', () => {
+      camState.radius = Math.max(3, camState.radius * 0.88);
+      updateCamera();
+    });
+    document.getElementById('btn-zoom-out').addEventListener('click', () => {
+      camState.radius = Math.min(35, camState.radius * 1.12);
+      updateCamera();
+    });
+
+    // Theme Options
+    const optWht = document.getElementById('opt-bg-wht');
+    const optGry = document.getElementById('opt-bg-gry');
+    const optDrk = document.getElementById('opt-bg-drk');
+
+    function setBg(col, optEl) {
+      scene.background.set(col);
+      scene.fog.color.set(col);
+      [optWht, optGry, optDrk].forEach(o => o.classList.remove('on'));
+      optEl.classList.add('on');
+    }
+    optWht.addEventListener('click', () => setBg(0xf1f5f9, optWht));
+    optGry.addEventListener('click', () => setBg(0x334155, optGry));
+    optDrk.addEventListener('click', () => setBg(0x101216, optDrk));
+
+    // Top Grid Toggle
+    const btnToggleGrid = document.getElementById('btn-toggle-grid');
+    btnToggleGrid.addEventListener('click', () => {
+      gridHelper.visible = !gridHelper.visible;
+      btnToggleGrid.textContent = 'Grid: ' + (gridHelper.visible ? 'ON' : 'OFF');
+      btnToggleGrid.classList.toggle('on', gridHelper.visible);
+    });
+
+    const btnToggleTheme = document.getElementById('btn-toggle-theme');
+    let isThemeDark = true;
+    btnToggleTheme.addEventListener('click', () => {
+      isThemeDark = !isThemeDark;
+      if (isThemeDark) {
+        setBg(0x101216, optDrk);
+        btnToggleTheme.textContent = 'Theme: Dark';
+      } else {
+        setBg(0xf1f5f9, optWht);
+        btnToggleTheme.textContent = 'Theme: Light';
+      }
+    });
+
+    // ── 8. Main Viewport Touch & Mouse Navigation ──
+    let isVpDragging = false;
+    let vpStartX = 0, vpStartY = 0;
+    let vpStartTheta = 0, vpStartPhi = 0;
+    let vpMode = 'orbit';
+
+    canvas.addEventListener('pointerdown', (e) => {
+      isVpDragging = true;
+      vpMode = e.button === 2 || e.shiftKey ? 'pan' : 'orbit';
+      vpStartX = e.clientX;
+      vpStartY = e.clientY;
+      vpStartTheta = camState.theta;
+      vpStartPhi = camState.phi;
+      canvas.setPointerCapture(e.pointerId);
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+      if (!isVpDragging) return;
+      const dx = e.clientX - vpStartX;
+      const dy = e.clientY - vpStartY;
+
+      if (vpMode === 'orbit') {
+        camState.theta = vpStartTheta - dx * 0.008;
+        camState.phi = Math.max(0.05, Math.min(Math.PI - 0.05, vpStartPhi - dy * 0.008));
+      } else {
+        const sinT = Math.sin(camState.theta), cosT = Math.cos(camState.theta);
+        const speed = camState.radius * 0.002;
+        camState.target.x -= dx * cosT * speed;
+        camState.target.z += dx * sinT * speed;
+        camState.target.y += dy * speed;
+      }
+      updateCamera();
+    });
+
+    canvas.addEventListener('pointerup', (e) => {
+      isVpDragging = false;
+      try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+    });
+
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const factor = e.deltaY > 0 ? 1.08 : 0.92;
+      camState.radius = Math.max(2.5, Math.min(40, camState.radius * factor));
+      updateCamera();
+    }, { passive: false });
+
+    window.addEventListener('resize', () => {
+      W = window.innerWidth;
+      H = window.innerHeight;
+      renderer.setSize(W, H);
+      camera.aspect = W / H;
+      camera.updateProjectionMatrix();
+      updateCamera();
+    });
+
+    // ── Continuous Animation Loop ──
+    function animate() {
+      requestAnimationFrame(animate);
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // Initial setup
+    updateCamera();
+    updatePlaneTransform();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Navigator · one box</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+/* ══════════════════════════════════════════════════════════════════
+   DEMO HOST — stands in for Drawing Canvas.
+   ══════════════════════════════════════════════════════════════════ */
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{width:100%;height:100%;overflow:hidden;touch-action:none;
+    font-family:ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  #view{position:fixed;inset:0;display:block;touch-action:none;z-index:1}
+  .host{position:fixed;z-index:40;color:#6b645a}
+  #host-top{top:0;left:0;right:0;height:54px;display:flex;align-items:center;gap:20px;padding:0 16px;
+    background:var(--host-bar);border-bottom:1px solid var(--host-line);
+    -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+    font-size:15px;font-weight:600;color:var(--host-ink)}
+  #host-top .ic{font-weight:400;font-size:17px;color:var(--host-dim);cursor:pointer}
+  #host-rail{left:10px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:26px;
+    font-size:19px;color:var(--host-dim)}
+  #host-rail .dot{width:30px;height:30px;border-radius:15px;background:#35a7e8}
+  #host-fps{right:14px;bottom:8px;font-size:12px;color:var(--host-dim)}
+  #host-fps i{font-style:normal;color:#22c55e}
+  html{--host-bar:rgba(250,247,242,.8);--host-line:rgba(51,46,40,.10);--host-ink:#332e28;--host-dim:#8a8177}
+  html[data-nv-theme="dark"]{--host-bar:rgba(24,23,21,.82);--host-line:rgba(255,255,255,.10);
+    --host-ink:#f0ebe4;--host-dim:#8d867d}
+
+/* ══════════════════════════════════════════════════════════════════
+   NAVIGATOR — one root, one box. All selectors namespaced nv-.
+   ══════════════════════════════════════════════════════════════════ */
+  html{
+    --nv-top:62px; --nv-right:8px; --nv-bottom:30px; --nv-left:62px; --nv-gap:10px;
+
+    --nv-panel:rgba(252,250,247,.84);
+    --nv-ink:#332e28;
+    --nv-ink-60:rgba(51,46,40,.62);
+    --nv-ink-35:rgba(51,46,40,.36);
+    --nv-line:rgba(51,46,40,.13);
+    --nv-edge:rgba(255,255,255,.75);
+    --nv-btn:rgba(255,255,255,.62);
+    --nv-btn-on:#ffffff;
+    --nv-shadow:0 14px 34px rgba(51,46,40,.18);
+    --nv-up:#e0822a; --nv-side:#2f80c4; --nv-front:#3f9a62;
+    --nv-on-color:#ffffff;
+    --nv-ghost:rgba(51,46,40,.22);
+    --nv-hub:rgba(255,255,255,.96);
+  }
+  @media (prefers-color-scheme:dark){
+    html:not([data-nv-theme="light"]){
+      --nv-panel:rgba(32,30,28,.84);
+      --nv-ink:#f2ede6;
+      --nv-ink-60:rgba(242,237,230,.66);
+      --nv-ink-35:rgba(242,237,230,.40);
+      --nv-line:rgba(255,255,255,.14);
+      --nv-edge:rgba(255,255,255,.14);
+      --nv-btn:rgba(255,255,255,.07);
+      --nv-btn-on:rgba(255,255,255,.16);
+      --nv-shadow:0 14px 34px rgba(0,0,0,.44);
+      --nv-up:#f0a154; --nv-side:#63a9e4; --nv-front:#5cba84;
+      --nv-on-color:#1b1a18;
+      --nv-ghost:rgba(242,237,230,.26);
+      --nv-hub:rgba(46,44,41,.96);
+    }
+  }
+  html[data-nv-theme="dark"]{
+    --nv-panel:rgba(32,30,28,.84);
+    --nv-ink:#f2ede6;
+    --nv-ink-60:rgba(242,237,230,.66);
+    --nv-ink-35:rgba(242,237,230,.40);
+    --nv-line:rgba(255,255,255,.14);
+    --nv-edge:rgba(255,255,255,.14);
+    --nv-btn:rgba(255,255,255,.07);
+    --nv-btn-on:rgba(255,255,255,.16);
+    --nv-shadow:0 14px 34px rgba(0,0,0,.44);
+    --nv-up:#f0a154; --nv-side:#63a9e4; --nv-front:#5cba84;
+    --nv-on-color:#1b1a18;
+    --nv-ghost:rgba(242,237,230,.26);
+    --nv-hub:rgba(46,44,41,.96);
+  }
+
+  #nv{position:fixed;inset:0;z-index:50;pointer-events:none;color:var(--nv-ink);
+    font-family:ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-variant-numeric:tabular-nums}
+  #nv > *{pointer-events:auto}
+  #nv.nv-dim{opacity:.2;transition:opacity .12s ease}
+  #nv:not(.nv-dim){transition:opacity .3s ease .2s}
+
+  .nv-box{position:absolute;width:230px;padding:6px 8px 7px;border-radius:16px;
+    background:var(--nv-panel);-webkit-backdrop-filter:blur(18px) saturate(1.1);
+    backdrop-filter:blur(18px) saturate(1.1);border:1px solid var(--nv-edge);box-shadow:var(--nv-shadow);
+    transform-origin: top left; user-select: none; -webkit-user-select: none;}
+  #nv[data-open="false"] .nv-box{display:none}
+
+  .nv-head{display:flex;align-items:center;gap:6px;height:22px;cursor:move;touch-action:none}
+  .nv-grip{display:flex;flex-wrap:wrap;width:9px;gap:2px;flex:0 0 auto;opacity:.5}
+  .nv-grip i{width:3px;height:3px;border-radius:2px;background:currentColor}
+  .nv-read{flex:1;font-size:11.5px;color:var(--nv-ink-60);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .nv-read b{font-weight:600;color:var(--nv-ink)}
+  .nv-icon{border:0;background:none;color:var(--nv-ink-35);font:inherit;font-size:13px;line-height:1;
+    padding:4px 5px;border-radius:7px;cursor:pointer}
+  .nv-icon:hover{color:var(--nv-ink);background:var(--nv-btn)}
+  .nv-icon[aria-pressed="true"]{color:var(--nv-ink)}
+
+  .nv-canvas{position:relative;z-index:1;display:block;margin:-2px auto -2px;cursor:grab;
+    touch-action:none;transform-origin:50% 50%;
+    transition:transform .2s cubic-bezier(.32,.72,0,1)}
+  /* while you are actually using it, the tool grows and the menu steps back */
+  #nv.nv-focus .nv-canvas{transform:scale(1.16)}
+  #nv.nv-focus .nv-row,#nv.nv-focus .nv-modes,#nv.nv-focus .nv-acts{opacity:.16;pointer-events:none}
+  .nv-row,.nv-modes,.nv-acts{transition:opacity .2s ease}
+  @media (prefers-reduced-motion:reduce){
+    .nv-canvas,.nv-row,.nv-modes,.nv-acts{transition:none}
+    #nv.nv-focus .nv-canvas{transform:none}
+  }
+
+  /* what am I moving? */
+  .nv-row{display:flex;gap:4px;margin-top:3px}
+  .nv-target{position:relative;display:flex;align-items:center;gap:6px;flex:1;min-width:0;
+    font:inherit;font-size:12px;line-height:1;padding:6px 8px;border-radius:9px;cursor:pointer;
+    color:var(--nv-ink);background:var(--nv-btn);border:1px solid var(--nv-line);min-height:28px;text-align:left}
+  .nv-target b{flex:1;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .nv-target span{color:var(--nv-ink-35);flex:0 0 auto}
+  .nv-target[aria-expanded="true"]{border-color:var(--nv-ink)}
+  .nv-target.nv-mute,.nv-step.nv-mute{opacity:.45}
+  .nv-step{font:inherit;font-size:11px;line-height:1;padding:6px 7px;border-radius:9px;cursor:pointer;
+    color:var(--nv-ink-60);background:var(--nv-btn);border:1px solid var(--nv-line);min-height:28px;
+    white-space:nowrap;flex:0 0 auto;font-variant-numeric:tabular-nums}
+  .nv-step[aria-expanded="true"]{color:var(--nv-ink);border-color:var(--nv-ink)}
+  .nv-steps{position:absolute;left:8px;right:8px;top:56px;z-index:3;padding:8px 9px 9px;border-radius:12px;
+    display:none;background:var(--nv-panel);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);
+    border:1px solid var(--nv-edge);box-shadow:var(--nv-shadow)}
+  .nv-steps.nv-on{display:block}
+  .nv-steps h4{font-size:10.5px;font-weight:500;color:var(--nv-ink-35);margin:0 0 3px}
+  .nv-steps h4+div{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:6px}
+  .nv-steps h4+div:last-child{margin-bottom:0}
+  .nv-chip{font:inherit;font-size:11px;line-height:1;padding:6px 2px;border-radius:8px;cursor:pointer;
+    color:var(--nv-ink);background:var(--nv-btn);border:1px solid var(--nv-line);min-height:28px;
+    font-variant-numeric:tabular-nums;text-align:center}
+  .nv-chip[aria-pressed="true"]{background:var(--nv-btn-on);border-color:var(--nv-ink);font-weight:600}
+  .nv-list{position:absolute;left:8px;right:8px;top:56px;z-index:3;padding:5px;border-radius:12px;
+    max-height:200px;overflow-y:auto;display:none;
+    background:var(--nv-panel);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);
+    border:1px solid var(--nv-edge);box-shadow:var(--nv-shadow)}
+  .nv-list.nv-on{display:block}
+  .nv-opt{display:flex;align-items:center;gap:7px;width:100%;font:inherit;font-size:12px;line-height:1.2;
+    padding:7px 8px;border:0;border-radius:8px;background:none;color:var(--nv-ink);cursor:pointer;text-align:left}
+  .nv-opt:hover{background:var(--nv-btn)}
+  .nv-opt[aria-selected="true"]{background:var(--nv-btn-on);font-weight:600}
+  .nv-opt em{font-style:normal;color:var(--nv-ink-35);font-size:10.5px}
+  .nv-swatch{width:8px;height:8px;border-radius:3px;background:var(--nv-ink-35);flex:0 0 auto}
+  .nv-opt[aria-selected="true"] .nv-swatch{background:var(--nv-up)}
+  #nv.nv-grabbing .nv-canvas{cursor:grabbing}
+
+  .nv-modes{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;margin-top:0}
+  .nv-mode{font:inherit;font-size:12px;line-height:1;padding:6px 2px;border-radius:8px;cursor:pointer;
+    border:1px solid transparent;background:none;color:var(--nv-ink-35);min-height:28px}
+  .nv-mode[aria-pressed="true"]{color:var(--nv-ink);border-color:var(--nv-line);background:var(--nv-btn-on);font-weight:600}
+
+  .nv-hint{margin:2px 0 3px;height:24px;display:flex;align-items:center;justify-content:center;
+    text-align:center;font-size:11px;line-height:1.2;color:var(--nv-ink-60);padding:0 2px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .nv-hint.nv-live{color:var(--nv-ink);font-weight:600}
+  .nv-hint.nv-tour{color:var(--nv-ink);font-weight:500}
+
+  /* Compact Bottom Action Boxes — spacing reduced, not as tall, compact layout */
+  .nv-acts{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;margin-top:2px}
+  .nv-act{font:inherit;font-size:10.5px;line-height:1.15;padding:3px 2px;border-radius:6px;cursor:pointer;
+    color:var(--nv-ink);background:var(--nv-btn);border:1px solid var(--nv-line);min-height:22px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;transition:background .12s ease, transform .1s ease}
+  .nv-act:active{transform:translateY(1px)}
+  .nv-act:disabled{opacity:.32;cursor:default}
+  .nv-act[aria-pressed="true"]{background:var(--nv-btn-on);border-color:var(--nv-ink);font-weight:600}
+  .nv-act:focus-visible,.nv-mode:focus-visible,.nv-icon:focus-visible{outline:2px solid var(--nv-ink);outline-offset:1px}
+
+  /* Size Preset Toggle Button */
+  .nv-size-toggle{font:inherit;font-size:11px;font-weight:600;line-height:1;padding:3px 7px;border-radius:7px;cursor:pointer;
+    color:var(--nv-ink-60);background:var(--nv-btn);border:1px solid var(--nv-line);min-height:20px;
+    font-variant-numeric:tabular-nums;flex:0 0 auto;transition:all .15s ease}
+  .nv-size-toggle:hover{color:var(--nv-ink);background:var(--nv-btn-on);border-color:var(--nv-ink)}
+  .nv-size-toggle:active{transform:scale(.95)}
+
+  .nv-puck{position:absolute;width:56px;height:56px;border-radius:28px;padding:0;cursor:pointer;display:none;
+    background:var(--nv-panel);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+    border:1px solid var(--nv-edge);box-shadow:var(--nv-shadow)}
+  #nv[data-open="false"] .nv-puck{display:block}
+  .nv-puck canvas{display:block;border-radius:28px}
+
+  @media (max-width:430px){
+    .nv-box{width:206px}
+    .nv-act{font-size:10px;padding:2px 1px;min-height:20px}
+  }
+</style>
+</head>
+<body>
+
+<canvas id="view"></canvas>
+
+<!-- demo host chrome -->
+<div class="host" id="host-top">
+  <span>Drawing Canvas</span>
+  <span class="ic">↶</span><span class="ic">↷</span><span class="ic">▤</span>
+  <span class="ic" id="host-grid" title="Grid">▦</span>
+  <span class="ic" id="host-theme" title="Toggle theme">☀</span><span class="ic">⚙</span>
+</div>
+<div class="host" id="host-rail">
+  <span>➤</span><span>✎</span><span>◻</span><span>✳</span><span>▤</span><span class="dot"></span>
+</div>
+<div class="host" id="host-fps"><i>●</i> 60 FPS</div>
+
+<!-- ── the whole tool: one element ── -->
+<div id="nv" data-open="true" data-corner="br">
+  <div class="nv-box" id="nv-box">
+    <div class="nv-head" id="nv-head">
+      <span class="nv-grip"><i></i><i></i><i></i><i></i></span>
+      <span class="nv-read" id="nv-read"></span>
+      <button class="nv-size-toggle" id="nv-size-toggle" title="Toggle box size (75%, 100%, 125%, 150%)">100%</button>
+      <button class="nv-icon" id="nv-fold" title="Tuck away">–</button>
+    </div>
+    <div class="nv-row">
+      <button class="nv-target" id="nv-target" aria-expanded="false">
+        <span>Moving</span><b id="nv-target-name">Canvas</b><span>▾</span>
+      </button>
+      <button class="nv-step" id="nv-step" aria-expanded="false" title="Step size & Box scale">15°</button>
+    </div>
+    <div class="nv-list" id="nv-list" role="listbox"></div>
+    <div class="nv-steps" id="nv-steps">
+      <h4>Turning steps</h4>
+      <div id="nv-rot-steps"></div>
+      <h4>Sliding steps</h4>
+      <div id="nv-move-steps"></div>
+      <h4>Box size</h4>
+      <div id="nv-size-steps"></div>
+    </div>
+    <canvas class="nv-canvas" id="nv-canvas"></canvas>
+    <div class="nv-modes">
+      <button class="nv-mode" id="nv-look" aria-pressed="false">Look</button>
+      <button class="nv-mode" id="nv-move" aria-pressed="true">Move</button>
+      <button class="nv-mode" id="nv-turn" aria-pressed="false">Turn</button>
+    </div>
+    <div class="nv-hint" id="nv-hint"></div>
+    <div class="nv-acts">
+      <button class="nv-act" id="nv-flat">Lay flat</button>
+      <button class="nv-act" id="nv-wall">Stand up</button>
+      <button class="nv-act" id="nv-lean">Lean</button>
+      <button class="nv-act" id="nv-face">Look at it</button>
+      <button class="nv-act" id="nv-undo" disabled>Undo</button>
+      <button class="nv-act" id="nv-reset">Start over</button>
+    </div>
+  </div>
+  <button class="nv-puck" id="nv-puck" title="Open"><canvas id="nv-puck-canvas"></canvas></button>
+</div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const DEG = Math.PI / 180;
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const root = document.documentElement;
+
+/* ══════════════════════════════════════════════════════════════════
+   Demo scene
+   ══════════════════════════════════════════════════════════════════ */
+const viewCanvas = $('view');
+const scene = new THREE.Scene();
+let W = window.innerWidth, H = window.innerHeight;
+const FOV = 46;
+const camera = new THREE.PerspectiveCamera(FOV, W / H, 0.1, 400);
+const renderer = new THREE.WebGLRenderer({ canvas: viewCanvas, antialias: true });
+renderer.setSize(W, H);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+const hemi = new THREE.HemisphereLight(0xffffff, 0xd9cdbb, 0.45);
+scene.add(hemi);
+const key = new THREE.DirectionalLight(0xffffff, 0.92);
+key.position.set(9, 15, 7);
+key.castShadow = true;
+key.shadow.mapSize.set(1024, 1024);
+key.shadow.camera.near = 1; key.shadow.camera.far = 46;
+key.shadow.camera.left = -14; key.shadow.camera.right = 14;
+key.shadow.camera.top = 14; key.shadow.camera.bottom = -14;
+scene.add(key);
+
+const shadowMat = new THREE.ShadowMaterial({ opacity: 0.12 });
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(80, 80).rotateX(-Math.PI / 2), shadowMat);
+ground.receiveShadow = true;
+scene.add(ground);
+const grid = new THREE.GridHelper(28, 28, 0xb8ad9c, 0xd3c9ba);
+grid.position.y = 0.002;
+grid.material.transparent = true;
+grid.material.opacity = 0.85;
+scene.add(grid);
+
+const world = new THREE.Group();
+scene.add(world);
+
+const blockMat = new THREE.MeshLambertMaterial({ color: 0xfaf7f2 });
+const block = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.7, 0.9), blockMat);
+block.position.set(-2.7, 0.85, 1.7);
+block.castShadow = true;
+world.add(block);
+const edgeMat = new THREE.LineBasicMaterial({ color: 0x332e28, transparent: true, opacity: 0.26 });
+block.add(new THREE.LineSegments(new THREE.EdgesGeometry(block.geometry), edgeMat));
+
+const SIZE = 3.4;
+const surface = new THREE.Group();
+world.add(surface);
+const planeGeo = new THREE.PlaneGeometry(SIZE, SIZE).rotateX(-Math.PI / 2);
+function hatch(dark) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const x = c.getContext('2d');
+  x.strokeStyle = dark ? 'rgba(255,250,242,0.20)' : 'rgba(51,46,40,0.20)';
+  x.lineWidth = 1;
+  for (let i = 32; i < 256; i += 32) {
+    x.beginPath(); x.moveTo(i + .5, 0); x.lineTo(i + .5, 256); x.stroke();
+    x.beginPath(); x.moveTo(0, i + .5); x.lineTo(256, i + .5); x.stroke();
+  }
+  x.strokeStyle = dark ? 'rgba(255,250,242,0.8)' : 'rgba(51,46,40,0.82)';
+  x.lineWidth = 4;
+  x.strokeRect(2, 2, 252, 252);
+  const t = new THREE.CanvasTexture(c);
+  t.anisotropy = 4;
+  return t;
+}
+const hatchLight = hatch(false), hatchDark = hatch(true);
+const faceMat = new THREE.MeshBasicMaterial({
+  color: 0xffffff, transparent: true, opacity: 0.6, side: THREE.DoubleSide, depthWrite: false });
+const skinMat = new THREE.MeshBasicMaterial({
+  map: hatchLight, transparent: true, side: THREE.DoubleSide, depthWrite: false });
+surface.add(new THREE.Mesh(planeGeo, faceMat));
+const skin = new THREE.Mesh(planeGeo, skinMat);
+skin.renderOrder = 2;
+surface.add(skin);
+const poleMat = new THREE.LineBasicMaterial({ color: 0x332e28, transparent: true, opacity: 0.5 });
+surface.add(new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 0.72, 0)]), poleMat));
+const flag = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.26, 16),
+  new THREE.MeshBasicMaterial({ color: 0xe0822a }));
+flag.position.y = 0.78;
+surface.add(flag);
+surface.position.set(0, 1.1, 0);
+
+const layerA = new THREE.Mesh(new THREE.CircleGeometry(0.62, 40).rotateX(-Math.PI / 2),
+  new THREE.MeshBasicMaterial({ color: 0x2f80c4, transparent: true, opacity: 0.85, side: THREE.DoubleSide }));
+layerA.position.set(-0.7, 0.03, 0.4);
+layerA.renderOrder = 3;
+surface.add(layerA);
+const layerB = new THREE.Mesh(new THREE.PlaneGeometry(1.05, 1.05).rotateX(-Math.PI / 2),
+  new THREE.MeshBasicMaterial({ color: 0x3f9a62, transparent: true, opacity: 0.85, side: THREE.DoubleSide }));
+layerB.position.set(0.75, 0.05, -0.35);
+layerB.renderOrder = 4;
+surface.add(layerB);
+
+const selBox = new THREE.Box3();
+const outline = new THREE.Box3Helper(selBox, 0x332e28);
+outline.material.transparent = true;
+outline.material.opacity = 0.55;
+scene.add(outline);
+function markSelection() {
+  selBox.setFromObject(targetObj);
+  if (selBox.isEmpty()) { outline.visible = false; return; }
+  selBox.expandByScalar(0.09);
+  outline.visible = true;
+}
+
+const obj = { pos: new THREE.Vector3(), quat: new THREE.Quaternion() };
+const disp = { pos: new THREE.Vector3(), quat: new THREE.Quaternion() };
+let targetObj = surface;
+function syncFromTarget() {
+  targetObj.updateWorldMatrix(true, false);
+  targetObj.getWorldPosition(obj.pos);
+  targetObj.getWorldQuaternion(obj.quat);
+  disp.pos.copy(obj.pos);
+  disp.quat.copy(obj.quat);
+}
+function commit() {
+  const p = targetObj.parent;
+  if (p) {
+    p.updateWorldMatrix(true, false);
+    targetObj.position.copy(p.worldToLocal(disp.pos.clone()));
+    targetObj.quaternion.copy(
+      p.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(disp.quat));
+  } else {
+    targetObj.position.copy(disp.pos);
+    targetObj.quaternion.copy(disp.quat);
+  }
+  targetObj.updateMatrixWorld(true);
+  markSelection();
+}
+function jumpDisplay() {
+  disp.pos.copy(obj.pos);
+  disp.quat.copy(obj.quat);
+  commit();
+}
+function easeDisplay(dt) {
+  if (reduceMotion || !(gz.rotStep || gz.moveStep)) { jumpDisplay(); return false; }
+  const near = disp.pos.distanceToSquared(obj.pos) < 1e-7 &&
+               1 - Math.abs(disp.quat.dot(obj.quat)) < 1e-8;
+  if (near) {
+    if (!disp.pos.equals(obj.pos) || !disp.quat.equals(obj.quat)) { jumpDisplay(); return true; }
+    return false;
+  }
+  const k = 1 - Math.exp(-Math.min(dt, 0.05) * 20);
+  disp.pos.lerp(obj.pos, k);
+  disp.quat.slerp(obj.quat, k);
+  commit();
+  return true;
+}
+const cam = { radius: 11, theta: 0.78, phi: 1.05, target: new THREE.Vector3(0, 1.1, 0) };
+
+/* ══════════════════════════════════════════════════════════════════
+   Theme
+   ══════════════════════════════════════════════════════════════════ */
+let T = {};
+function isDark() {
+  const forced = root.dataset.nvTheme;
+  if (forced === 'dark') return true;
+  if (forced === 'light') return false;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+function readTheme() {
+  const cs = getComputedStyle($('nv'));
+  const v = (n) => cs.getPropertyValue(n).trim();
+  T = {
+    up: v('--nv-up'), side: v('--nv-side'), front: v('--nv-front'),
+    ghost: v('--nv-ghost'), hub: v('--nv-hub'), ink: v('--nv-ink'),
+    onColor: v('--nv-on-color'), line: v('--nv-line')
+  };
+  AXES[0].tone = T.up; AXES[1].tone = T.side; AXES[2].tone = T.front;
+
+  const dark = isDark();
+  scene.background = new THREE.Color(dark ? 0x1c1b19 : 0xe8e0d4);
+  scene.fog = new THREE.Fog(dark ? 0x1c1b19 : 0xe8e0d4, 22, 58);
+  grid.material.color.set(dark ? 0x4a453e : 0xb8ad9c);
+  grid.material.opacity = dark ? 0.5 : 0.85;
+  blockMat.color.set(dark ? 0x35322e : 0xfaf7f2);
+  edgeMat.color.set(dark ? 0xf2ede6 : 0x332e28);
+  edgeMat.opacity = dark ? 0.3 : 0.26;
+  faceMat.color.set(dark ? 0x2c2a27 : 0xffffff);
+  faceMat.opacity = dark ? 0.72 : 0.6;
+  skinMat.map = dark ? hatchDark : hatchLight;
+  skinMat.needsUpdate = true;
+  poleMat.color.set(dark ? 0xf2ede6 : 0x332e28);
+  outline.material.color.set(dark ? 0xf2ede6 : 0x332e28);
+  shadowMat.opacity = dark ? 0.26 : 0.12;
+  hemi.groundColor.set(dark ? 0x24221f : 0xd9cdbb);
+  drawGizmo();
+}
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readTheme);
+window.NV = {
+  setTheme(mode) {
+    if (mode === 'auto') delete root.dataset.nvTheme; else root.dataset.nvTheme = mode;
+    readTheme();
+  }
+};
+
+/* ══════════════════════════════════════════════════════════════════
+   Gizmo
+   ══════════════════════════════════════════════════════════════════ */
+const gz = { size: 168, mode: 'move', rotStep: 15, moveStep: 0.5, active: null, hover: null, ring: null };
+const gzc = $('nv-canvas'), gctx = gzc.getContext('2d');
+const puckC = $('nv-puck-canvas'), pctx = puckC.getContext('2d');
+
+let boxScale = 1.0;
+try {
+  const saved = localStorage.getItem('v19_nv_box_scale');
+  if (saved) {
+    const parsed = parseFloat(saved);
+    if (!isNaN(parsed) && parsed >= 0.7 && parsed <= 1.6) boxScale = parsed;
+  }
+} catch (_) {}
+
+const AXES = [
+  { dir: [0, 1, 0], lbl: 'Up', back: 'Down', tone: '#e0822a' },
+  { dir: [1, 0, 0], lbl: 'Side', back: 'Side', tone: '#2f80c4' },
+  { dir: [0, 0, 1], lbl: 'Front', back: 'Back', tone: '#3f9a62' }
+];
+
+const CROP = 0.055;
+function metrics(S) { return { S, c: S / 2, arm: S * 0.235, hand: S * 0.102, hub: S * 0.112 }; }
+function fitGizmo(size) {
+  const dpr = Math.min(window.devicePixelRatio, 2);
+  const h = Math.round(size * (1 - CROP * 2));
+  gzc.style.width = size + 'px';
+  gzc.style.height = h + 'px';
+  gzc.width = Math.round(size * dpr);
+  gzc.height = Math.round(h * dpr);
+  gctx.setTransform(dpr, 0, 0, dpr, 0, -size * CROP * dpr);
+}
+function fit(canvas, ctx, size) {
+  const dpr = Math.min(window.devicePixelRatio, 2);
+  canvas.style.width = size + 'px';
+  canvas.style.height = size + 'px';
+  canvas.width = Math.round(size * dpr);
+  canvas.height = Math.round(size * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+function axisDir(a) {
+  const v = new THREE.Vector3(a.dir[0], a.dir[1], a.dir[2]);
+  if (gz.mode !== 'look') v.applyQuaternion(disp.quat);
+  return v.normalize();
+}
+function project(v, m) {
+  const sp = Math.sin(cam.phi), cp = Math.cos(cam.phi);
+  const st = Math.sin(cam.theta), ct = Math.cos(cam.theta);
+  const sx = v.x * ct + v.z * -st;
+  const sy = v.x * (-cp * st) + v.y * sp + v.z * (-cp * ct);
+  const depth = v.x * (sp * st) + v.y * cp + v.z * (sp * ct);
+  return { x: m.c + sx * m.arm, y: m.c - sy * m.arm, depth, len: Math.hypot(sx, sy) };
+}
+function handles(m) {
+  const out = [];
+  AXES.forEach((a, i) => {
+    const d = axisDir(a);
+    out.push({ a, i, sign: 1, dir: d, p: project(d, m) });
+    const n = d.clone().negate();
+    out.push({ a, i, sign: -1, dir: n, p: project(n, m) });
+  });
+  return out;
+}
+function labelFont(ctx, text, r) {
+  let size = r * 0.66;
+  const fam = getComputedStyle(document.body).fontFamily;
+  for (let i = 0; i < 6; i++) {
+    ctx.font = '600 ' + size.toFixed(1) + 'px ' + fam;
+    if (ctx.measureText(text).width <= r * 1.62) break;
+    size *= 0.9;
+  }
+}
+
+function paint(ctx, m, live, now) {
+  ctx.clearRect(-2, -2, m.S + 4, m.S + 4);
+  const hs = handles(m).sort((p, q) => p.p.depth - q.p.depth);
+
+  hs.forEach(h => {
+    const front = h.p.depth >= -0.04;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(m.c, m.c);
+    ctx.lineTo(h.p.x, h.p.y);
+    if (h.sign > 0 && front) { ctx.strokeStyle = h.a.tone; ctx.lineWidth = 3; }
+    else { ctx.strokeStyle = T.ghost; ctx.lineWidth = 1.2; ctx.setLineDash([3, 4]); }
+    ctx.stroke();
+    ctx.restore();
+  });
+
+  hs.forEach(h => {
+    const front = h.p.depth >= -0.04;
+    const on = live && gz.active && gz.active.type === 'axis' && gz.active.i === h.i && gz.active.sign === h.sign;
+    const hov = live && gz.hover && gz.hover.i === h.i && gz.hover.sign === h.sign;
+
+    if (h.sign < 0 || !front) {
+      ctx.beginPath();
+      ctx.arc(h.p.x, h.p.y, m.hand * (h.sign < 0 ? 0.58 : 0.72), 0, Math.PI * 2);
+      ctx.fillStyle = (on || hov) ? T.ink : T.ghost;
+      ctx.fill();
+      return;
+    }
+    if (h.p.len > (gz.mode === 'rotate' ? 0.34 : 0.22)) {
+      const ux = (h.p.x - m.c) / (m.arm * h.p.len), uy = (h.p.y - m.c) / (m.arm * h.p.len);
+      ctx.save();
+      ctx.translate(h.p.x, h.p.y);
+      ctx.rotate(Math.atan2(uy, ux));
+      ctx.fillStyle = h.a.tone; ctx.strokeStyle = h.a.tone;
+      if (gz.mode === 'rotate') {
+        ctx.lineWidth = 2.6;
+        ctx.beginPath();
+        ctx.arc(0, 0, m.hand * 1.4, -0.92, 0.92);
+        ctx.stroke();
+        const ax = Math.cos(0.92) * m.hand * 1.4, ay = Math.sin(0.92) * m.hand * 1.4;
+        ctx.beginPath();
+        ctx.moveTo(ax + 3.6, ay + 1.2); ctx.lineTo(ax - 3, ay + 3.8); ctx.lineTo(ax - 1.2, ay - 2.9);
+        ctx.closePath(); ctx.fill();
+      } else {
+        const base = m.hand * 1.02, wide = m.hand * 0.56;
+        ctx.beginPath();
+        ctx.moveTo(base + m.hand * 0.98, 0);
+        ctx.lineTo(base, -wide);
+        ctx.lineTo(base, wide);
+        ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+    }
+    ctx.beginPath();
+    ctx.arc(h.p.x, h.p.y, m.hand * (on || hov ? 1.08 : 1), 0, Math.PI * 2);
+    ctx.fillStyle = h.a.tone;
+    ctx.fill();
+    if (on || hov) {
+      ctx.strokeStyle = T.ink;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(h.p.x, h.p.y, m.hand * 1.36, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#ffffff';
+    labelFont(ctx, h.a.lbl, m.hand);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(h.a.lbl, h.p.x, h.p.y + 0.5);
+  });
+
+  ctx.beginPath();
+  ctx.arc(m.c, m.c, m.hub, 0, Math.PI * 2);
+  ctx.fillStyle = T.hub;
+  ctx.fill();
+  ctx.strokeStyle = live && gz.active && gz.active.type === 'hub' ? T.ink : T.ghost;
+  ctx.lineWidth = 1.6;
+  ctx.stroke();
+  hubIcon(ctx, m.c, m.c, m.hub * 0.6);
+
+  if (live && gz.ring) pulse(ctx, m, now);
+}
+function hubIcon(ctx, cx, cy, r) {
+  ctx.save();
+  ctx.strokeStyle = T.ink; ctx.fillStyle = T.ink; ctx.lineWidth = 1.5;
+  if (gz.mode === 'move') {
+    for (let k = 0; k < 4; k++) {
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(k * Math.PI / 2);
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(r * 0.86, 0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(r * 0.6, -r * 0.32); ctx.lineTo(r * 0.6, r * 0.32);
+      ctx.closePath(); ctx.fill(); ctx.restore();
+    }
+  } else if (gz.mode === 'rotate') {
+    ctx.beginPath(); ctx.arc(cx, cy, r * 0.82, -2.5, 1.7); ctx.stroke();
+    const ax = cx + Math.cos(1.7) * r * 0.82, ay = cy + Math.sin(1.7) * r * 0.82;
+    ctx.beginPath();
+    ctx.moveTo(ax + 3.6, ay - 0.4); ctx.lineTo(ax - 1.5, ay + 3.6); ctx.lineTo(ax - 2.8, ay - 2.6);
+    ctx.closePath(); ctx.fill();
+  } else {
+    ctx.beginPath(); ctx.arc(cx, cy, r * 0.34, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy, r * 0.9, 0, Math.PI * 2); ctx.stroke();
+  }
+  ctx.restore();
+}
+function pulse(ctx, m, now) {
+  const t = ((now || performance.now()) % 1100) / 1100;
+  let x = m.c, y = m.c, r0 = m.hub * 1.4;
+  if (gz.ring.type === 'axis') {
+    const h = handles(m).filter(k => k.i === gz.ring.i && k.sign === 1)[0];
+    if (h) { x = h.p.x; y = h.p.y; r0 = m.hand * 1.4; }
+  }
+  ctx.save();
+  ctx.strokeStyle = T.ink;
+  ctx.globalAlpha = 0.5 * (1 - t);
+  ctx.lineWidth = 2.6;
+  ctx.beginPath();
+  ctx.arc(x, y, r0 + t * m.hand * 1.6, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+function drawGizmo(now) {
+  if ($('nv').dataset.open === 'true') paint(gctx, metrics(gz.size), true, now);
+  else paint(pctx, metrics(56), false, now);
+}
+
+function applyObject() {
+  if (reduceMotion || !(gz.rotStep || gz.moveStep)) jumpDisplay();
+  const e = new THREE.Euler().setFromQuaternion(obj.quat, 'YXZ');
+  $('nv-read').innerHTML = 'height <b>' + obj.pos.y.toFixed(1) + '</b> · tilt <b>' +
+    Math.round(e.x / DEG) + '°</b> · spin <b>' + Math.round(e.y / DEG) + '°</b>';
+  drawGizmo();
+}
+function applyCamera() {
+  const sp = Math.sin(cam.phi), cp = Math.cos(cam.phi);
+  const st = Math.sin(cam.theta), ct = Math.cos(cam.theta);
+  camera.position.set(
+    cam.target.x + cam.radius * sp * st,
+    cam.target.y + cam.radius * cp,
+    cam.target.z + cam.radius * sp * ct);
+  camera.lookAt(cam.target);
+  drawGizmo();
+}
+
+function gzPoint(e) {
+  const r = gzc.getBoundingClientRect();
+  const k = gz.size / r.width;
+  return { x: (e.clientX - r.left) * k, y: (e.clientY - r.top) * k + gz.size * CROP };
+}
+function pickHandle(pt) {
+  const m = metrics(gz.size);
+  const near = [];
+  handles(m).forEach(h => {
+    const d = Math.hypot(pt.x - h.p.x, pt.y - h.p.y);
+    if (d < m.hand * (h.sign > 0 ? 1.8 : 1.45)) near.push({ h, d, front: h.p.depth >= -0.04 });
+  });
+  if (!near.length) return null;
+  near.sort((a, b) => a.d - b.d);
+  const tie = near.find(c => c.front && c.d <= near[0].d + m.hand * 0.4);
+  return (tie || near[0]).h;
+}
+function unitsPerPixel() { return (2 * cam.radius * Math.tan(FOV * DEG / 2)) / H; }
+function camBasis() {
+  const sp = Math.sin(cam.phi), cp = Math.cos(cam.phi);
+  const st = Math.sin(cam.theta), ct = Math.cos(cam.theta);
+  return { right: new THREE.Vector3(ct, 0, -st), up: new THREE.Vector3(-cp * st, sp, -cp * ct) };
+}
+const history = [];
+function pushHistory() {
+  history.push({ o: targetObj, p: obj.pos.clone(), q: obj.quat.clone() });
+  if (history.length > 40) history.shift();
+  $('nv-undo').disabled = false;
+}
+function undo() {
+  const s = history.pop();
+  if (!s) return;
+  if (s.o !== targetObj) selectTarget(targets.findIndex(t => t.object === s.o), true);
+  obj.pos.copy(s.p); obj.quat.copy(s.q);
+  applyObject();
+  $('nv-undo').disabled = history.length === 0;
+  say('Undone', true);
+}
+let hintTimer = null;
+function say(text, live) {
+  const el = $('nv-hint');
+  el.textContent = text;
+  el.classList.toggle('nv-live', !!live);
+  el.classList.remove('nv-tour');
+  if (hintTimer) clearTimeout(hintTimer);
+  if (live) hintTimer = setTimeout(idleHint, 1400);
+}
+function idleHint() {
+  if (tour) return;
+  const el = $('nv-hint');
+  el.classList.remove('nv-live', 'nv-tour');
+  const what = targets[current] ? targets[current].name : 'it';
+  el.textContent = gz.mode === 'look' ? 'Drag to spin around. Tap a dot to look from there.'
+    : gz.mode === 'move' ? 'Drag an arrow to slide ' + what + '.'
+    : 'Drag an arrow to turn ' + what + '.';
+}
+let lastStep = null;
+function tick(step) {
+  if (lastStep === step) return;
+  lastStep = step;
+  if (navigator.vibrate) { try { navigator.vibrate(4); } catch (_) {} }
+}
+
+let drag = null;
+gzc.addEventListener('pointerdown', (e) => {
+  e.preventDefault(); e.stopPropagation();
+  stopTour();
+  const pt = gzPoint(e), m = metrics(gz.size);
+  const r = Math.hypot(pt.x - m.c, pt.y - m.c);
+  const hit = pickHandle(pt);
+  if (hit) gz.active = { type: 'axis', i: hit.i, sign: hit.sign };
+  else if (r <= m.hub * 1.3 && gz.mode !== 'look') gz.active = { type: 'hub' };
+  else gz.active = { type: 'orbit' };
+  drag = {
+    startX: e.clientX, startY: e.clientY, moved: false, hit,
+    pos: obj.pos.clone(), quat: obj.quat.clone(),
+    theta: cam.theta, phi: cam.phi,
+    startAngle: Math.atan2(pt.y - m.c, pt.x - m.c), committed: false
+  };
+  lastStep = null;
+  $('nv').classList.add('nv-grabbing', 'nv-focus');
+  gzc.setPointerCapture(e.pointerId);
+  drawGizmo();
+});
+gzc.addEventListener('pointermove', (e) => {
+  const m = metrics(gz.size);
+  if (!drag) {
+    const hit = pickHandle(gzPoint(e));
+    const changed = (hit ? hit.i + ':' + hit.sign : '') !== (gz.hover ? gz.hover.i + ':' + gz.hover.sign : '');
+    gz.hover = hit ? { i: hit.i, sign: hit.sign } : null;
+    gzc.style.cursor = hit ? 'pointer' : 'grab';
+    if (changed) drawGizmo();
+    return;
+  }
+  const dx = e.clientX - drag.startX, dy = e.clientY - drag.startY;
+  if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+  drag.moved = true;
+  const act = gz.active;
+
+  if (act.type === 'orbit' || (act.type === 'axis' && gz.mode === 'look')) {
+    cam.theta = drag.theta - dx * 0.0062;
+    cam.phi = Math.max(0.06, Math.min(Math.PI - 0.06, drag.phi - dy * 0.0062));
+    applyCamera();
+    say('Walking around it', true);
+    return;
+  }
+  if (!drag.committed) { pushHistory(); drag.committed = true; }
+
+  if (act.type === 'hub') {
+    if (gz.mode === 'move') {
+      const b = camBasis(), k = unitsPerPixel();
+      obj.pos.copy(drag.pos).addScaledVector(b.right, dx * k).addScaledVector(b.up, -dy * k);
+      if (gz.moveStep) { obj.pos.x = snap(obj.pos.x, gz.moveStep); obj.pos.y = snap(obj.pos.y, gz.moveStep); obj.pos.z = snap(obj.pos.z, gz.moveStep); }
+      clampPos(); applyObject();
+      tick(obj.pos.x + ':' + obj.pos.y + ':' + obj.pos.z);
+      say('Sliding it around', true);
+    } else {
+      const b = camBasis();
+      let ay = -dx * 0.5, ax = -dy * 0.5;
+      if (gz.rotStep) { ay = snap(ay, gz.rotStep); ax = snap(ax, gz.rotStep); }
+      const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), ay * DEG)
+        .multiply(new THREE.Quaternion().setFromAxisAngle(b.right, ax * DEG));
+      obj.quat.copy(drag.quat).premultiply(q);
+      applyObject();
+      tick(ay + ':' + ax);
+      say('Tumbling it', true);
+    }
+    return;
+  }
+
+  const h = drag.hit, a = AXES[h.i], worldDir = h.dir, p = project(worldDir, m);
+  if (gz.mode === 'move') {
+    const len = Math.max(0.001, p.len);
+    const nx = (p.x - m.c) / (m.arm * len), ny = (p.y - m.c) / (m.arm * len);
+    let amount = (dx * nx + dy * ny) * unitsPerPixel() / Math.max(0.30, len);
+    if (gz.moveStep) amount = snap(amount, gz.moveStep);
+    obj.pos.copy(drag.pos).addScaledVector(worldDir, amount);
+    clampPos(); applyObject();
+    tick(amount);
+    say((h.sign > 0 ? a.lbl : a.back) + '  ' + Math.abs(amount).toFixed(gz.moveStep && gz.moveStep >= 0.5 ? 1 : 2), true);
+  } else {
+    const pt = gzPoint(e);
+    let d = Math.atan2(pt.y - m.c, pt.x - m.c) - drag.startAngle;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    let deg = -(d / DEG) * (p.depth >= 0 ? 1 : -1);
+    if (gz.rotStep) deg = snap(deg, gz.rotStep);
+    obj.quat.copy(drag.quat).premultiply(new THREE.Quaternion().setFromAxisAngle(worldDir, deg * DEG));
+    applyObject();
+    tick(deg);
+    say('Turned ' + Math.round(Math.abs(deg)) + '°', true);
+  }
+});
+function endDrag(e) {
+  if (!drag) return;
+  if (!drag.moved && drag.hit) faceDirection(drag.hit.dir, drag.hit.sign > 0 ? drag.hit.a.lbl : drag.hit.a.back);
+  else if (!drag.moved && gz.active && gz.active.type === 'hub') setMode(gz.mode === 'move' ? 'rotate' : 'move');
+  gz.active = null; drag = null;
+  $('nv').classList.remove('nv-grabbing', 'nv-focus');
+  try { gzc.releasePointerCapture(e.pointerId); } catch (_) {}
+  drawGizmo(); idleHint();
+  $('nv-undo').disabled = history.length === 0;
+}
+gzc.addEventListener('pointerup', endDrag);
+gzc.addEventListener('pointercancel', endDrag);
+function snap(v, step) { return Math.round(v / step) * step; }
+function clampPos() {
+  obj.pos.x = Math.max(-12, Math.min(12, obj.pos.x));
+  obj.pos.y = Math.max(-3, Math.min(9, obj.pos.y));
+  obj.pos.z = Math.max(-12, Math.min(12, obj.pos.z));
+}
+
+let flight = null;
+function faceDirection(dir, label) {
+  const d = dir.clone().normalize();
+  flyTo(Math.acos(Math.max(-1, Math.min(1, d.y))), Math.atan2(d.x, d.z));
+  if (label) say('Looking from the ' + label.toLowerCase() + ' side', true);
+  if (navigator.vibrate) { try { navigator.vibrate(8); } catch (_) {} }
+}
+function flyTo(phi, theta, ms) {
+  let t = theta;
+  while (t - cam.theta > Math.PI) t -= Math.PI * 2;
+  while (t - cam.theta < -Math.PI) t += Math.PI * 2;
+  const p1 = Math.max(0.06, Math.min(Math.PI - 0.06, phi));
+  if (reduceMotion) { cam.phi = p1; cam.theta = t; applyCamera(); return; }
+  flight = { p0: cam.phi, t0: cam.theta, p1, t1: t, start: performance.now(), ms: ms || 500 };
+}
+function stepFlight(now) {
+  if (!flight) return;
+  const k = Math.min(1, (now - flight.start) / flight.ms);
+  const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+  cam.phi = flight.p0 + (flight.p1 - flight.p0) * e;
+  cam.theta = flight.t0 + (flight.t1 - flight.t0) * e;
+  applyCamera();
+  if (k >= 1) flight = null;
+}
+
+const pointers = new Map();
+let vp = null;
+viewCanvas.addEventListener('pointerdown', (e) => {
+  stopTour();
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  viewCanvas.setPointerCapture(e.pointerId);
+  if (pointers.size === 1) vp = { mode: 'orbit', x: e.clientX, y: e.clientY, theta: cam.theta, phi: cam.phi };
+  else if (pointers.size === 2) {
+    const [a, b] = [...pointers.values()];
+    vp = { mode: 'pinch', dist: Math.hypot(a.x - b.x, a.y - b.y), radius: cam.radius };
+  }
+});
+viewCanvas.addEventListener('pointermove', (e) => {
+  if (!pointers.has(e.pointerId) || !vp) return;
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  flight = null;
+  if (vp.mode === 'pinch' && pointers.size >= 2) {
+    const [a, b] = [...pointers.values()];
+    cam.radius = Math.max(2.5, Math.min(44, vp.radius * (vp.dist / Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)))));
+    applyCamera(); return;
+  }
+  cam.theta = vp.theta - (e.clientX - vp.x) * 0.0042;
+  cam.phi = Math.max(0.06, Math.min(Math.PI - 0.06, vp.phi - (e.clientY - vp.y) * 0.0042));
+  applyCamera();
+});
+function clearPointer(e) {
+  pointers.delete(e.pointerId);
+  if (!pointers.size) vp = null;
+  try { viewCanvas.releasePointerCapture(e.pointerId); } catch (_) {}
+}
+viewCanvas.addEventListener('pointerup', clearPointer);
+viewCanvas.addEventListener('pointercancel', clearPointer);
+viewCanvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  cam.radius = Math.max(2.5, Math.min(44, cam.radius * (e.deltaY > 0 ? 1.08 : 0.92)));
+  applyCamera();
+}, { passive: false });
+
+const nv = $('nv'), box = $('nv-box'), puck = $('nv-puck');
+function applyBoxScale(sc) {
+  boxScale = sc;
+  box.style.transform = `scale(${sc})`;
+  try { localStorage.setItem('v19_nv_box_scale', String(sc)); } catch (_) {}
+  const btn = $('nv-size-toggle');
+  if (btn) btn.textContent = Math.round(sc * 100) + '%';
+  refreshSteps();
+  sizeToBox();
+}
+
+function cssPx(n) { return parseFloat(getComputedStyle(root).getPropertyValue(n)) || 0; }
+function safeBox() {
+  const g = cssPx('--nv-gap');
+  return {
+    left: cssPx('--nv-left') + g, top: cssPx('--nv-top') + g,
+    right: window.innerWidth - cssPx('--nv-right') - g,
+    bottom: window.innerHeight - cssPx('--nv-bottom') - g
+  };
+}
+function panel() { return nv.dataset.open === 'true' ? box : puck; }
+function place(x, y) {
+  const el = panel(), s = safeBox();
+  const w = el.offsetWidth * (nv.dataset.open === 'true' ? boxScale : 1);
+  const h = el.offsetHeight * (nv.dataset.open === 'true' ? boxScale : 1);
+  el.style.left = Math.round(Math.max(s.left, Math.min(s.right - w, x))) + 'px';
+  el.style.top = Math.round(Math.max(s.top, Math.min(s.bottom - h, y))) + 'px';
+}
+function toCorner(corner) {
+  const el = panel(), s = safeBox();
+  nv.dataset.corner = corner;
+  const w = el.offsetWidth * (nv.dataset.open === 'true' ? boxScale : 1);
+  const h = el.offsetHeight * (nv.dataset.open === 'true' ? boxScale : 1);
+  place(corner[1] === 'l' ? s.left : s.right - w,
+        corner[0] === 't' ? s.top : s.bottom - h);
+}
+function nearestCorner() {
+  const r = panel().getBoundingClientRect();
+  return (r.top + r.height / 2 < window.innerHeight / 2 ? 't' : 'b') +
+         (r.left + r.width / 2 < window.innerWidth / 2 ? 'l' : 'r');
+}
+[[$('nv-head'), box], [puck, puck]].forEach(([handle, el]) => {
+  let d = null;
+  handle.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('.nv-icon, .nv-size-toggle')) return;
+    e.preventDefault();
+    const r = el.getBoundingClientRect();
+    d = { x: e.clientX, y: e.clientY, left: r.left, top: r.top, moved: false };
+    handle.setPointerCapture(e.pointerId);
+  });
+  handle.addEventListener('pointermove', (e) => {
+    if (!d) return;
+    if (!d.moved && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 4) return;
+    d.moved = true;
+    place(d.left + e.clientX - d.x, d.top + e.clientY - d.y);
+  });
+  handle.addEventListener('pointerup', (e) => {
+    if (!d) return;
+    const moved = d.moved;
+    d = null;
+    try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
+    if (moved) toCorner(nearestCorner());
+    else if (handle === puck) setOpen(true);
+  });
+});
+
+// Size Presets Toggle: 75%, 100%, 125%, 150%
+function cycleSize(e) {
+  if (e) e.stopPropagation();
+  const curIdx = SIZE_STEPS.findIndex(s => Math.abs(s.v - boxScale) < 0.05);
+  const nextIdx = (curIdx + 1) % SIZE_STEPS.length;
+  applyBoxScale(SIZE_STEPS[nextIdx].v);
+  toCorner(nearestCorner());
+  say('Box size ' + SIZE_STEPS[nextIdx].lbl, true);
+}
+$('nv-size-toggle').addEventListener('pointerdown', (e) => e.stopPropagation());
+$('nv-size-toggle').onclick = cycleSize;
+
+function sizeToBox() {
+  const s = Math.max(140, Math.min(212, Math.round(box.clientWidth - 14)));
+  if (s !== gz.size) { gz.size = s; fitGizmo(s); }
+}
+function setOpen(open) {
+  nv.dataset.open = String(open);
+  requestAnimationFrame(() => {
+    if (open) { applyBoxScale(boxScale); sizeToBox(); } else fit(puckC, pctx, 56);
+    toCorner(nv.dataset.corner);
+    drawGizmo();
+  });
+}
+$('nv-fold').onclick = () => setOpen(false);
+
+document.addEventListener('pointerdown', (e) => {
+  if (!nv.contains(e.target)) nv.classList.add('nv-dim');
+}, true);
+['pointerup', 'pointercancel'].forEach(ev =>
+  document.addEventListener(ev, () => nv.classList.remove('nv-dim'), true));
+
+let targets = [], current = 0;
+function buildTargets() {
+  setTargets([
+    { id: 'scene', name: 'Everything', note: 'model + canvas', object: world },
+    { id: 'model', name: 'Model', note: 'the 3D shape', object: block },
+    { id: 'canvas', name: 'Canvas', note: 'what you draw on', object: surface },
+    { id: 'layer-1', name: 'Layer 1', note: 'blue circle', object: layerA },
+    { id: 'layer-2', name: 'Layer 2', note: 'green square', object: layerB }
+  ]);
+  selectTarget(2, true);
+}
+function setTargets(list) {
+  targets = list.map(t => {
+    t.object.updateWorldMatrix(true, false);
+    return Object.assign({}, t, {
+      home: { p: t.object.position.clone(), q: t.object.quaternion.clone() }
+    });
+  });
+  const list_el = $('nv-list');
+  list_el.innerHTML = '';
+  targets.forEach((t, i) => {
+    const b = document.createElement('button');
+    b.className = 'nv-opt';
+    b.setAttribute('role', 'option');
+    b.innerHTML = '<span class="nv-swatch"></span><span>' + t.name +
+      (t.note ? ' <em>' + t.note + '</em>' : '') + '</span>';
+    b.onclick = () => { selectTarget(i); closeList(); };
+    list_el.appendChild(b);
+  });
+  selectTarget(Math.min(current, targets.length - 1), true);
+}
+function selectTarget(i, quiet) {
+  if (i < 0 || !targets[i]) return;
+  current = i;
+  targetObj = targets[i].object;
+  syncFromTarget();
+  jumpDisplay();
+  markSelection();
+  $('nv-target-name').textContent = targets[i].name;
+  [...$('nv-list').children].forEach((el, k) =>
+    el.setAttribute('aria-selected', String(k === i)));
+  applyObject();
+  if (!quiet) say('Now moving ' + targets[i].name, true);
+  if (window.NV.onSelect) window.NV.onSelect(targets[i].id);
+}
+function openList() {
+  $('nv-list').classList.add('nv-on');
+  $('nv-target').setAttribute('aria-expanded', 'true');
+}
+function closeList() {
+  $('nv-list').classList.remove('nv-on');
+  $('nv-target').setAttribute('aria-expanded', 'false');
+}
+$('nv-target').onclick = () => {
+  stopTour(); closeSteps();
+  $('nv-list').classList.contains('nv-on') ? closeList() : openList();
+};
+
+const ROT_STEPS = [{ v: 0, lbl: 'Free' }, { v: 5, lbl: '5°' }, { v: 15, lbl: '15°' }, { v: 45, lbl: '45°' }];
+const MOVE_STEPS = [{ v: 0, lbl: 'Free' }, { v: 0.25, lbl: '0.25' }, { v: 0.5, lbl: '0.5' }, { v: 1, lbl: '1' }];
+const SIZE_STEPS = [{ v: 0.75, lbl: '75%' }, { v: 1.0, lbl: '100%' }, { v: 1.25, lbl: '125%' }, { v: 1.5, lbl: '150%' }];
+
+function buildSteps() {
+  [['nv-rot-steps', ROT_STEPS, 'rotStep'], ['nv-move-steps', MOVE_STEPS, 'moveStep']]
+    .forEach(([id, opts, key]) => {
+      const host = $(id);
+      host.innerHTML = '';
+      opts.forEach(o => {
+        const b = document.createElement('button');
+        b.className = 'nv-chip';
+        b.textContent = o.lbl;
+        b.onclick = () => { gz[key] = o.v; refreshSteps(); say(o.lbl === 'Free' ? 'Free movement' : 'Steps of ' + o.lbl, true); };
+        host.appendChild(b);
+      });
+    });
+
+  const sizeHost = $('nv-size-steps');
+  sizeHost.innerHTML = '';
+  SIZE_STEPS.forEach(o => {
+    const b = document.createElement('button');
+    b.className = 'nv-chip';
+    b.textContent = o.lbl;
+    b.onclick = () => { applyBoxScale(o.v); say('Box size ' + o.lbl, true); };
+    sizeHost.appendChild(b);
+  });
+
+  refreshSteps();
+}
+function refreshSteps() {
+  [['nv-rot-steps', ROT_STEPS, 'rotStep'], ['nv-move-steps', MOVE_STEPS, 'moveStep']]
+    .forEach(([id, opts, key]) => {
+      [...$(id).children].forEach((el, i) =>
+        el.setAttribute('aria-pressed', String(opts[i].v === gz[key])));
+    });
+  [...$('nv-size-steps').children].forEach((el, i) =>
+    el.setAttribute('aria-pressed', String(Math.abs(SIZE_STEPS[i].v - boxScale) < 0.05)));
+
+  const r = ROT_STEPS.find(o => o.v === gz.rotStep), m = MOVE_STEPS.find(o => o.v === gz.moveStep);
+  $('nv-step').textContent = gz.mode === 'rotate' ? (r ? r.lbl : 'Free') : (m ? m.lbl : 'Free');
+  $('nv-step').title = 'Step size · turning ' + (r ? r.lbl : 'Free') + ', sliding ' + (m ? m.lbl : 'Free') + ', scale ' + Math.round(boxScale * 100) + '%';
+}
+function closeSteps() {
+  $('nv-steps').classList.remove('nv-on');
+  $('nv-step').setAttribute('aria-expanded', 'false');
+}
+$('nv-step').onclick = () => {
+  stopTour(); closeList();
+  const open = !$('nv-steps').classList.contains('nv-on');
+  $('nv-steps').classList.toggle('nv-on', open);
+  $('nv-step').setAttribute('aria-expanded', String(open));
+};
+document.addEventListener('pointerdown', (e) => {
+  if (!e.target.closest('#nv-list') && !e.target.closest('#nv-target')) closeList();
+  if (!e.target.closest('#nv-steps') && !e.target.closest('#nv-step')) closeSteps();
+}, true);
+Object.assign(window.NV, {
+  setTargets,
+  select(id) { selectTarget(targets.findIndex(t => t.id === id)); },
+  current() { return targets[current] && targets[current].id; },
+  onSelect: null
+});
+
+function setMode(mode) {
+  gz.mode = mode;
+  [['nv-move', 'move'], ['nv-turn', 'rotate'], ['nv-look', 'look']]
+    .forEach(([id, v]) => $(id).setAttribute('aria-pressed', String(mode === v)));
+  $('nv-target').classList.toggle('nv-mute', mode === 'look');
+  $('nv-step').classList.toggle('nv-mute', mode === 'look');
+  refreshSteps();
+  idleHint(); drawGizmo();
+}
+$('nv-move').onclick = () => { stopTour(); setMode('move'); };
+$('nv-turn').onclick = () => { stopTour(); setMode('rotate'); };
+$('nv-look').onclick = () => { stopTour(); setMode('look'); };
+
+function setOrient(pitch, roll, label) {
+  stopTour(); pushHistory();
+  const e = new THREE.Euler().setFromQuaternion(obj.quat, 'YXZ');
+  obj.quat.setFromEuler(new THREE.Euler(pitch * DEG, e.y, roll * DEG, 'YXZ'));
+  applyObject(); say(label, true);
+}
+$('nv-flat').onclick = () => setOrient(0, 0, 'Flat like a table');
+$('nv-wall').onclick = () => setOrient(90, 0, 'Up like a wall');
+$('nv-lean').onclick = () => setOrient(45, 0, 'Leaning like a ramp');
+$('nv-face').onclick = () => {
+  stopTour();
+  cam.target.copy(obj.pos);
+  faceDirection(new THREE.Vector3(0, 1, 0).applyQuaternion(obj.quat), '');
+  say('Looking straight at it', true);
+};
+$('nv-undo').onclick = () => { stopTour(); undo(); };
+$('nv-reset').onclick = () => {
+  stopTour(); pushHistory();
+  const home = targets[current] && targets[current].home;
+  if (home) { targetObj.position.copy(home.p); targetObj.quaternion.copy(home.q); }
+  syncFromTarget();
+  cam.target.copy(obj.pos);
+  applyObject(); applyCamera();
+  say((targets[current] ? targets[current].name : 'It') + ' back to the start', true);
+};
+$('host-grid').onclick = () => { grid.visible = !grid.visible; };
+
+let tour = null;
+const TOUR = [
+  { t: 0, dur: 4200, ring: { type: 'axis', i: 0 }, cap: 'Drag the orange arrow to lift it up.' },
+  { t: 4200, dur: 4200, ring: { type: 'axis', i: 1 }, cap: 'Tap a dot to look from that side. Tapping never moves it.' },
+  { t: 8400, dur: 4600, ring: { type: 'hub' }, cap: 'Tap the middle circle to switch to Turn.' },
+  { t: 13000, dur: 2200, ring: null, cap: 'Your turn. Undo fixes anything.' }
+];
+function startTour() {
+  stopTour();
+  tour = { start: performance.now(), step: -1,
+    save: { pos: obj.pos.clone(), quat: obj.quat.clone(), phi: cam.phi, theta: cam.theta, mode: gz.mode } };
+  setMode('move');
+  $('nv-tour').textContent = '✕';
+  $('nv-tour').title = 'Stop';
+}
+function stopTour() {
+  if (!tour) return;
+  const s = tour.save;
+  obj.pos.copy(s.pos); obj.quat.copy(s.quat);
+  cam.phi = s.phi; cam.theta = s.theta;
+  flight = null; gz.ring = null; tour = null;
+  $('nv-tour').textContent = '?';
+  $('nv-tour').title = 'Show me how';
+  setMode(s.mode);
+  applyObject(); applyCamera(); idleHint();
+}
+function stepTour(now) {
+  if (!tour) return;
+  const el = Math.max(0, now - tour.start);
+  let idx = 0;
+  for (let i = 0; i < TOUR.length; i++) if (el >= TOUR[i].t) idx = i;
+  const last = TOUR[TOUR.length - 1];
+  if (el > last.t + last.dur) { stopTour(); return; }
+
+  if (idx !== tour.step) {
+    tour.step = idx;
+    const s = TOUR[idx];
+    gz.ring = s.ring;
+    const hint = $('nv-hint');
+    hint.textContent = s.cap;
+    hint.classList.add('nv-tour');
+    hint.classList.remove('nv-live');
+    if (idx === 1) {
+      const h = handles(metrics(gz.size)).filter(k => k.i === 1 && k.sign === 1)[0];
+      if (h) faceDirection(h.dir, '');
+    }
+    if (idx === 2) setMode('rotate');
+    if (idx === 3) { setMode('move'); flyTo(tour.save.phi, tour.save.theta, 600); }
+  }
+  const s = TOUR[idx];
+  const wave = Math.sin(Math.min(1, (el - s.t) / s.dur * 1.25) * Math.PI);
+  if (idx === 0) {
+    obj.pos.copy(tour.save.pos);
+    obj.pos.y = tour.save.pos.y + wave * 1.6;
+    applyObject();
+  } else if (idx === 2) {
+    obj.quat.copy(tour.save.quat).premultiply(
+      new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), wave * 50 * DEG));
+    applyObject();
+  }
+  drawGizmo(now);
+}
+$('nv-tour').onclick = () => { tour ? stopTour() : startTour(); };
+
+$('host-theme').onclick = () => NV.setTheme(isDark() ? 'light' : 'dark');
+window.addEventListener('keydown', (e) => {
+  const k = e.key.toLowerCase();
+  if (k === 'escape') stopTour();
+  else if (k === 'z') { e.preventDefault(); undo(); }
+});
+window.addEventListener('resize', () => {
+  W = window.innerWidth; H = window.innerHeight;
+  renderer.setSize(W, H);
+  camera.aspect = W / H;
+  camera.updateProjectionMatrix();
+  applyCamera();
+  sizeToBox();
+  toCorner(nv.dataset.corner);
+});
+let lastFrame = 0;
+function loop(now) {
+  requestAnimationFrame(loop);
+  const dt = lastFrame ? Math.min(0.06, (now - lastFrame) / 1000) : 0.016;
+  lastFrame = now;
+  stepFlight(now);
+  stepTour(now);
+  if (easeDisplay(dt)) drawGizmo(now);
+  renderer.render(scene, camera);
+}
+applyBoxScale(boxScale);
+fit(puckC, pctx, 56);
+sizeToBox();
+buildTargets();
+buildSteps();
+readTheme();
+applyObject();
+applyCamera();
+idleHint();
+toCorner('br');
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

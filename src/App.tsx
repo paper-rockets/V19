@@ -23,11 +23,8 @@ import { Viewport } from './components/Viewport';
 import { LayerPanel } from './components/LayerPanel';
 import { BrushSettingsPanel } from './components/BrushSettingsPanel';
 import { ModelDisplayPanel } from './components/ModelDisplayPanel';
-import { TransformNavigator } from './components/TransformNavigator/TransformNavigator';
-import { Option3SphereNavigator } from './components/TransformNavigator/Option3SphereNavigator';
-import { Option1TabbedNavigator } from './components/TransformNavigator/Option1TabbedNavigator';
-import { PaperRocketTactileWheel } from './components/PaperRocketTactileWheel';
 import { ScreenCenterCrosshair } from './components/ScreenCenterCrosshair';
+import { Option3SphereNavigator } from './components/TransformNavigator/Option3SphereNavigator';
 import { FpsCounter } from './components/FpsCounter';
 import { DeferredPanel } from './components/DeferredPanel';
 import { publishCameraPose, publishFps } from './core/telemetryStore';
@@ -1387,63 +1384,6 @@ export function App() {
         />
       )}
 
-      {/* Floating Restore Buttons when Controllers are Hidden */}
-      {uiMode === 'pro' && activeController === 'hidden' && (
-        <div
-          style={{
-            transform: uiScale !== 1.0 ? `scale(${uiScale})` : undefined,
-            transformOrigin: 'bottom right',
-          }}
-          className="fixed bottom-4 right-4 z-40 flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-150"
-        >
-          <button
-            id="btn-restore-navigator-floating"
-            onClick={() => handleControllerChange('navigator')}
-            className={`min-h-[44px] px-3.5 rounded-xl border text-xs font-semibold shadow-xl flex items-center gap-1.5 transition-all hover:scale-105 ${
-              theme === 'light'
-                ? 'bg-white hover:bg-neutral-100 border-neutral-200 text-neutral-800'
-                : 'bg-[#18191d] hover:bg-[#22242c] border-neutral-700 text-neutral-300 hover:text-white'
-            }`}
-            title="Restore Transform Navigator Dial"
-          >
-            <Compass className="w-4 h-4 opacity-80" />
-            <span>Navigator</span>
-          </button>
-        </div>
-      )}
-
-      {/* 3D Navigation Controllers: Option 3 Sphere, Option 1 Tabbed Deck, or Classic */}
-      {gizmoMode !== 'Hidden' && activeController !== 'hidden' && showPlayNavigator &&
-        !isModelsOpen && !isConverterOpen && !isExportOpen && !isRaycastSettingsOpen &&
-        !isIlluminationOpen && !isColorStudioOpen && !isARViewerOpen && !isClipboardOpen &&
-        !(uiMode === 'play' && (!hasOnboarded || isToyboxOpen || isPlayImporterOpen)) &&
-        !(uiMode === 'pro' && isNarrowScreen && (isBentGuideOpen || isCustomMirrorOpen || isScaffoldingOpen || isDecimateOpen)) && (
-          navigatorStyle === 'opt1' ? (
-            <Option1TabbedNavigator
-              engine={engine}
-              theme={theme}
-              targetScope={targetScope}
-              onSelectTargetScope={handleSelectTargetScope}
-              isLocked={isGizmoLocked}
-              onLockChange={setIsGizmoLocked}
-              onClose={() => handleControllerChange('hidden')}
-              uiScale={uiScale}
-            />
-          ) : (
-            <Option3SphereNavigator
-              engine={engine}
-              theme={theme}
-              targetScope={targetScope}
-              onSelectTargetScope={handleSelectTargetScope}
-              isLocked={isGizmoLocked}
-              onLockChange={setIsGizmoLocked}
-              onClose={() => handleControllerChange('hidden')}
-              uiScale={uiScale}
-              isSimple={uiMode === 'play'}
-            />
-          )
-      )}
-
       {/* Dynamic Screen Center Crosshair Reticle */}
       <ScreenCenterCrosshair
         active={crosshairActive}
@@ -1451,6 +1391,24 @@ export function App() {
         actionLabel={crosshairAction}
         valueLabel={crosshairValue}
       />
+
+
+      {/* 3D Navigation Controller: Option 3 Sphere Navigator */}
+      {gizmoMode !== 'Hidden' && activeController !== 'hidden' && showPlayNavigator &&
+        !isModelsOpen && !isConverterOpen && !isExportOpen && !isRaycastSettingsOpen &&
+        !isIlluminationOpen && !isColorStudioOpen && !isARViewerOpen && !isClipboardOpen && (
+          <Option3SphereNavigator
+            engine={engine}
+            theme={theme}
+            layers={layers}
+            activeLayerId={activeLayerId}
+            onSelectLayer={handleSelectLayer}
+            models={loadedModels}
+            activeModelId={activeModelId}
+            onSelectModel={handleSelectModel}
+            onClose={() => handleControllerChange('hidden')}
+          />
+      )}
 
       {/* Layer Panel */}
       {isLayersOpen && (
@@ -1791,11 +1749,6 @@ export function App() {
         onSetTheme={handleSetTheme}
         uiScale={uiScale}
         onUiScaleChange={handleUiScaleChange}
-        navigatorSensitivity={navigatorSensitivity}
-        onSensitivityChange={(s) => {
-          setNavigatorSensitivity(s);
-          engine?.setNavigatorSensitivity(s);
-        }}
         projectionMode={projectionMode}
         onToggleProjection={handleToggleProjection}
         fingerDraw={fingerPenMode}
@@ -1825,8 +1778,6 @@ export function App() {
         storageEstimate={storageEstimate}
         autoSaveMeta={autoSaveMeta}
         onRestoreAutoSave={handleRestoreAutoSave}
-        navigatorStyle={navigatorStyle}
-        onNavigatorStyleChange={handleNavigatorStyleChange}
         showNavigator={showPlayNavigator}
         onToggleNavigator={setShowPlayNavigator}
         showStats={showPlayStats}

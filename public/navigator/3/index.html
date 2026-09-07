@@ -1,0 +1,2590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>NAVIGATOR</title>
+  <!-- Local Offline Three.js with fallback -->
+  <script src="../js/three.min.js"></script>
+  <script>if (typeof THREE === 'undefined') document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>');</script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+    :root {
+      --bg: #0d0f14;
+      --card-bg: #14171d;
+      --panel-bg: #1b1f27;
+      --panel-elev: #242934;
+      --panel-hover: #2e3543;
+      --ink: #f1f5f9;
+      --ink-bright: #ffffff;
+      --mut: #8b95a5;
+      --accent: #38bdf8;
+      --accent-ink: #0f172a;
+      --bdr: rgba(255, 255, 255, 0.07);
+      --shadow-card: 0 16px 44px rgba(0, 0, 0, 0.6);
+      --shadow-knob: 0 2px 8px rgba(0, 0, 0, 0.4);
+      --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body.theme-light {
+      --bg: #f3f4f6;
+      --card-bg: #ffffff;
+      --panel-bg: #f0f2f5;
+      --panel-elev: #e4e7eb;
+      --panel-hover: #d8dce2;
+      --ink: #111827;
+      --ink-bright: #000000;
+      --mut: #6b7280;
+      --accent: #0284c7;
+      --accent-ink: #ffffff;
+      --bdr: rgba(0, 0, 0, 0.08);
+      --shadow-card: 0 16px 40px rgba(15, 23, 42, 0.1);
+      --shadow-knob: 0 2px 6px rgba(15, 23, 42, 0.15);
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      font-family: var(--font-main);
+      color: var(--ink);
+      touch-action: none;
+      transition: background 0.25s ease;
+    }
+    #viewport-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+      z-index: 1;
+    }
+
+    /* Top HUD Readout Bar */
+    #top-bar {
+      position: fixed;
+      top: 14px;
+      left: 16px;
+      right: 16px;
+      z-index: 100;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+    }
+    .top-pill {
+      background: var(--card-bg);
+      border: 1px solid var(--bdr);
+      border-radius: 18px;
+      padding: 6px 16px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--mut);
+      box-shadow: var(--shadow-card);
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .top-pill span {
+      color: var(--ink);
+      font-weight: 600;
+    }
+    .top-pill span.val-accent {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .top-actions {
+      display: flex;
+      gap: 8px;
+      pointer-events: auto;
+    }
+    .top-btn {
+      height: 30px;
+      padding: 0 14px;
+      border-radius: 15px;
+      background: var(--card-bg);
+      border: 1px solid var(--bdr);
+      color: var(--ink);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: var(--shadow-card);
+      transition: all 0.15s ease;
+    }
+    .top-btn:hover { background: var(--panel-hover); }
+    .top-btn.on {
+      background: var(--accent);
+      color: var(--accent-ink);
+      border-color: transparent;
+    }
+
+    /* ══════════════════════════════════════════════════
+       SIDE-BY-SIDE CONTROLLER DECK CONTAINER
+       ══════════════════════════════════════════════════ */
+    #deck-container {
+      position: fixed;
+      bottom: 18px;
+      left: 18px;
+      right: 18px;
+      z-index: 250;
+      display: flex;
+      gap: 16px;
+      align-items: flex-end;
+      pointer-events: none;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    #deck-container::-webkit-scrollbar { display: none; }
+
+    .controller-card {
+      background: var(--card-bg);
+      border: 1px solid var(--bdr);
+      border-radius: 16px;
+      box-shadow: var(--shadow-card);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      touch-action: none;
+      pointer-events: auto;
+      flex-shrink: 0;
+      scroll-snap-align: start;
+      transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    /* Left Column Stack (Controller on top, Controller below) */
+    #left-column {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: flex-start;
+      pointer-events: none;
+    }
+    #left-column .controller-card {
+      pointer-events: auto;
+    }
+
+    /* Controller Dimensions */
+    #card-controller-1 {
+      width: 280px;
+    }
+
+    /* Controller Dimensions */
+    #card-controller-2 {
+      width: 268px;
+    }
+
+    /* Controller Standalone Multi-Purpose 3D Transform Gizmo (No Extra Move/Elev Buttons) */
+    #card-controller-3 {
+      width: 180px;
+      transition: all 0.25s ease;
+    }
+    #card-controller-3.surface-mode {
+      border-color: rgba(56, 189, 248, 0.45);
+      box-shadow: 0 4px 20px rgba(56, 189, 248, 0.15);
+    }
+    .c3-mode-pill {
+      height: 22px;
+      padding: 0 10px;
+      border-radius: 11px;
+      background: var(--panel-bg);
+      border: 1px solid var(--bdr);
+      color: var(--ink);
+      font-size: 8.5px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.2s ease;
+      font-family: var(--font-main);
+    }
+    #card-controller-3.surface-mode .c3-mode-pill {
+      background: var(--accent);
+      color: var(--accent-ink);
+      border-color: transparent;
+      box-shadow: 0 2px 8px rgba(56, 189, 248, 0.35);
+    }
+    .c3-gimbal-wrap {
+      width: 100%;
+      height: 160px;
+      background: #1c202a;
+      border-radius: 8px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+    #gimbal-canvas-3 {
+      width: 156px;
+      height: 156px;
+      border-radius: 50%;
+      cursor: grab;
+      display: block;
+    }
+    .c3-hint-bar {
+      width: 100%;
+      min-height: 17px;
+      font-size: 7.8px;
+      font-weight: 600;
+      color: var(--ink-dim);
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1px 4px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+      margin: 2px 0;
+      letter-spacing: 0.2px;
+      transition: color 0.15s ease, background 0.15s ease;
+      font-family: var(--font-main);
+    }
+    .c3-hint-bar.active {
+      color: var(--accent);
+      background: rgba(56, 189, 248, 0.15);
+      font-weight: 700;
+    }
+    .c3-bottom-ctrls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      height: 22px;
+      margin-top: 3px;
+      padding-top: 2px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    /* Mobile Viewport Scaling (Fits Cards on Phone Screens <= 680px) */
+    @media (max-width: 680px) {
+      #card-controller-3 {
+        width: 100% !important;
+      }
+      #card-controller-3 .c3-gimbal-wrap {
+        height: 120px !important;
+      }
+      #card-controller-3 #gimbal-canvas-3 {
+        width: 116px !important;
+        height: 116px !important;
+      }
+      #top-bar {
+        top: 6px;
+        left: 6px;
+        right: 6px;
+        gap: 4px;
+      }
+      .top-pill {
+        padding: 3px 6px;
+        font-size: 8px;
+        gap: 5px;
+        border-radius: 8px;
+      }
+      .top-actions {
+        gap: 3px;
+      }
+      .top-btn {
+        height: 22px;
+        padding: 0 6px;
+        font-size: 8px;
+        border-radius: 10px;
+      }
+      #deck-container {
+        bottom: 6px;
+        left: 4px;
+        right: 4px;
+        gap: 4px;
+        display: flex;
+        overflow: visible;
+        padding-bottom: 0;
+      }
+      #left-column {
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        max-width: calc(50% - 2px) !important;
+        gap: 4px !important;
+      }
+      .controller-card {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        border-radius: 10px !important;
+      }
+      #card-controller-2 {
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        max-width: calc(50% - 2px) !important;
+        width: auto !important;
+      }
+      #card-controller-3 .c3-body-split {
+        height: 110px !important;
+      }
+      #card-controller-3 #gimbal-canvas-3 {
+        width: 80px !important;
+        height: 80px !important;
+      }
+
+      /* Card 1 Mobile Adaptations */
+      #card-controller-1 .seg-pill-wrap {
+        width: 100%;
+        height: 22px;
+      }
+      #card-controller-1 .seg-slider {
+        width: 50%;
+        height: 18px;
+      }
+      #card-controller-1 .seg-pill-wrap.surface-active .seg-slider {
+        transform: translateX(100%);
+        width: 50%;
+      }
+      #card-controller-1 .seg-label {
+        font-size: 8px;
+      }
+      #card-controller-1 .fc-hdr-btn {
+        height: 20px;
+        padding: 0 6px;
+        font-size: 8px;
+      }
+      #card-controller-1 .gimbal-wrap {
+        height: 108px;
+      }
+      #card-controller-1 #gimbal-canvas-1 {
+        width: 100px;
+        height: 100px;
+      }
+      #card-controller-1 .zoom-col {
+        right: 3px;
+        gap: 3px;
+      }
+      #card-controller-1 .zoom-btn {
+        width: 18px;
+        height: 18px;
+        font-size: 10px;
+      }
+      #card-controller-1 .bottom-status-bar {
+        font-size: 7.5px;
+      }
+      #card-controller-1 .status-label, #card-controller-1 .status-btn {
+        font-size: 7px;
+        padding: 1px 3px;
+      }
+      #card-controller-1 .deck-row {
+        height: 90px;
+      }
+      #card-controller-1 .move-knob {
+        width: 34px;
+        height: 34px;
+        font-size: 7px;
+      }
+      #card-controller-1 .move-sublabel {
+        font-size: 6px;
+        bottom: 2px;
+      }
+      #card-controller-1 .slider-rail {
+        width: 24px;
+      }
+      #card-controller-1 .rail-knob {
+        width: 20px;
+        height: 14px;
+        font-size: 6.5px;
+      }
+      #card-controller-1 .spin-strip {
+        height: 20px;
+      }
+      #card-controller-1 .spin-step-btn {
+        height: 16px;
+        padding: 0 4px;
+        font-size: 7px;
+      }
+      #card-controller-1 .spin-label-track {
+        font-size: 6.5px;
+      }
+      #card-controller-1 .presets-row .preset-btn {
+        height: 18px;
+        font-size: 6.5px;
+        padding: 0 1px;
+      }
+
+      /* Card 2 Mobile Adaptations */
+      #card-controller-2 .c2-body-split {
+        height: 120px !important;
+      }
+      #card-controller-2 #gimbal-canvas-2 {
+        width: 86px !important;
+        height: 86px !important;
+      }
+      #card-controller-2 .c2-move-knob {
+        width: 30px !important;
+        height: 30px !important;
+        font-size: 6.5px !important;
+      }
+      #card-controller-2 .c2-move-sub {
+        font-size: 5.5px !important;
+        bottom: 1px !important;
+      }
+      #card-controller-2 .c2-rail-knob {
+        width: 18px !important;
+        height: 13px !important;
+        font-size: 6px !important;
+      }
+      #card-controller-2 .rail-tag {
+        font-size: 6px !important;
+      }
+      #card-controller-2 .c2-actions-row {
+        height: 18px !important;
+        gap: 1.5px !important;
+      }
+      #card-controller-2 .c2-actions-row .c2-footer-toggle {
+        height: 18px !important;
+        font-size: 6px !important;
+        padding: 0 2px !important;
+      }
+      #card-controller-2 .c2-actions-row .c2-footer-reset {
+        height: 18px !important;
+        font-size: 6px !important;
+        padding: 0 1px !important;
+      }
+      #card-controller-2 .c2-actions-row .preset-btn {
+        height: 18px !important;
+        font-size: 5.5px !important;
+        padding: 0 !important;
+      }
+    }
+
+    /* Card Header Bar (Controller) */
+    .fc-hdr {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 8px 4px 8px;
+      gap: 6px;
+    }
+
+    /* Segmented Switch Pill (Card 1) */
+    .seg-pill-wrap {
+      width: 148px;
+      height: 26px;
+      border-radius: 13px;
+      background: var(--panel-bg);
+      position: relative;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      padding: 2px;
+    }
+    .seg-slider {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 70px;
+      height: 22px;
+      border-radius: 11px;
+      background: var(--accent);
+      box-shadow: var(--shadow-knob);
+      transform: translateX(0px);
+      transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1), width 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 1;
+    }
+    .seg-pill-wrap.surface-active .seg-slider {
+      transform: translateX(72px);
+      width: 72px;
+    }
+
+    .seg-label {
+      flex: 1;
+      text-align: center;
+      font-size: 9.5px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      position: relative;
+      z-index: 2;
+      transition: color 0.18s ease;
+      pointer-events: none;
+    }
+    .seg-label.lbl-cam {
+      color: var(--accent-ink);
+      font-weight: 700;
+    }
+    .seg-label.lbl-surf {
+      color: var(--mut);
+    }
+    .seg-pill-wrap.surface-active .seg-label.lbl-cam {
+      color: var(--mut);
+      font-weight: 600;
+    }
+    .seg-pill-wrap.surface-active .seg-label.lbl-surf {
+      color: var(--accent-ink);
+      font-weight: 700;
+    }
+
+    .fc-hdr-btns {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .fc-hdr-btn {
+      height: 24px;
+      padding: 0 9px;
+      border-radius: 12px;
+      border: none;
+      background: var(--panel-bg);
+      color: var(--mut);
+      font-size: 9.5px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: var(--font-main);
+      transition: all 0.15s ease;
+    }
+    .fc-hdr-btn:hover {
+      background: var(--panel-hover);
+      color: var(--ink);
+    }
+
+    /* Panels Container */
+    .fc-panels {
+      display: flex;
+      flex-direction: column;
+      padding: 3px 6px 6px 6px;
+      width: 100%;
+      gap: 5px;
+    }
+    .pb-panel {
+      width: 100%;
+      display: none;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .pb-panel.active {
+      display: flex;
+    }
+
+    /* Controller Gimbal Container */
+    .gimbal-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 140px;
+      position: relative;
+      background: var(--panel-bg);
+      border-radius: 14px;
+      padding: 4px;
+    }
+    .gimbal-canvas-el {
+      width: 132px;
+      height: 132px;
+      border-radius: 50%;
+      cursor: grab;
+      display: block;
+    }
+    .gimbal-canvas-el:active { cursor: grabbing; }
+
+    .zoom-col {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .zoom-btn {
+      width: 24px;
+      height: 24px;
+      border-radius: 12px;
+      background: var(--panel-elev);
+      border: 1px solid var(--bdr);
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: var(--shadow-knob);
+      transition: all 0.15s ease;
+    }
+    .zoom-btn:hover { background: var(--panel-hover); }
+    .zoom-btn:active { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+
+    .bottom-status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      width: 100%;
+      padding: 0 2px;
+    }
+    .status-group {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      background: var(--panel-bg);
+      border-radius: 8px;
+      padding: 2px 4px;
+    }
+    .status-label {
+      font-size: 8.5px;
+      font-weight: 600;
+      color: var(--mut);
+      margin-right: 2px;
+      padding-left: 2px;
+    }
+    .status-btn {
+      padding: 2px 4px;
+      border-radius: 5px;
+      border: none;
+      background: transparent;
+      color: var(--mut);
+      font-size: 8.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-family: var(--font-main);
+    }
+    .status-btn:hover { background: var(--panel-hover); color: var(--ink); }
+    .status-btn.on {
+      background: var(--accent);
+      color: var(--accent-ink);
+      font-weight: 700;
+    }
+
+    /* Controller Surface Controls Deck */
+    .deck-row {
+      display: flex;
+      gap: 5px;
+      height: 118px;
+      width: 100%;
+    }
+
+    .move-pad {
+      flex: 1;
+      height: 100%;
+      background: var(--panel-bg);
+      border-radius: 12px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: crosshair;
+      overflow: hidden;
+      touch-action: none;
+    }
+    .move-knob {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      background: var(--panel-elev);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 8.5px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      position: absolute;
+      pointer-events: none;
+      color: var(--accent);
+      box-shadow: var(--shadow-knob);
+      border: 1.5px solid var(--accent);
+      transform: translate(0, 0);
+    }
+    .move-sublabel {
+      position: absolute;
+      bottom: 5px;
+      font-size: 7.5px;
+      font-weight: 600;
+      color: var(--mut);
+      pointer-events: none;
+    }
+
+    .sliders-col {
+      display: flex;
+      gap: 4px;
+      height: 100%;
+    }
+
+    .slider-rail {
+      width: 32px;
+      height: 100%;
+      background: var(--panel-bg);
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 2px;
+      position: relative;
+      cursor: ns-resize;
+      touch-action: none;
+    }
+    .rail-tag {
+      font-size: 7px;
+      font-weight: 700;
+      color: var(--mut);
+      pointer-events: none;
+    }
+    .rail-knob {
+      width: 26px;
+      height: 18px;
+      border-radius: 5px;
+      background: var(--panel-elev);
+      color: var(--accent);
+      border: 1.2px solid var(--accent);
+      font-size: 7.5px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: absolute;
+      top: calc(50% - 9px);
+      pointer-events: none;
+      box-shadow: var(--shadow-knob);
+    }
+
+    .spin-strip {
+      background: var(--panel-bg);
+      border-radius: 8px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 2px 4px;
+    }
+    .spin-step-btn {
+      height: 18px;
+      padding: 0 6px;
+      border-radius: 5px;
+      background: transparent;
+      border: none;
+      color: var(--ink);
+      font-size: 8.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .spin-step-btn:hover { background: var(--panel-hover); }
+    .spin-step-btn:active { background: var(--accent); color: var(--accent-ink); }
+
+    .spin-label-track {
+      flex: 1;
+      text-align: center;
+      font-size: 8px;
+      font-weight: 600;
+      color: var(--mut);
+      letter-spacing: 0.02em;
+      cursor: ew-resize;
+      padding: 2px 0;
+    }
+
+    .presets-row {
+      display: flex;
+      gap: 3px;
+      width: 100%;
+    }
+    .preset-btn {
+      flex: 1;
+      height: 22px;
+      padding: 0 2px;
+      border-radius: 5px;
+      background: var(--panel-bg);
+      border: none;
+      color: var(--ink);
+      font-size: 7.5px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      letter-spacing: 0.01em;
+      font-family: var(--font-main);
+      transition: all 0.15s ease;
+    }
+    .preset-btn:hover { background: var(--panel-hover); }
+    .preset-btn.on {
+      background: var(--accent);
+      color: var(--accent-ink);
+      font-weight: 700;
+    }
+
+    /* Controller Panels Container - Clean Top-Less Layout */
+    #card-controller-2 .fc-panels {
+      display: flex;
+      flex-direction: column;
+      padding: 4px;
+      width: 100%;
+      gap: 2px;
+    }
+
+    /* Bottom Footer Bar: Surface Toggle on Bottom-Left, Reset Next to It */
+    .c2-footer-row {
+      display: flex;
+      gap: 2px;
+      width: 100%;
+      height: 20px;
+    }
+    .c2-footer-toggle {
+      flex: 1.25;
+      height: 20px;
+      border-radius: 4px;
+      background: #262c38;
+      border: none;
+      color: var(--ink-bright);
+      font-size: 8px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      box-shadow: var(--shadow-knob);
+      transition: all 0.2s ease;
+      font-family: var(--font-main);
+    }
+    .c2-footer-toggle.surface-active {
+      background: var(--accent);
+      color: var(--accent-ink);
+      box-shadow: 0 2px 8px rgba(56, 189, 248, 0.35);
+    }
+    .c2-footer-reset {
+      flex: 0.75;
+      height: 20px;
+      padding: 0 4px;
+      border-radius: 4px;
+      border: none;
+      background: #1c202a;
+      color: var(--mut);
+      font-size: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+      font-family: var(--font-main);
+    }
+    .c2-footer-reset:hover {
+      background: #262c38;
+      color: var(--ink);
+    }
+
+    /* Taller Body Split with Zero Excess Spacing */
+    .c2-body-split {
+      display: flex;
+      gap: 2px;
+      width: 100%;
+      height: 164px;
+    }
+
+    /* Left Side: Large Gimbal with Snug Outer Ring */
+    .c2-gimbal-side {
+      flex: 1.2;
+      height: 100%;
+      background: #1c202a;
+      border-radius: 8px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+    #gimbal-canvas-2 {
+      width: 156px;
+      height: 156px;
+      border-radius: 50%;
+      cursor: grab;
+      display: block;
+    }
+    #gimbal-canvas-2:active { cursor: grabbing; }
+
+    /* Right Side: 15% Narrower Surface Controls Cluster with 2px Gap */
+    .c2-surface-side {
+      flex: 0.82;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      height: 100%;
+      transition: opacity 0.2s ease, filter 0.2s ease;
+    }
+
+    /* Active Surface Controls */
+    .c2-move-pad {
+      flex: 1.15;
+      background: #1c202a;
+      border-radius: 8px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: crosshair;
+      overflow: hidden;
+      touch-action: none;
+    }
+    .c2-move-knob {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: #262c38;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      position: absolute;
+      pointer-events: none;
+      color: var(--accent);
+      box-shadow: var(--shadow-knob);
+      border: 1.5px solid var(--accent);
+      transform: translate(0, 0);
+    }
+    .c2-move-sub {
+      position: absolute;
+      bottom: 2px;
+      font-size: 6.5px;
+      font-weight: 600;
+      color: var(--mut);
+      pointer-events: none;
+      transition: color 0.2s ease;
+    }
+
+    .c2-sliders-row {
+      flex: 0.95;
+      display: flex;
+      gap: 2px;
+      height: 100%;
+    }
+    .c2-slider-rail {
+      flex: 1;
+      height: 100%;
+      background: #1c202a;
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 2px 1px;
+      position: relative;
+      cursor: ns-resize;
+      touch-action: none;
+    }
+    .c2-rail-knob {
+      width: 24px;
+      height: 16px;
+      border-radius: 4px;
+      background: #262c38;
+      color: var(--accent);
+      border: 1.2px solid var(--accent);
+      font-size: 7px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: absolute;
+      top: calc(50% - 8px);
+      pointer-events: none;
+      box-shadow: var(--shadow-knob);
+    }
+
+    /* Unified Single Bottom Action Row (Surface On + Reset + Presets) */
+    .c2-actions-row {
+      display: flex;
+      gap: 2px;
+      width: 100%;
+      height: 20px;
+      margin-top: 0;
+    }
+    .c2-actions-row .c2-footer-toggle {
+      flex: 1.35;
+      height: 20px;
+      border-radius: 4px;
+      background: #262c38;
+      border: none;
+      color: var(--ink-bright);
+      font-size: 7.5px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow-knob);
+      transition: all 0.2s ease;
+      font-family: var(--font-main);
+      white-space: nowrap;
+    }
+    .c2-actions-row .c2-footer-toggle.surface-active {
+      background: var(--accent);
+      color: var(--accent-ink);
+      box-shadow: 0 2px 8px rgba(56, 189, 248, 0.35);
+    }
+    .c2-actions-row .c2-footer-reset {
+      flex: 0.85;
+      height: 20px;
+      padding: 0 2px;
+      border-radius: 4px;
+      border: none;
+      background: #1c202a;
+      color: var(--mut);
+      font-size: 7.5px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+      font-family: var(--font-main);
+    }
+    .c2-actions-row .c2-footer-reset:hover {
+      background: #262c38;
+      color: var(--ink);
+    }
+    .c2-actions-row .preset-btn {
+      flex: 0.95;
+      height: 20px;
+      padding: 0 1px;
+      border-radius: 4px;
+      background: #1c202a;
+      border: none;
+      color: #e2e8f0;
+      font-size: 7.5px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      letter-spacing: 0.01em;
+      font-family: var(--font-main);
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    body.theme-light .c2-actions-row .preset-btn {
+      color: #1e293b;
+      background: #f0f2f5;
+    }
+    .c2-actions-row .preset-btn:hover {
+      background: #262c38;
+      color: #ffffff;
+    }
+
+    /* ── STRENGTHENED DISABLED STATE ── */
+    .c2-surface-side.disabled {
+      opacity: 0.22;
+      pointer-events: none;
+      filter: grayscale(1);
+    }
+    .c2-surface-side.disabled .c2-move-knob,
+    .c2-surface-side.disabled .c2-rail-knob {
+      border: none !important;
+      box-shadow: none !important;
+      background: var(--panel-bg) !important;
+      color: var(--mut) !important;
+    }
+    .c2-surface-side.disabled .c2-move-sub,
+    .c2-surface-side.disabled .rail-tag {
+      color: rgba(139, 149, 165, 0.3) !important;
+    }
+
+    .c2-actions-row.disabled .preset-btn {
+      opacity: 0.2;
+      pointer-events: none;
+      background: var(--panel-bg) !important;
+      color: var(--mut) !important;
+      box-shadow: none !important;
+      border: none !important;
+    }
+
+    /* Toast Notification */
+    #toast {
+      position: fixed;
+      bottom: 96px;
+      left: 50%;
+      transform: translateX(-50%) translateY(6px);
+      background: var(--card-bg);
+      color: var(--ink);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      padding: 7px 16px;
+      border-radius: 20px;
+      border: 1px solid var(--bdr);
+      box-shadow: var(--shadow-card);
+      z-index: 500;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s, transform 0.15s;
+      white-space: nowrap;
+    }
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="viewport-canvas"></canvas>
+
+  <!-- Top Readout Bar -->
+  <div id="top-bar">
+    <div class="top-pill">
+      <div>Cam Dist: <span id="readout-cam-dist" class="val-accent">10.0m</span></div>
+      <div>Elevation: <span id="readout-elevation">0.00</span></div>
+      <div>Pitch: <span id="readout-pitch">0°</span></div>
+      <div>Roll: <span id="readout-roll">0°</span></div>
+      <div>Yaw: <span id="readout-yaw">0°</span></div>
+    </div>
+    <div class="top-actions">
+      <button class="top-btn" id="btn-toggle-grid">Grid: On</button>
+      <button class="top-btn" id="btn-toggle-theme">Theme: Dark</button>
+    </div>
+  </div>
+
+  <!-- CONTROLLER DECK -->
+  <div id="deck-container">
+
+    <!-- CONTROLLER (DIRECT 3D MULTI-PURPOSE GIMBAL) -->
+    <div class="controller-card surface-mode" id="card-controller-3">
+      <div class="fc-panels">
+        <!-- Standalone Multi-Purpose 3D Gizmo (Elevation on Y Cones, Move on Hub, Orient on Ball) -->
+        <div class="c3-gimbal-wrap">
+          <canvas id="gimbal-canvas-3" width="156" height="156"></canvas>
+        </div>
+
+        <!-- Dynamic Touch Hint / Value Readout Strip -->
+        <div class="c3-hint-bar" id="c3-hint-bar">
+          Cones: Elev | Sides: Skew | Center: Move | Rim: Spin
+        </div>
+
+        <!-- Preset Row: Align | Ground | Wall | 45° -->
+        <div class="c2-actions-row">
+          <button class="preset-btn" id="c3-btn-align" title="Align camera to plane">Align</button>
+          <button class="preset-btn" id="c3-btn-ground" title="Snap to flat ground">Ground</button>
+          <button class="preset-btn" id="c3-btn-wall" title="Snap to vertical wall">Wall</button>
+          <button class="preset-btn" id="c3-btn-45slant" title="Snap to 45° slant">45°</button>
+        </div>
+
+        <!-- Bottom Row: Gizmo Surface/Camera Toggle & Reset (Under Presets) -->
+        <div class="c3-bottom-ctrls">
+          <button class="c3-mode-pill" id="c3-btn-mode-toggle" title="Click to transform Gizmo between Camera Orbit and Direct Surface 3D Rotation">
+            <span id="c3-mode-text">Gizmo: Surface</span>
+          </button>
+          <button id="fc-reset-btn-3" class="fc-hdr-btn" title="Reset View or Plane">Reset</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast"></div>
+
+  <script>
+    // ── Global State & Compatibility ──
+    window.isDirty = false;
+    window.markDirty = function() { window.isDirty = true; };
+    window.syncSurf = function() { updatePlaneTransform(); };
+
+    let toastTimer = null;
+    function toast(msg) {
+      const el = document.getElementById('toast');
+      if (!el) return;
+      el.textContent = msg;
+      el.classList.add('show');
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { el.classList.remove('show'); }, 1400);
+    }
+    window.toast = toast;
+
+    // ── 1. Three.js Scene Setup ──
+    const canvas = document.getElementById('viewport-canvas');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0d0f14);
+    scene.fog = new THREE.Fog(0x0d0f14, 16, 50);
+
+    let W = window.innerWidth;
+    let H = window.innerHeight;
+    const camera = new THREE.PerspectiveCamera(50, W / H, 0.1, 1000);
+    camera.position.set(6, 5, 8);
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setSize(W, H);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    const ambLight = new THREE.AmbientLight(0xffffff, 0.95);
+    scene.add(ambLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.4);
+    dirLight.position.set(10, 16, 10);
+    dirLight.castShadow = true;
+    scene.add(dirLight);
+
+    const gridHelper = new THREE.GridHelper(24, 24, 0x38bdf8, 0x1f242e);
+    gridHelper.position.y = -0.01;
+    scene.add(gridHelper);
+
+    const pillarGeo = new THREE.BoxGeometry(0.8, 1.6, 0.8);
+    const pillarMat = new THREE.MeshStandardMaterial({ color: 0x1f242e, roughness: 0.4 });
+    const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+    pillar.position.set(0, 0.8, 0);
+    pillar.castShadow = true;
+    scene.add(pillar);
+
+    // ── 2. Interactive 3D Drawing Plane ──
+    const planeGroup = new THREE.Group();
+    planeGroup.position.set(0, 0, 0);
+    scene.add(planeGroup);
+
+    const planeSize = 3.6;
+    const planeGeo = new THREE.PlaneGeometry(planeSize, planeSize);
+    planeGeo.rotateX(-Math.PI / 2);
+
+    const planeFillMat = new THREE.MeshBasicMaterial({
+      color: 0x0284c7,
+      transparent: true,
+      opacity: 0.16,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    });
+    const planeFillMesh = new THREE.Mesh(planeGeo, planeFillMat);
+    planeGroup.add(planeFillMesh);
+
+    function createGridTexture() {
+      const cvs = document.createElement('canvas');
+      cvs.width = 256; cvs.height = 256;
+      const ctx = cvs.getContext('2d');
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(1, 1, 254, 254);
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
+      ctx.lineWidth = 1;
+      for (let i = 32; i < 256; i += 32) {
+        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 256); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(256, i); ctx.stroke();
+      }
+      const tex = new THREE.CanvasTexture(cvs);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      return tex;
+    }
+
+    const planeGridMat = new THREE.MeshBasicMaterial({
+      map: createGridTexture(),
+      transparent: true,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    });
+    const planeGridMesh = new THREE.Mesh(planeGeo, planeGridMat);
+    planeGridMesh.renderOrder = 2;
+    planeGroup.add(planeGridMesh);
+
+    // Plane Transform State
+    const planeState = {
+      x: 0, y: 0, z: 0,
+      pitch: 0, roll: 0, yaw: 0
+    };
+    window.planeState = planeState;
+
+    function updatePlaneTransform() {
+      planeGroup.position.set(planeState.x, planeState.y, planeState.z);
+      const euler = new THREE.Euler(
+        THREE.MathUtils.degToRad(planeState.pitch),
+        THREE.MathUtils.degToRad(planeState.yaw),
+        THREE.MathUtils.degToRad(planeState.roll),
+        'YXZ'
+      );
+      planeGroup.rotation.copy(euler);
+
+      document.getElementById('readout-elevation').textContent = planeState.y.toFixed(2);
+      document.getElementById('readout-pitch').textContent = Math.round(planeState.pitch) + '°';
+      document.getElementById('readout-roll').textContent = Math.round(planeState.roll) + '°';
+      document.getElementById('readout-yaw').textContent = Math.round(planeState.yaw) + '°';
+
+      drawGimbal1();
+      drawGimbal2();
+      if (typeof drawGimbal3 === 'function') drawGimbal3();
+    }
+    window.updatePlaneTransform = updatePlaneTransform;
+
+    // ── 3. Spherical Camera Model ──
+    const camState = {
+      radius: 10,
+      theta: 0.85,
+      phi: 1.05,
+      target: new THREE.Vector3(0, 0.8, 0)
+    };
+    window.camState = camState;
+    window.cam = camState;
+
+    function updateCamera() {
+      const sinP = Math.sin(camState.phi), cosP = Math.cos(camState.phi);
+      const sinT = Math.sin(camState.theta), cosT = Math.cos(camState.theta);
+
+      const eyeX = camState.target.x + camState.radius * sinP * sinT;
+      const eyeY = camState.target.y + camState.radius * cosP;
+      const eyeZ = camState.target.z + camState.radius * sinP * cosT;
+
+      camera.position.set(eyeX, eyeY, eyeZ);
+      camera.lookAt(camState.target);
+
+      document.getElementById('readout-cam-dist').textContent = camState.radius.toFixed(1) + 'm';
+      drawGimbal1();
+      drawGimbal2();
+      if (typeof drawGimbal3 === 'function') drawGimbal3();
+    }
+    window.updateCamera = updateCamera;
+    window.updCam = updateCamera;
+
+    // ── 4. Gimbal Math & Projection Helpers ──
+    const AXES = [
+      { dir: [0, 1, 0], col: '#0284c7', lbl: 'Y', name: 'Top', snapPhi: 0.01, snapTheta: 0 },
+      { dir: [0, -1, 0], col: '#0284c7', lbl: '-Y', name: 'Bottom', snapPhi: Math.PI - 0.01, snapTheta: 0 },
+      { dir: [-1, 0, 0], col: '#ef4444', lbl: 'X', name: 'Left', snapPhi: Math.PI / 2, snapTheta: -Math.PI / 2 },
+      { dir: [1, 0, 0], col: '#ef4444', lbl: '-X', name: 'Right', snapPhi: Math.PI / 2, snapTheta: Math.PI / 2 },
+      { dir: [0, 0, 1], col: '#10b981', lbl: 'Z', name: 'Front', snapPhi: Math.PI / 2, snapTheta: 0 },
+      { dir: [0, 0, -1], col: '#10b981', lbl: '-Z', name: 'Back', snapPhi: Math.PI / 2, snapTheta: Math.PI }
+    ];
+
+    function projectDir(dx, dy, dz, GW, GH, G_ARM) {
+      const GCX = GW / 2, GCY = GH / 2;
+      const sinT = Math.sin(camState.theta), cosT = Math.cos(camState.theta);
+      const sinP = Math.sin(camState.phi), cosP = Math.cos(camState.phi);
+
+      const rx = cosT, ry = 0, rz = -sinT;
+      const ux = -cosP * sinT, uy = sinP, uz = -cosP * cosT;
+      const fx = sinP * sinT, fy = cosP, fz = sinP * cosT;
+
+      const sx = dx * rx + dy * ry + dz * rz;
+      const sy = dx * ux + dy * uy + dz * uz;
+      const depth = dx * fx + dy * fy + dz * fz;
+
+      return { x: GCX + sx * G_ARM, y: GCY - sy * G_ARM, depth };
+    }
+
+    function hitAxisHelper(mx, my, GW, GH, G_ARM, G_DOT) {
+      let best = -1, bestD = Infinity;
+      AXES.forEach((ax, i) => {
+        const p = projectDir(ax.dir[0], ax.dir[1], ax.dir[2], GW, GH, G_ARM);
+        const d = Math.hypot(mx - p.x, my - p.y);
+        if (d < G_DOT * 1.8 && d < bestD) {
+          bestD = d;
+          best = i;
+        }
+      });
+      return best;
+    }
+
+    // ── 5. Controller 1: Camera NavCube Gimbal ──
+    const g1Canvas = document.getElementById('gimbal-canvas-1');
+    const g1Ctx = g1Canvas.getContext('2d');
+    const G1W = g1Canvas.width, G1H = g1Canvas.height;
+    const G1_ARM = 40, G1_DOT = 11;
+    let hovAxis1 = -1;
+
+    function drawGimbal1() {
+      g1Ctx.clearRect(0, 0, G1W, G1H);
+      const isLight = document.body.classList.contains('theme-light');
+
+      g1Ctx.save();
+      g1Ctx.fillStyle = isLight ? '#f0f2f5' : '#1b1f27';
+      g1Ctx.beginPath();
+      g1Ctx.arc(G1W / 2, G1H / 2, G1W / 2 - 2, 0, Math.PI * 2);
+      g1Ctx.fill();
+      g1Ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.08)';
+      g1Ctx.stroke();
+      g1Ctx.restore();
+
+      const projected = AXES.map((ax, i) => {
+        const p = projectDir(ax.dir[0], ax.dir[1], ax.dir[2], G1W, G1H, G1_ARM);
+        return { ax, i, p, depth: p.depth };
+      }).sort((a, b) => a.depth - b.depth);
+
+      projected.forEach(({ ax, i, p, depth }) => {
+        const isFront = depth >= -0.05;
+        const isHov = hovAxis1 === i;
+
+        g1Ctx.save();
+        g1Ctx.strokeStyle = isFront ? ax.col : (isLight ? 'rgba(0,0,0,0.18)' : 'rgba(255, 255, 255, 0.16)');
+        g1Ctx.lineWidth = isFront ? 2.2 : 1.0;
+        if (!isFront) g1Ctx.setLineDash([2, 2]);
+        g1Ctx.beginPath();
+        g1Ctx.moveTo(G1W / 2, G1H / 2);
+        g1Ctx.lineTo(p.x, p.y);
+        g1Ctx.stroke();
+        g1Ctx.restore();
+
+        g1Ctx.save();
+        const dotR = G1_DOT * (isFront ? 1.0 : 0.75);
+        g1Ctx.beginPath();
+        g1Ctx.arc(p.x, p.y, dotR, 0, Math.PI * 2);
+
+        if (isFront) {
+          g1Ctx.fillStyle = ax.col;
+          g1Ctx.fill();
+          if (isHov) {
+            g1Ctx.strokeStyle = '#ffffff';
+            g1Ctx.lineWidth = 2;
+            g1Ctx.stroke();
+          }
+          g1Ctx.fillStyle = '#ffffff';
+          g1Ctx.font = 'bold 9px ' + getComputedStyle(document.body).fontFamily;
+          g1Ctx.textAlign = 'center';
+          g1Ctx.textBaseline = 'middle';
+          g1Ctx.fillText(ax.lbl, p.x, p.y + 0.5);
+        } else {
+          g1Ctx.fillStyle = isHov ? (isLight ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.4)') : (isLight ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.2)');
+          g1Ctx.fill();
+        }
+        g1Ctx.restore();
+      });
+
+      g1Ctx.save();
+      g1Ctx.fillStyle = isLight ? 'rgba(0,0,0,0.4)' : 'rgba(255, 255, 255, 0.5)';
+      g1Ctx.beginPath();
+      g1Ctx.arc(G1W / 2, G1H / 2, 2.5, 0, Math.PI * 2);
+      g1Ctx.fill();
+      g1Ctx.restore();
+    }
+
+    // Gimbal 1 Drag
+    let isG1Dragging = false, g1StartX = 0, g1StartY = 0, g1Moved = false;
+    g1Canvas.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      isG1Dragging = true; g1Moved = false;
+      const r = g1Canvas.getBoundingClientRect();
+      g1StartX = (e.clientX - r.left) * (G1W / r.width);
+      g1StartY = (e.clientY - r.top) * (G1H / r.height);
+      g1Canvas.setPointerCapture(e.pointerId);
+    });
+
+    g1Canvas.addEventListener('pointermove', (e) => {
+      const r = g1Canvas.getBoundingClientRect();
+      const mx = (e.clientX - r.left) * (G1W / r.width);
+      const my = (e.clientY - r.top) * (G1H / r.height);
+
+      if (isG1Dragging) {
+        const dx = mx - g1StartX, dy = my - g1StartY;
+        if (Math.hypot(dx, dy) > 2) g1Moved = true;
+        g1StartX = mx; g1StartY = my;
+        // Calibrated smooth damping
+        camState.theta -= dx * 0.007;
+        camState.phi = Math.max(0.05, Math.min(Math.PI - 0.05, camState.phi - dy * 0.007));
+        updateCamera();
+      } else {
+        const hit = hitAxisHelper(mx, my, G1W, G1H, G1_ARM, G1_DOT);
+        if (hit !== hovAxis1) {
+          hovAxis1 = hit;
+          drawGimbal1();
+        }
+      }
+    });
+
+    g1Canvas.addEventListener('pointerup', (e) => {
+      if (isG1Dragging) {
+        const r = g1Canvas.getBoundingClientRect();
+        const mx = (e.clientX - r.left) * (G1W / r.width);
+        const my = (e.clientY - r.top) * (G1H / r.height);
+        if (!g1Moved) {
+          const hit = hitAxisHelper(mx, my, G1W, G1H, G1_ARM, G1_DOT);
+          if (hit > -1) {
+            const targetAx = AXES[hit];
+            camState.phi = targetAx.snapPhi;
+            camState.theta = targetAx.snapTheta;
+            updateCamera();
+            toast('Snap to ' + targetAx.name + ' View');
+          }
+        }
+        isG1Dragging = false;
+        try { g1Canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+      }
+      drawGimbal1();
+    });
+
+    // ── 6. Controller 2: Clean 3D NavCube Gimbal ──
+    const g2Canvas = document.getElementById('gimbal-canvas-2');
+    const g2Ctx = g2Canvas.getContext('2d');
+    const G2W = g2Canvas.width, G2H = g2Canvas.height;
+    let hovAxis2 = -1;
+
+    function drawGimbal2() {
+      if (!g2Ctx) return;
+      const G2_ARM = G2W * 0.36;
+      const G2_DOT = G2W * 0.09;
+      g2Ctx.clearRect(0, 0, G2W, G2H);
+      const isLight = document.body.classList.contains('theme-light');
+
+      // Scope Circle Background - Uniform Gray matching panel
+      const snugRadius = G2_ARM + G2_DOT;
+      g2Ctx.save();
+      g2Ctx.fillStyle = isLight ? '#f0f2f5' : '#1c202a';
+      g2Ctx.beginPath();
+      g2Ctx.arc(G2W / 2, G2H / 2, snugRadius, 0, Math.PI * 2);
+      g2Ctx.fill();
+      g2Ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.06)';
+      g2Ctx.lineWidth = 1;
+      g2Ctx.stroke();
+      g2Ctx.restore();
+
+      // Axis Arms
+      const projected = AXES.map((ax, i) => {
+        const p = projectDir(ax.dir[0], ax.dir[1], ax.dir[2], G2W, G2H, G2_ARM);
+        return { ax, i, p, depth: p.depth };
+      }).sort((a, b) => a.depth - b.depth);
+
+      projected.forEach(({ ax, i, p, depth }) => {
+        const isFront = depth >= -0.05;
+        const isHov = hovAxis2 === i;
+
+        g2Ctx.save();
+        g2Ctx.strokeStyle = isFront ? ax.col : (isLight ? 'rgba(0,0,0,0.22)' : 'rgba(255, 255, 255, 0.18)');
+        g2Ctx.lineWidth = isFront ? 2.4 : 1.2;
+        if (!isFront) g2Ctx.setLineDash([2, 2]);
+        g2Ctx.beginPath();
+        g2Ctx.moveTo(G2W / 2, G2H / 2);
+        g2Ctx.lineTo(p.x, p.y);
+        g2Ctx.stroke();
+        g2Ctx.restore();
+
+        g2Ctx.save();
+        const dotR = G2_DOT * (isFront ? 1.0 : 0.78);
+        g2Ctx.beginPath();
+        g2Ctx.arc(p.x, p.y, dotR, 0, Math.PI * 2);
+
+        if (isFront) {
+          g2Ctx.fillStyle = ax.col;
+          g2Ctx.fill();
+          if (isHov) {
+            g2Ctx.strokeStyle = '#ffffff';
+            g2Ctx.lineWidth = 2.2;
+            g2Ctx.stroke();
+          }
+          g2Ctx.fillStyle = '#ffffff';
+          g2Ctx.font = 'bold 9px ' + getComputedStyle(document.body).fontFamily;
+          g2Ctx.textAlign = 'center';
+          g2Ctx.textBaseline = 'middle';
+          g2Ctx.fillText(ax.lbl, p.x, p.y + 0.5);
+        } else {
+          g2Ctx.fillStyle = isHov ? (isLight ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.45)') : (isLight ? 'rgba(0,0,0,0.22)' : 'rgba(255,255,255,0.22)');
+          g2Ctx.fill();
+        }
+        g2Ctx.restore();
+      });
+
+      // Center Reference Dot
+      g2Ctx.save();
+      g2Ctx.fillStyle = isLight ? 'rgba(0,0,0,0.5)' : 'rgba(255, 255, 255, 0.6)';
+      g2Ctx.beginPath();
+      g2Ctx.arc(G2W / 2, G2H / 2, 2.5, 0, Math.PI * 2);
+      g2Ctx.fill();
+      g2Ctx.restore();
+    }
+
+    // Gimbal 2 Drag
+    let isG2Dragging = false, g2StartX = 0, g2StartY = 0, g2Moved = false;
+    g2Canvas.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      isG2Dragging = true; g2Moved = false;
+      const r = g2Canvas.getBoundingClientRect();
+      g2StartX = (e.clientX - r.left) * (G2W / r.width);
+      g2StartY = (e.clientY - r.top) * (G2H / r.height);
+      g2Canvas.setPointerCapture(e.pointerId);
+    });
+
+    g2Canvas.addEventListener('pointermove', (e) => {
+      const r = g2Canvas.getBoundingClientRect();
+      const mx = (e.clientX - r.left) * (G2W / r.width);
+      const my = (e.clientY - r.top) * (G2H / r.height);
+
+      if (isG2Dragging) {
+        const dx = mx - g2StartX, dy = my - g2StartY;
+        if (Math.hypot(dx, dy) > 2) g2Moved = true;
+        g2StartX = mx; g2StartY = my;
+        // Calibrated smooth damping
+        camState.theta -= dx * 0.007;
+        camState.phi = Math.max(0.05, Math.min(Math.PI - 0.05, camState.phi - dy * 0.007));
+        updateCamera();
+      } else {
+        const hit = hitAxisHelper(mx, my, G2W, G2H, G2_ARM, G2_DOT);
+        if (hit !== hovAxis2) {
+          hovAxis2 = hit;
+          drawGimbal2();
+        }
+      }
+    });
+
+    g2Canvas.addEventListener('pointerup', (e) => {
+      if (isG2Dragging) {
+        const r = g2Canvas.getBoundingClientRect();
+        const mx = (e.clientX - r.left) * (G2W / r.width);
+        const my = (e.clientY - r.top) * (G2H / r.height);
+        if (!g2Moved) {
+          const hit = hitAxisHelper(mx, my, G2W, G2H, G2_ARM, G2_DOT);
+          if (hit > -1) {
+            const targetAx = AXES[hit];
+            camState.phi = targetAx.snapPhi;
+            camState.theta = targetAx.snapTheta;
+            updateCamera();
+            toast('Snap View: ' + targetAx.name);
+          }
+        }
+        isG2Dragging = false;
+        try { g2Canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+      }
+      drawGimbal2();
+    });
+
+    // ── 6c. Controller 3: Standalone All-In-One Multi-Purpose 3D Gizmo ──
+    const g3Canvas = document.getElementById('gimbal-canvas-3');
+    const g3Ctx = g3Canvas ? g3Canvas.getContext('2d') : null;
+    let c3Mode = 'surface'; // 'surface' or 'cam'
+    let hovAxis3 = -1;
+    let g3Action = 'orient'; // 'orient', 'elev', 'move-x', 'move-z', 'center-move'
+
+    function drawGimbal3() {
+      if (!g3Ctx || !g3Canvas) return;
+      const G3W = g3Canvas.width, G3H = g3Canvas.height;
+      const G3_ARM = G3W * 0.36;
+      const G3_DOT = G3W * 0.095;
+      g3Ctx.clearRect(0, 0, G3W, G3H);
+      const isLight = document.body.classList.contains('theme-light');
+      const isSurface = c3Mode === 'surface';
+
+      // Scope Circle Background - Glowing Sky Blue border in Surface Mode
+      const snugRadius = G3_ARM + G3_DOT;
+      g3Ctx.save();
+      g3Ctx.fillStyle = isLight ? '#f0f2f5' : '#1c202a';
+      g3Ctx.beginPath();
+      g3Ctx.arc(G3W / 2, G3H / 2, snugRadius, 0, Math.PI * 2);
+      g3Ctx.fill();
+      g3Ctx.strokeStyle = isSurface ? '#38bdf8' : (isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.06)');
+      g3Ctx.lineWidth = isSurface ? 2 : 1;
+      g3Ctx.stroke();
+
+      // Outer Touch Rotation Bezel Track in Surface Mode
+      if (isSurface) {
+        g3Ctx.strokeStyle = 'rgba(56, 189, 248, 0.28)';
+        g3Ctx.lineWidth = 1;
+        g3Ctx.setLineDash([3, 4]);
+        g3Ctx.beginPath();
+        g3Ctx.arc(G3W / 2, G3H / 2, snugRadius - 4, 0, Math.PI * 2);
+        g3Ctx.stroke();
+        g3Ctx.setLineDash([]);
+
+        // Left / Right Banking & Skew Arc Highlights
+        g3Ctx.strokeStyle = '#38bdf8';
+        g3Ctx.lineWidth = 2.4;
+        g3Ctx.beginPath();
+        g3Ctx.arc(G3W / 2, G3H / 2, snugRadius - 4, Math.PI * 0.85, Math.PI * 1.15);
+        g3Ctx.stroke();
+        g3Ctx.beginPath();
+        g3Ctx.arc(G3W / 2, G3H / 2, snugRadius - 4, -Math.PI * 0.15, Math.PI * 0.15);
+        g3Ctx.stroke();
+      }
+      g3Ctx.restore();
+
+      // Axis Arms Projection
+      let projected;
+      if (isSurface) {
+        // Project local axes rotated by plane quaternion
+        const planeEuler = new THREE.Euler(
+          THREE.MathUtils.degToRad(planeState.pitch),
+          THREE.MathUtils.degToRad(planeState.yaw),
+          THREE.MathUtils.degToRad(planeState.roll),
+          'YXZ'
+        );
+        const planeQuat = new THREE.Quaternion().setFromEuler(planeEuler);
+
+        projected = AXES.map((ax, i) => {
+          const v = new THREE.Vector3(ax.dir[0], ax.dir[1], ax.dir[2]).applyQuaternion(planeQuat);
+          const p = projectDir(v.x, v.y, v.z, G3W, G3H, G3_ARM);
+          return { ax, i, p, depth: p.depth };
+        }).sort((a, b) => a.depth - b.depth);
+      } else {
+        projected = AXES.map((ax, i) => {
+          const p = projectDir(ax.dir[0], ax.dir[1], ax.dir[2], G3W, G3H, G3_ARM);
+          return { ax, i, p, depth: p.depth };
+        }).sort((a, b) => a.depth - b.depth);
+      }
+
+      // Draw Axis Lines
+      projected.forEach(({ ax, i, p, depth }) => {
+        const isFront = depth >= -0.05;
+        g3Ctx.save();
+        g3Ctx.strokeStyle = isFront ? ax.col : (isLight ? 'rgba(0,0,0,0.22)' : 'rgba(255, 255, 255, 0.18)');
+        g3Ctx.lineWidth = isFront ? 2.4 : 1.2;
+        if (!isFront) g3Ctx.setLineDash([2, 2]);
+        g3Ctx.beginPath();
+        g3Ctx.moveTo(G3W / 2, G3H / 2);
+        g3Ctx.lineTo(p.x, p.y);
+        g3Ctx.stroke();
+        g3Ctx.restore();
+      });
+
+      // Draw Center Hub & Resting Dead Zone (R=14px)
+      g3Ctx.save();
+      g3Ctx.strokeStyle = isSurface
+        ? (isLight ? 'rgba(56, 189, 248, 0.35)' : 'rgba(56, 189, 248, 0.28)')
+        : (isLight ? 'rgba(0, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.15)');
+      g3Ctx.lineWidth = 1;
+      g3Ctx.setLineDash([2, 3]);
+      g3Ctx.beginPath();
+      g3Ctx.arc(G3W / 2, G3H / 2, 14, 0, Math.PI * 2);
+      g3Ctx.stroke();
+      g3Ctx.setLineDash([]);
+
+      // Center Reference Anchor Dot
+      g3Ctx.fillStyle = isSurface ? '#38bdf8' : (isLight ? 'rgba(0,0,0,0.5)' : 'rgba(255, 255, 255, 0.6)');
+      g3Ctx.beginPath();
+      g3Ctx.arc(G3W / 2, G3H / 2, 2.5, 0, Math.PI * 2);
+      g3Ctx.fill();
+      g3Ctx.restore();
+
+      // Draw Axis Handles / Pointers with Strict Depth Cues & Proximity Magnification
+      projected.forEach(({ ax, i, p, depth }) => {
+        const isFront = depth >= -0.05;
+        const isHov = hovAxis3 === i;
+
+        g3Ctx.save();
+
+        if (isSurface) {
+          // ── SURFACE MODE HANDLES ──
+          if (ax.lbl === 'Y') {
+            // UP Cone / Triangle Pointer for Elevation Up
+            // Strict Depth Cues: Foreground is prominent; background is small & faded
+            const baseTri = G3_DOT * (isFront ? (isHov ? 1.55 : 1.3) : 0.65);
+            g3Ctx.beginPath();
+            g3Ctx.moveTo(p.x, p.y - baseTri);
+            g3Ctx.lineTo(p.x - baseTri * 0.85, p.y + baseTri * 0.65);
+            g3Ctx.lineTo(p.x + baseTri * 0.85, p.y + baseTri * 0.65);
+            g3Ctx.closePath();
+
+            if (isFront) {
+              g3Ctx.fillStyle = '#38bdf8';
+              g3Ctx.fill();
+              g3Ctx.strokeStyle = '#ffffff';
+              g3Ctx.lineWidth = isHov ? 2.4 : 1.6;
+              g3Ctx.stroke();
+
+              g3Ctx.fillStyle = '#ffffff';
+              g3Ctx.font = 'bold ' + (isHov ? '8.5px ' : '7.5px ') + getComputedStyle(document.body).fontFamily;
+              g3Ctx.textAlign = 'center';
+              g3Ctx.textBaseline = 'middle';
+              g3Ctx.fillText('Up', p.x, p.y + baseTri * 0.1);
+            } else {
+              // Dim background cue
+              g3Ctx.fillStyle = isLight ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.18)';
+              g3Ctx.fill();
+            }
+          } else if (ax.lbl === '-Y') {
+            // DOWN Cone / Triangle Pointer for Elevation Down
+            const baseTri = G3_DOT * (isFront ? (isHov ? 1.55 : 1.3) : 0.65);
+            g3Ctx.beginPath();
+            g3Ctx.moveTo(p.x, p.y + baseTri);
+            g3Ctx.lineTo(p.x - baseTri * 0.85, p.y - baseTri * 0.65);
+            g3Ctx.lineTo(p.x + baseTri * 0.85, p.y - baseTri * 0.65);
+            g3Ctx.closePath();
+
+            if (isFront) {
+              g3Ctx.fillStyle = '#475569';
+              g3Ctx.fill();
+              g3Ctx.strokeStyle = isHov ? '#ffffff' : (isLight ? '#0f172a' : '#94a3b8');
+              g3Ctx.lineWidth = isHov ? 2.4 : 1.5;
+              g3Ctx.stroke();
+
+              g3Ctx.fillStyle = '#ffffff';
+              g3Ctx.font = 'bold ' + (isHov ? '8px ' : '7px ') + getComputedStyle(document.body).fontFamily;
+              g3Ctx.textAlign = 'center';
+              g3Ctx.textBaseline = 'middle';
+              g3Ctx.fillText('Dn', p.x, p.y - baseTri * 0.1);
+            } else {
+              // Dim background cue
+              g3Ctx.fillStyle = isLight ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.18)';
+              g3Ctx.fill();
+            }
+          } else {
+            // Standard Lateral Handles (X, -X, Z, -Z)
+            // Strict Depth Cues: Background is 52% scale and low opacity
+            const dotR = G3_DOT * (isFront ? (isHov ? 1.38 : 1.05) : 0.52);
+            g3Ctx.beginPath();
+            g3Ctx.arc(p.x, p.y, dotR, 0, Math.PI * 2);
+
+            if (isFront) {
+              g3Ctx.fillStyle = ax.col;
+              g3Ctx.fill();
+              if (isHov) {
+                g3Ctx.strokeStyle = '#ffffff';
+                g3Ctx.lineWidth = 2.6;
+                g3Ctx.stroke();
+              }
+              g3Ctx.fillStyle = '#ffffff';
+              g3Ctx.font = 'bold ' + (isHov ? '9.5px ' : '8px ') + getComputedStyle(document.body).fontFamily;
+              g3Ctx.textAlign = 'center';
+              g3Ctx.textBaseline = 'middle';
+              g3Ctx.fillText(ax.lbl, p.x, p.y + 0.5);
+            } else {
+              // Faded background sphere (no text collision)
+              g3Ctx.fillStyle = isLight ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.18)';
+              g3Ctx.fill();
+            }
+          }
+        } else {
+          // ── CAMERA MODE SPHERES ──
+          const dotR = G3_DOT * (isFront ? (isHov ? 1.38 : 1.05) : 0.52);
+          g3Ctx.beginPath();
+          g3Ctx.arc(p.x, p.y, dotR, 0, Math.PI * 2);
+
+          if (isFront) {
+            g3Ctx.fillStyle = ax.col;
+            g3Ctx.fill();
+            if (isHov) {
+              g3Ctx.strokeStyle = '#ffffff';
+              g3Ctx.lineWidth = 2.6;
+              g3Ctx.stroke();
+            }
+            g3Ctx.fillStyle = '#ffffff';
+            g3Ctx.font = 'bold ' + (isHov ? '9.5px ' : '8.5px ') + getComputedStyle(document.body).fontFamily;
+            g3Ctx.textAlign = 'center';
+            g3Ctx.textBaseline = 'middle';
+            g3Ctx.fillText(ax.lbl, p.x, p.y + 0.5);
+          } else {
+            g3Ctx.fillStyle = isLight ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.18)';
+            g3Ctx.fill();
+          }
+        }
+
+        g3Ctx.restore();
+      });
+    }
+
+    let isG3Dragging = false, g3StartX = 0, g3StartY = 0, g3Moved = false;
+    let g3OrigPitch = 0, g3OrigYaw = 0, g3OrigRoll = 0, g3OrigElev = 0, g3OrigX = 0, g3OrigZ = 0;
+    let g3StartAngle = 0;
+    const hintBar3 = document.getElementById('c3-hint-bar');
+
+    function resetHintBar3() {
+      if (!hintBar3) return;
+      hintBar3.classList.remove('active');
+      if (c3Mode === 'surface') {
+        hintBar3.textContent = 'Sphere: Trackball | Center: Rest | Cones: Elev | Rim: Spin';
+      } else {
+        hintBar3.textContent = 'Sphere: Orbit Camera | Dots: Snap Perspective';
+      }
+    }
+
+    g3Canvas.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      isG3Dragging = true; g3Moved = false;
+      const r = g3Canvas.getBoundingClientRect();
+      const G3W = g3Canvas.width, G3H = g3Canvas.height;
+      g3StartX = (e.clientX - r.left) * (G3W / r.width);
+      g3StartY = (e.clientY - r.top) * (G3H / r.height);
+      g3OrigPitch = planeState.pitch;
+      g3OrigYaw = planeState.yaw;
+      g3OrigRoll = planeState.roll;
+      g3OrigElev = planeState.y;
+      g3OrigX = planeState.x;
+      g3OrigZ = planeState.z;
+      g3StartAngle = Math.atan2(g3StartY - G3H / 2, g3StartX - G3W / 2);
+
+      function hitAxisHelper3(mx, my, GW, GH, G_ARM, G_DOT) {
+        let best = -1, bestD = Infinity;
+        let planeQuat = null;
+        if (c3Mode === 'surface') {
+          const planeEuler = new THREE.Euler(
+            THREE.MathUtils.degToRad(planeState.pitch),
+            THREE.MathUtils.degToRad(planeState.yaw),
+            THREE.MathUtils.degToRad(planeState.roll),
+            'YXZ'
+          );
+          planeQuat = new THREE.Quaternion().setFromEuler(planeEuler);
+        }
+
+        AXES.forEach((ax, i) => {
+          let p;
+          if (planeQuat) {
+            const v = new THREE.Vector3(ax.dir[0], ax.dir[1], ax.dir[2]).applyQuaternion(planeQuat);
+            p = projectDir(v.x, v.y, v.z, GW, GH, G_ARM);
+          } else {
+            p = projectDir(ax.dir[0], ax.dir[1], ax.dir[2], GW, GH, G_ARM);
+          }
+          const d = Math.hypot(mx - p.x, my - p.y);
+          const isFront = p.depth >= -0.05;
+          const threshold = isFront ? G_DOT * 2.2 : G_DOT * 1.1;
+          if (d < threshold) {
+            const weight = isFront ? d : d + 100;
+            if (weight < bestD) {
+              bestD = weight;
+              best = i;
+            }
+          }
+        });
+        return best;
+      }
+
+      if (c3Mode === 'surface') {
+        const G3_ARM = G3W * 0.36, G3_DOT = G3W * 0.095;
+        const hit = hitAxisHelper3(g3StartX, g3StartY, G3W, G3H, G3_ARM, G3_DOT);
+        const distFromCenter = Math.hypot(g3StartX - G3W / 2, g3StartY - G3H / 2);
+        const isSideRim = distFromCenter >= G3W * 0.36 && Math.abs(g3StartX - G3W / 2) > Math.abs(g3StartY - G3H / 2) * 1.4;
+
+        if (distFromCenter <= 14) {
+          // Center Resting Thumb Dead-Zone (Absorbs micro-jitter)
+          g3Action = 'deadzone-trackball';
+        } else if (hit > -1 && (AXES[hit].lbl === 'Y' || AXES[hit].lbl === '-Y')) {
+          // Direct Elevation Cone Pull
+          g3Action = 'elev';
+        } else if (isSideRim && distFromCenter >= G3W * 0.38) {
+          // Lateral Rim Skew / Roll Drag
+          g3Action = 'roll-skew';
+        } else if (distFromCenter >= G3W * 0.44 && distFromCenter <= G3W * 0.54) {
+          // Tangential Outer Rim Dial Rotation
+          g3Action = 'rim-dial';
+        } else {
+          // Entire Sphere acts as a physical 3D continuous trackball
+          g3Action = 'trackball';
+        }
+      } else {
+        g3Action = 'camera-orbit';
+      }
+
+      g3Canvas.setPointerCapture(e.pointerId);
+    });
+
+    g3Canvas.addEventListener('pointermove', (e) => {
+      const r = g3Canvas.getBoundingClientRect();
+      const G3W = g3Canvas.width, G3H = g3Canvas.height;
+      const mx = (e.clientX - r.left) * (G3W / r.width);
+      const my = (e.clientY - r.top) * (G3H / r.height);
+
+      if (isG3Dragging) {
+        const dx = mx - g3StartX, dy = my - g3StartY;
+        const dragDist = Math.hypot(dx, dy);
+        if (dragDist > 2) g3Moved = true;
+
+        if (c3Mode === 'surface') {
+          if (hintBar3) hintBar3.classList.add('active');
+
+          if (g3Action === 'deadzone-trackball') {
+            // Thumb dead-zone: ignore micro-jitter under 4.5px
+            if (dragDist >= 4.5) {
+              const effDx = dx - (dx / dragDist) * 4.5;
+              const effDy = dy - (dy / dragDist) * 4.5;
+              planeState.yaw = g3OrigYaw + effDx * 0.45;
+              planeState.pitch = Math.max(-90, Math.min(90, g3OrigPitch - effDy * 0.45));
+              if (hintBar3) hintBar3.textContent = 'Trackball: Pitch ' + Math.round(planeState.pitch) + '°, Yaw ' + Math.round(planeState.yaw) + '°';
+              updatePlaneTransform();
+            }
+          } else if (g3Action === 'elev') {
+            // Dragging Y Cones directly pulls elevation Up/Down
+            planeState.y = Math.max(-4, Math.min(6, g3OrigElev - (dy / (G3H * 0.35)) * 1.8));
+            if (hintBar3) hintBar3.textContent = 'Elevating: ' + (planeState.y >= 0 ? '+' : '') + planeState.y.toFixed(2) + 'm';
+            updatePlaneTransform();
+          } else if (g3Action === 'roll-skew') {
+            // Dragging side rim rolls / skews the plane sideways
+            const sign = g3StartX > G3W / 2 ? 1 : -1;
+            planeState.roll = g3OrigRoll + (dy / (G3H * 0.35)) * 90 * sign;
+            if (hintBar3) hintBar3.textContent = 'Banking / Skew: ' + Math.round(planeState.roll) + '°';
+            updatePlaneTransform();
+          } else if (g3Action === 'rim-dial') {
+            // Tangential perimeter spin (Yaw)
+            const curAngle = Math.atan2(my - G3H / 2, mx - G3W / 2);
+            let deltaAngle = curAngle - g3StartAngle;
+            while (deltaAngle > Math.PI) deltaAngle -= Math.PI * 2;
+            while (deltaAngle < -Math.PI) deltaAngle += Math.PI * 2;
+            planeState.yaw = g3OrigYaw + THREE.MathUtils.radToDeg(deltaAngle);
+            if (hintBar3) hintBar3.textContent = 'Spinning Yaw: ' + Math.round(planeState.yaw) + '°';
+            updatePlaneTransform();
+          } else {
+            // Full Sphere 3D Trackball Rotation
+            planeState.yaw = g3OrigYaw + dx * 0.45;
+            planeState.pitch = Math.max(-90, Math.min(90, g3OrigPitch - dy * 0.45));
+            if (hintBar3) hintBar3.textContent = 'Trackball: Pitch ' + Math.round(planeState.pitch) + '°, Yaw ' + Math.round(planeState.yaw) + '°';
+            updatePlaneTransform();
+          }
+        } else {
+          // Camera Orbit
+          g3StartX = mx; g3StartY = my;
+          camState.theta -= dx * 0.007;
+          camState.phi = Math.max(0.05, Math.min(Math.PI - 0.05, camState.phi - dy * 0.007));
+          if (hintBar3) {
+            hintBar3.classList.add('active');
+            hintBar3.textContent = 'Orbiting Camera View';
+          }
+          updateCamera();
+        }
+      } else {
+        const G3_ARM = G3W * 0.36, G3_DOT = G3W * 0.095;
+        const hit = hitAxisHelper3(mx, my, G3W, G3H, G3_ARM, G3_DOT);
+        if (hit !== hovAxis3) {
+          hovAxis3 = hit;
+          drawGimbal3();
+        }
+      }
+    });
+
+    g3Canvas.addEventListener('pointerleave', () => {
+      if (!isG3Dragging && hovAxis3 !== -1) {
+        hovAxis3 = -1;
+        drawGimbal3();
+      }
+    });
+
+    g3Canvas.addEventListener('pointerup', (e) => {
+      if (isG3Dragging) {
+        const r = g3Canvas.getBoundingClientRect();
+        const G3W = g3Canvas.width, G3H = g3Canvas.height;
+        const G3_ARM = G3W * 0.36, G3_DOT = G3W * 0.095;
+        const mx = (e.clientX - r.left) * (G3W / r.width);
+        const my = (e.clientY - r.top) * (G3H / r.height);
+
+        if (!g3Moved) {
+          const hit = hitAxisHelper3(mx, my, G3W, G3H, G3_ARM, G3_DOT);
+          if (hit > -1) {
+            const targetAx = AXES[hit];
+            if (c3Mode === 'surface') {
+              if (targetAx.lbl === 'Y') { planeState.pitch = 0; planeState.yaw = 0; planeState.roll = 0; }
+              else if (targetAx.lbl === '-Y') { planeState.pitch = 180; planeState.yaw = 0; planeState.roll = 0; }
+              else if (targetAx.lbl === 'Z') { planeState.pitch = 90; planeState.yaw = 0; planeState.roll = 0; }
+              else if (targetAx.lbl === '-Z') { planeState.pitch = -90; planeState.yaw = 180; planeState.roll = 0; }
+              else if (targetAx.lbl === 'X') { planeState.pitch = 90; planeState.yaw = -90; planeState.roll = 0; }
+              else if (targetAx.lbl === '-X') { planeState.pitch = 90; planeState.yaw = 90; planeState.roll = 0; }
+              updatePlaneTransform();
+              toast('Surface Snapped: ' + targetAx.name);
+            } else {
+              camState.phi = targetAx.snapPhi;
+              camState.theta = targetAx.snapTheta;
+              updateCamera();
+              toast('Snap View: ' + targetAx.name);
+            }
+          }
+        }
+        isG3Dragging = false;
+        try { g3Canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+      }
+      resetHintBar3();
+      drawGimbal3();
+    });
+
+    // Controller Button Event Handlers
+    const btnC3Mode = document.getElementById('c3-btn-mode-toggle');
+    const txtC3Mode = document.getElementById('c3-mode-text');
+    const cardC3 = document.getElementById('card-controller-3');
+    if (btnC3Mode) {
+      btnC3Mode.addEventListener('click', () => {
+        c3Mode = c3Mode === 'surface' ? 'cam' : 'surface';
+        cardC3.classList.toggle('surface-mode', c3Mode === 'surface');
+        txtC3Mode.textContent = c3Mode === 'surface' ? 'Gizmo: Surface' : 'Gizmo: Camera';
+        resetHintBar3();
+        drawGimbal3();
+        toast(c3Mode === 'surface' ? 'Multi-Purpose Gizmo: Pull Up/Dn for Elev, Drag Rim to Orient' : 'Gizmo Locked: Camera Orbit');
+      });
+    }
+
+    const resetBtn3 = document.getElementById('fc-reset-btn-3');
+    if (resetBtn3) {
+      resetBtn3.addEventListener('click', () => {
+        if (c3Mode === 'surface') {
+          planeState.x = 0; planeState.y = 0; planeState.z = 0;
+          planeState.pitch = 0; planeState.yaw = 0; planeState.roll = 0;
+          updatePlaneTransform();
+          toast('Surface Reset');
+        } else {
+          camState.radius = 10; camState.theta = 0.85; camState.phi = 1.05;
+          updateCamera();
+          toast('Camera Reset');
+        }
+      });
+    }
+
+    const c3Align = document.getElementById('c3-btn-align');
+    if (c3Align) {
+      c3Align.addEventListener('click', () => {
+        camState.phi = Math.PI / 2 - THREE.MathUtils.degToRad(planeState.pitch);
+        camState.theta = THREE.MathUtils.degToRad(planeState.yaw);
+        updateCamera();
+        toast('Camera Aligned to Plane');
+      });
+    }
+    const c3Ground = document.getElementById('c3-btn-ground');
+    if (c3Ground) {
+      c3Ground.addEventListener('click', () => {
+        planeState.pitch = 0; planeState.roll = 0; planeState.yaw = 0;
+        updatePlaneTransform();
+        toast('Preset: Ground');
+      });
+    }
+    const c3Wall = document.getElementById('c3-btn-wall');
+    if (c3Wall) {
+      c3Wall.addEventListener('click', () => {
+        planeState.pitch = 90; planeState.roll = 0;
+        updatePlaneTransform();
+        toast('Preset: Wall');
+      });
+    }
+    const c3Slant = document.getElementById('c3-btn-45slant');
+    if (c3Slant) {
+      c3Slant.addEventListener('click', () => {
+        planeState.pitch = 45; planeState.roll = 0;
+        updatePlaneTransform();
+        toast('Preset: 45° Slant');
+      });
+    }
+
+    // ── 7. Controller 1 Event Wiring ──
+    const switchPill1 = document.getElementById('switch-pill-1');
+    const c1PanelNav = document.getElementById('c1-panel-nav');
+    const c1PanelGizmo = document.getElementById('c1-panel-gizmo');
+    let c1IsSurface = false;
+
+    switchPill1.addEventListener('click', () => {
+      c1IsSurface = !c1IsSurface;
+      switchPill1.classList.toggle('surface-active', c1IsSurface);
+      c1PanelNav.classList.toggle('active', !c1IsSurface);
+      c1PanelGizmo.classList.toggle('active', c1IsSurface);
+      if (!c1IsSurface) drawGimbal1();
+      toast(c1IsSurface ? 'C1: Surface Mode' : 'C1: Camera Mode');
+    });
+
+    document.getElementById('fc-reset-btn-1').addEventListener('click', () => {
+      if (c1IsSurface) {
+        planeState.x = 0; planeState.y = 0; planeState.z = 0;
+        planeState.pitch = 0; planeState.yaw = 0; planeState.roll = 0;
+        updatePlaneTransform();
+        toast('Plane Reset');
+      } else {
+        camState.radius = 10; camState.theta = 0.85; camState.phi = 1.05;
+        updateCamera();
+        toast('Camera Reset');
+      }
+    });
+
+    // Move Pad 1
+    const pad1 = document.getElementById('pad-plane-move-1');
+    const knob1 = document.getElementById('knob-plane-move-1');
+    let isMove1 = false, startP1X = 0, startP1Y = 0, originP1X = 0, originP1Z = 0;
+
+    pad1.addEventListener('pointerdown', (e) => {
+      e.stopPropagation(); isMove1 = true;
+      startP1X = e.clientX; startP1Y = e.clientY;
+      originP1X = planeState.x; originP1Z = planeState.z;
+      pad1.setPointerCapture(e.pointerId);
+    });
+    pad1.addEventListener('pointermove', (e) => {
+      if (!isMove1) return;
+      const r = pad1.getBoundingClientRect();
+      const maxR = Math.max(14, r.width / 2 - 14);
+      const dx = e.clientX - startP1X, dy = e.clientY - startP1Y;
+      const dist = Math.hypot(dx, dy);
+      const clampedDist = Math.min(maxR, dist);
+      const angle = Math.atan2(dy, dx);
+      knob1.style.transform = `translate(${Math.cos(angle) * clampedDist}px, ${Math.sin(angle) * clampedDist}px)`;
+      
+      const norm = clampedDist / maxR;
+      const power = Math.pow(norm, 1.2) * 2.0;
+      planeState.x = originP1X + Math.cos(angle) * power;
+      planeState.z = originP1Z + Math.sin(angle) * power;
+      updatePlaneTransform();
+    });
+    pad1.addEventListener('pointerup', (e) => {
+      isMove1 = false;
+      try { pad1.releasePointerCapture(e.pointerId); } catch (_) {}
+      knob1.style.transform = 'translate(0, 0)';
+    });
+
+    // Relative Tilt Slider 1
+    const railTilt1 = document.getElementById('rail-plane-tilt-1');
+    const knobTilt1 = document.getElementById('knob-plane-tilt-1');
+    let isTilt1 = false, startTilt1Y = 0, origPitch1 = 0;
+    railTilt1.addEventListener('pointerdown', (e) => {
+      isTilt1 = true;
+      startTilt1Y = e.clientY;
+      origPitch1 = planeState.pitch;
+      railTilt1.setPointerCapture(e.pointerId);
+    });
+    railTilt1.addEventListener('pointermove', (e) => {
+      if (!isTilt1) return;
+      const r = railTilt1.getBoundingClientRect();
+      const travel = Math.max(30, r.height * 0.7);
+      const deltaY = e.clientY - startTilt1Y;
+      planeState.pitch = Math.max(-90, Math.min(90, origPitch1 - (deltaY / travel) * 55));
+      const norm = Math.max(-1, Math.min(1, planeState.pitch / 90));
+      knobTilt1.style.top = `calc(50% - 9px - ${norm * (r.height / 2 - 12)}px)`;
+      updatePlaneTransform();
+    });
+    railTilt1.addEventListener('pointerup', (e) => {
+      isTilt1 = false;
+      try { railTilt1.releasePointerCapture(e.pointerId); } catch (_) {}
+    });
+
+    // Relative Elev Slider 1
+    const railElev1 = document.getElementById('rail-plane-elev-1');
+    const knobElev1 = document.getElementById('knob-plane-elev-1');
+    let isElev1 = false, startElev1Y = 0, origElev1 = 0;
+    railElev1.addEventListener('pointerdown', (e) => {
+      isElev1 = true;
+      startElev1Y = e.clientY;
+      origElev1 = planeState.y;
+      railElev1.setPointerCapture(e.pointerId);
+    });
+    railElev1.addEventListener('pointermove', (e) => {
+      if (!isElev1) return;
+      const r = railElev1.getBoundingClientRect();
+      const travel = Math.max(30, r.height * 0.7);
+      const deltaY = e.clientY - startElev1Y;
+      planeState.y = Math.max(-4, Math.min(6, origElev1 - (deltaY / travel) * 2.5));
+      const norm = Math.max(-1, Math.min(1, planeState.y / 4.0));
+      knobElev1.style.top = `calc(50% - 9px - ${norm * (r.height / 2 - 12)}px)`;
+      updatePlaneTransform();
+    });
+    railElev1.addEventListener('pointerup', (e) => {
+      isElev1 = false;
+      try { railElev1.releasePointerCapture(e.pointerId); } catch (_) {}
+    });
+
+    // Yaw Strip 1
+    const spin1 = document.getElementById('track-spin-yaw-1');
+    let isSpin1 = false, startS1X = 0, origYaw1 = 0;
+    spin1.addEventListener('pointerdown', (e) => { isSpin1 = true; startS1X = e.clientX; origYaw1 = planeState.yaw; spin1.setPointerCapture(e.pointerId); });
+    spin1.addEventListener('pointermove', (e) => {
+      if (!isSpin1) return;
+      planeState.yaw = origYaw1 + (e.clientX - startS1X) * 0.45;
+      updatePlaneTransform();
+    });
+    spin1.addEventListener('pointerup', (e) => { isSpin1 = false; try { spin1.releasePointerCapture(e.pointerId); } catch (_) {} });
+    document.getElementById('btn-spin-ccw-1').addEventListener('click', () => { planeState.yaw = (Math.round(planeState.yaw / 45) - 1) * 45; updatePlaneTransform(); toast('Yaw -45°'); });
+    document.getElementById('btn-spin-cw-1').addEventListener('click', () => { planeState.yaw = (Math.round(planeState.yaw / 45) + 1) * 45; updatePlaneTransform(); toast('Yaw +45°'); });
+
+    // Presets 1
+    document.getElementById('c1-preset-ground').addEventListener('click', () => { planeState.pitch = 0; planeState.roll = 0; planeState.yaw = 0; planeState.y = 0; updatePlaneTransform(); toast('Preset: Ground'); });
+    document.getElementById('c1-preset-wall').addEventListener('click', () => { planeState.pitch = 90; planeState.roll = 0; updatePlaneTransform(); toast('Preset: Wall'); });
+    document.getElementById('c1-preset-45slant').addEventListener('click', () => { planeState.pitch = 45; planeState.roll = 0; updatePlaneTransform(); toast('Preset: 45° Slant'); });
+    document.getElementById('c1-preset-align').addEventListener('click', () => {
+      camState.phi = Math.PI / 2 - THREE.MathUtils.degToRad(planeState.pitch);
+      camState.theta = THREE.MathUtils.degToRad(planeState.yaw);
+      updateCamera();
+      toast('Camera Aligned to Plane');
+    });
+    document.getElementById('c1-preset-reset').addEventListener('click', () => {
+      planeState.x = 0; planeState.y = 0; planeState.z = 0;
+      planeState.pitch = 0; planeState.yaw = 0; planeState.roll = 0;
+      updatePlaneTransform();
+      toast('Plane Reset');
+    });
+
+    // ── 8. Controller 2: Surface Activation & Side-by-Side Controls ──
+    let c2SurfaceActive = true;
+    const btnSurfToggle = document.getElementById('c2-btn-surface-toggle');
+    const toggleText = document.getElementById('c2-toggle-text');
+    const c2SurfaceCluster = document.getElementById('c2-surface-cluster');
+    const c2SurfaceActions = document.getElementById('c2-surface-actions');
+
+    btnSurfToggle.addEventListener('click', () => {
+      c2SurfaceActive = !c2SurfaceActive;
+      btnSurfToggle.classList.toggle('surface-active', c2SurfaceActive);
+      toggleText.textContent = c2SurfaceActive ? 'Surface: On' : 'Surface: Off';
+      c2SurfaceCluster.classList.toggle('disabled', !c2SurfaceActive);
+      c2SurfaceActions.classList.toggle('disabled', !c2SurfaceActive);
+      toast(c2SurfaceActive ? 'Surface Controls Active' : 'Surface Controls Muted (Cam Only)');
+    });
+
+    document.getElementById('fc-reset-btn-2').addEventListener('click', () => {
+      if (c2SurfaceActive) {
+        planeState.x = 0; planeState.y = 0; planeState.z = 0;
+        planeState.pitch = 0; planeState.yaw = 0; planeState.roll = 0;
+        updatePlaneTransform();
+        toast('Surface Reset');
+      } else {
+        camState.radius = 10; camState.theta = 0.85; camState.phi = 1.05;
+        updateCamera();
+        toast('Camera View Reset');
+      }
+    });
+
+    // Mini Move Pad 2 (Smooth Calibrated Joystick)
+    const pad2 = document.getElementById('pad-plane-move-2');
+    const knob2 = document.getElementById('knob-plane-move-2');
+    let isMove2 = false, startP2X = 0, startP2Y = 0, origP2X = 0, origP2Z = 0;
+    pad2.addEventListener('pointerdown', (e) => {
+      if (!c2SurfaceActive) return;
+      e.stopPropagation(); isMove2 = true;
+      startP2X = e.clientX; startP2Y = e.clientY;
+      origP2X = planeState.x; origP2Z = planeState.z;
+      pad2.setPointerCapture(e.pointerId);
+    });
+    pad2.addEventListener('pointermove', (e) => {
+      if (!isMove2) return;
+      const r = pad2.getBoundingClientRect();
+      const maxR = Math.max(12, r.width / 2 - 10);
+      const dx = e.clientX - startP2X, dy = e.clientY - startP2Y;
+      const dist = Math.hypot(dx, dy);
+      const clampedDist = Math.min(maxR, dist);
+      const angle = Math.atan2(dy, dx);
+      knob2.style.transform = `translate(${Math.cos(angle) * clampedDist}px, ${Math.sin(angle) * clampedDist}px)`;
+      
+      const norm = clampedDist / maxR;
+      const power = Math.pow(norm, 1.25) * 1.8;
+      planeState.x = origP2X + Math.cos(angle) * power;
+      planeState.z = origP2Z + Math.sin(angle) * power;
+      updatePlaneTransform();
+    });
+    pad2.addEventListener('pointerup', (e) => {
+      isMove2 = false;
+      try { pad2.releasePointerCapture(e.pointerId); } catch (_) {}
+      knob2.style.transform = 'translate(0, 0)';
+    });
+
+    // Relative Mini Tilt Slider 2
+    const railTilt2 = document.getElementById('rail-plane-tilt-2');
+    const knobTilt2 = document.getElementById('knob-plane-tilt-2');
+    let isTilt2 = false, startTilt2Y = 0, origPitch2 = 0;
+    railTilt2.addEventListener('pointerdown', (e) => {
+      if (!c2SurfaceActive) return;
+      e.stopPropagation(); isTilt2 = true;
+      startTilt2Y = e.clientY;
+      origPitch2 = planeState.pitch;
+      railTilt2.setPointerCapture(e.pointerId);
+    });
+    railTilt2.addEventListener('pointermove', (e) => {
+      if (!isTilt2) return;
+      const r = railTilt2.getBoundingClientRect();
+      const travel = Math.max(25, r.height * 0.7);
+      const deltaY = e.clientY - startTilt2Y;
+      planeState.pitch = Math.max(-90, Math.min(90, origPitch2 - (deltaY / travel) * 55));
+      const norm = Math.max(-1, Math.min(1, planeState.pitch / 90));
+      knobTilt2.style.top = `calc(50% - 8px - ${norm * (r.height / 2 - 9)}px)`;
+      updatePlaneTransform();
+    });
+    railTilt2.addEventListener('pointerup', (e) => {
+      isTilt2 = false;
+      try { railTilt2.releasePointerCapture(e.pointerId); } catch (_) {}
+    });
+
+    // Relative Mini Elev Slider 2
+    const railElev2 = document.getElementById('rail-plane-elev-2');
+    const knobElev2 = document.getElementById('knob-plane-elev-2');
+    let isElev2 = false, startElev2Y = 0, origElev2 = 0;
+    railElev2.addEventListener('pointerdown', (e) => {
+      if (!c2SurfaceActive) return;
+      e.stopPropagation(); isElev2 = true;
+      startElev2Y = e.clientY;
+      origElev2 = planeState.y;
+      railElev2.setPointerCapture(e.pointerId);
+    });
+    railElev2.addEventListener('pointermove', (e) => {
+      if (!isElev2) return;
+      const r = railElev2.getBoundingClientRect();
+      const travel = Math.max(25, r.height * 0.7);
+      const deltaY = e.clientY - startElev2Y;
+      planeState.y = Math.max(-4, Math.min(6, origElev2 - (deltaY / travel) * 2.5));
+      const norm = Math.max(-1, Math.min(1, planeState.y / 4.0));
+      knobElev2.style.top = `calc(50% - 8px - ${norm * (r.height / 2 - 9)}px)`;
+      updatePlaneTransform();
+    });
+    railElev2.addEventListener('pointerup', (e) => {
+      isElev2 = false;
+      try { railElev2.releasePointerCapture(e.pointerId); } catch (_) {}
+    });
+
+    // Controller Presets
+    document.getElementById('c2-btn-align').addEventListener('click', () => {
+      if (!c2SurfaceActive) return;
+      camState.phi = Math.PI / 2 - THREE.MathUtils.degToRad(planeState.pitch);
+      camState.theta = THREE.MathUtils.degToRad(planeState.yaw);
+      updateCamera();
+      toast('Camera Aligned to Plane');
+    });
+    document.getElementById('c2-btn-ground').addEventListener('click', () => {
+      if (!c2SurfaceActive) return;
+      planeState.pitch = 0; planeState.roll = 0; planeState.yaw = 0;
+      knobTilt2.style.top = 'calc(50% - 8px)';
+      knobElev2.style.top = 'calc(50% - 8px)';
+      updatePlaneTransform();
+      toast('Preset: Ground');
+    });
+    document.getElementById('c2-btn-wall').addEventListener('click', () => {
+      if (!c2SurfaceActive) return;
+      planeState.pitch = 90; planeState.roll = 0;
+      knobTilt2.style.top = 'calc(50% - 8px - 14px)';
+      updatePlaneTransform();
+      toast('Preset: Wall');
+    });
+    document.getElementById('c2-btn-45slant').addEventListener('click', () => {
+      if (!c2SurfaceActive) return;
+      planeState.pitch = 45; planeState.roll = 0;
+      knobTilt2.style.top = 'calc(50% - 8px - 7px)';
+      updatePlaneTransform();
+      toast('Preset: 45° Slant');
+    });
+
+    // Zoom Buttons
+    document.getElementById('btn-zoom-in-1').addEventListener('click', () => { camState.radius = Math.max(3, camState.radius * 0.88); updateCamera(); });
+    document.getElementById('btn-zoom-out-1').addEventListener('click', () => { camState.radius = Math.min(35, camState.radius * 1.12); updateCamera(); });
+
+    // Background & Themes
+    function setBg(col, isLight) {
+      scene.background.set(col);
+      scene.fog.color.set(col);
+      document.body.classList.toggle('theme-light', isLight);
+      drawGimbal1();
+      drawGimbal2();
+      if (typeof drawGimbal3 === 'function') drawGimbal3();
+    }
+
+    const btnWht = document.getElementById('c1-opt-wht');
+    if (btnWht) btnWht.addEventListener('click', () => setBg(0xf3f4f6, true));
+    const btnGry = document.getElementById('c1-opt-gry');
+    if (btnGry) btnGry.addEventListener('click', () => setBg(0x334155, false));
+    const btnDrk = document.getElementById('c1-opt-drk');
+    if (btnDrk) btnDrk.addEventListener('click', () => setBg(0x0d0f14, false));
+
+    const optSun1 = document.getElementById('c1-opt-sun');
+    let sunState = 0;
+    if (optSun1) {
+      optSun1.addEventListener('click', () => {
+        sunState = (sunState + 1) % 3;
+        if (sunState === 0) { dirLight.position.set(10, 16, 10); optSun1.textContent = '45°, 60°'; }
+        else if (sunState === 1) { dirLight.position.set(-12, 20, 5); optSun1.textContent = '60°, 30°'; }
+        else { dirLight.position.set(0, 24, 0); optSun1.textContent = 'Overhead'; }
+        toast('Sun: ' + optSun1.textContent);
+      });
+    }
+
+    const btnToggleGrid = document.getElementById('btn-toggle-grid');
+    btnToggleGrid.addEventListener('click', () => {
+      gridHelper.visible = !gridHelper.visible;
+      btnToggleGrid.textContent = 'Grid: ' + (gridHelper.visible ? 'On' : 'Off');
+      btnToggleGrid.classList.toggle('on', gridHelper.visible);
+    });
+
+    const btnToggleTheme = document.getElementById('btn-toggle-theme');
+    let isThemeDark = true;
+    btnToggleTheme.addEventListener('click', () => {
+      isThemeDark = !isThemeDark;
+      if (window.parent && window.parent !== window) {
+         window.parent.postMessage({ theme: isThemeDark ? 'dark' : 'light' }, '*');
+      }
+      if (isThemeDark) {
+        setBg(0x0d0f14, false);
+        btnToggleTheme.textContent = 'Theme: Dark';
+      } else {
+        setBg(0xf3f4f6, true);
+        btnToggleTheme.textContent = 'Theme: Light';
+      }
+    });
+
+    // Cross-window Message API
+    window.addEventListener('message', (e) => {
+      if (!e.data) return;
+      if (e.data.action === 'setColor' || e.data.color) {
+        const hex = e.data.color;
+        let isLight = e.data.isLight;
+        if (isLight === undefined) {
+          const c = new THREE.Color(hex);
+          const luma = 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
+          isLight = luma > 0.5;
+        }
+        setBg(new THREE.Color(hex), isLight);
+        isThemeDark = !isLight;
+        if (btnToggleTheme) btnToggleTheme.textContent = 'Theme: ' + (isThemeDark ? 'Dark' : 'Light');
+      }
+      if (e.data.action === 'setTheme' || e.data.theme) {
+        const isLight = e.data.theme === 'light';
+        isThemeDark = !isLight;
+        setBg(isLight ? 0xf3f4f6 : 0x0d0f14, isLight);
+        if (btnToggleTheme) btnToggleTheme.textContent = 'Theme: ' + (isThemeDark ? 'Dark' : 'Light');
+      }
+      if (e.data.action === 'toggleGrid') {
+        const vis = e.data.visible !== undefined ? e.data.visible : !gridHelper.visible;
+        gridHelper.visible = vis;
+        if (btnToggleGrid) {
+          btnToggleGrid.textContent = 'Grid: ' + (vis ? 'On' : 'Off');
+          btnToggleGrid.classList.toggle('on', vis);
+        }
+      }
+      if (e.data.action === 'resetView') {
+        camState.radius = 10;
+        camState.theta = 0.85;
+        camState.phi = 1.05;
+        camState.target.set(0, 0.8, 0);
+        updateCamera();
+        toast('View Reset');
+      }
+    });
+
+    // ── 9. Viewport Touch / Mouse Controls with Smooth Damping ──
+    let isVpDragging = false, vpStartX = 0, vpStartY = 0, vpStartTheta = 0, vpStartPhi = 0, vpMode = 'orbit';
+
+    canvas.addEventListener('pointerdown', (e) => {
+      isVpDragging = true;
+      vpMode = e.button === 2 || e.shiftKey ? 'pan' : 'orbit';
+      vpStartX = e.clientX; vpStartY = e.clientY;
+      vpStartTheta = camState.theta; vpStartPhi = camState.phi;
+      canvas.setPointerCapture(e.pointerId);
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+      if (!isVpDragging) return;
+      const dx = e.clientX - vpStartX, dy = e.clientY - vpStartY;
+      if (vpMode === 'orbit') {
+        // Calibrated smooth orbit
+        camState.theta = vpStartTheta - dx * 0.004;
+        camState.phi = Math.max(0.05, Math.min(Math.PI - 0.05, vpStartPhi - dy * 0.004));
+      } else {
+        const sinT = Math.sin(camState.theta), cosT = Math.cos(camState.theta);
+        const speed = camState.radius * 0.0012;
+        camState.target.x -= dx * cosT * speed;
+        camState.target.z += dx * sinT * speed;
+        camState.target.y += dy * speed;
+      }
+      updateCamera();
+    });
+
+    canvas.addEventListener('pointerup', (e) => {
+      isVpDragging = false;
+      try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+    });
+
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const factor = e.deltaY > 0 ? 1.08 : 0.92;
+      camState.radius = Math.max(2.5, Math.min(40, camState.radius * factor));
+      updateCamera();
+    }, { passive: false });
+
+    window.addEventListener('resize', () => {
+      W = window.innerWidth; H = window.innerHeight;
+      renderer.setSize(W, H);
+      camera.aspect = W / H;
+      camera.updateProjectionMatrix();
+      updateCamera();
+    });
+
+    function animate() {
+      requestAnimationFrame(animate);
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    updateCamera();
+    updatePlaneTransform();
+  </script>
+</body>
+</html>

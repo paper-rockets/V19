@@ -58,6 +58,7 @@ import { ensureGeometryLinearVertexColors, oklabMix } from './colorMath';
 import { modelExporter } from './modelExporter';
 import { modelNormalization } from './modelNormalization';
 import { resolveAssetUrl } from '../utils/assetUrl';
+import { publishCameraPose } from './telemetryStore';
 import { getQualityProfile, resolvePixelRatio, QualityProfile } from '../utils/deviceProfile';
 import { FastSurfaceRaycaster } from './FastSurfaceRaycaster';
 
@@ -2830,6 +2831,10 @@ export class StudioEngine {
     return this.drawingPlaneMesh;
   }
 
+  public getModelRoot(): THREE.Group {
+    return this.modelRoot;
+  }
+
   public toggleDrawingPlane(visible?: boolean): boolean {
     if (!this.drawingPlaneMesh) {
       this.setupDefaultDrawingPlane();
@@ -3399,11 +3404,17 @@ export class StudioEngine {
     this.markDirty();
   }
 
-  public setCameraView(theta: number, phi: number, radius?: number): void {
+  public setCameraView(theta: number, phi: number, radius?: number, instant: boolean = false): void {
     this.targetSpherical.theta = theta;
     this.targetSpherical.phi = Math.max(0.001, Math.min(Math.PI - 0.001, phi));
     if (radius !== undefined) {
       this.targetSpherical.radius = radius;
+    }
+    if (instant) {
+      this.cameraSpherical.theta = this.targetSpherical.theta;
+      this.cameraSpherical.phi = this.targetSpherical.phi;
+      if (radius !== undefined) this.cameraSpherical.radius = radius;
+      this.updateCameraPosition();
     }
     this.markDirty();
   }
@@ -3979,6 +3990,23 @@ export class StudioEngine {
       this.modelRoot.updateMatrixWorld(true);
     }
     this.markDirty();
+  }
+
+  /**
+   * Sets exact surface orientation (pitch and roll angles in degrees)
+   */
+  public setSurfaceOrientation(pitchDeg: number, rollDeg: number, scope: TransformTargetScope = 'all'): void {
+    const DEG = Math.PI / 180;
+    const plane = this.drawingPlaneMesh || (this.modelRoot.getObjectByName('DrawingPlaneCanvas') as THREE.Mesh);
+    const target = (plane && (scope === 'all' || (scope as string) === 'plane')) ? plane : this.modelRoot;
+    if (target) {
+      this.beginTransform(scope);
+      const e = new THREE.Euler().setFromQuaternion(target.quaternion, 'YXZ');
+      target.quaternion.setFromEuler(new THREE.Euler(pitchDeg * DEG, e.y, rollDeg * DEG, 'YXZ'));
+      target.updateMatrixWorld(true);
+      this.endTransform();
+      this.markDirty();
+    }
   }
 
   /**
@@ -5158,6 +5186,8 @@ export class StudioEngine {
     _cameraOffset.setFromSpherical(this.cameraSpherical);
     this.camera.position.copy(this.cameraTarget).add(_cameraOffset);
     this.camera.lookAt(this.cameraTarget);
+
+    publishCameraPose(this.cameraSpherical.radius, this.cameraSpherical.theta, this.cameraSpherical.phi);
   }
 
   private notifyHistory(): void {

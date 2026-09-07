@@ -21,7 +21,7 @@
 // The fix: name the cache after this worker's own scope plus a hand-bumped
 // version, and only evict caches carrying this same scope prefix. Bump
 // CACHE_VERSION when a release must invalidate its own old cache.
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 
 // A stable, filesystem-safe id for this deployment, derived from the worker's
 // scope path: "/PaperRocket-V16-Claude/" -> "paperrocket-v16-claude".

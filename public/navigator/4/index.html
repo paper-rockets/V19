@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>NAVIGATOR 4 - Lexical UI</title>
+  <script src="../js/three.min.js"></script>
+  <script>if (typeof THREE === 'undefined') document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>');</script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+    :root {
+      --bg: #ffffff;
+      --ink: #111111;
+      --mut: #888888;
+      --accent: #111111;
+      --font-main: "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    body.theme-light {
+      --bg: #ffffff;
+      --ink: #111111;
+      --mut: #888888;
+      --accent: #111111;
+    }
+    body.theme-dark {
+      --bg: #0a0a0a;
+      --ink: #ffffff;
+      --mut: #666666;
+      --accent: #ffffff;
+    }
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      background: var(--bg); font-family: var(--font-main); color: var(--ink);
+      touch-action: none; transition: background 0.4s ease;
+    }
+    #viewport-canvas {
+      position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 1; touch-action: none;
+    }
+
+    /* Minimalist HUD */
+    #lexical-hud {
+      position: fixed;
+      bottom: 60px;
+      left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 32px;
+      pointer-events: none;
+    }
+
+    /* Typographic Slider */
+    .typo-slider-row {
+      pointer-events: auto;
+      display: flex;
+      gap: 36px;
+      align-items: center;
+      justify-content: center;
+    }
+    .typo-slider {
+      pointer-events: auto;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--mut);
+      cursor: ew-resize;
+      padding: 16px 24px; /* Large hit area */
+      transition: color 0.2s;
+    }
+    .typo-slider:active, .typo-slider.scrubbing {
+      color: var(--ink);
+    }
+    .typo-slider .val {
+      font-weight: 300;
+      color: var(--ink);
+      display: inline-block;
+      width: 60px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Typographic Toggles */
+    .typo-group {
+      pointer-events: auto;
+      display: flex;
+      gap: 32px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 3px;
+      color: var(--mut);
+    }
+    .typo-btn {
+      cursor: pointer;
+      padding: 10px;
+      transition: color 0.2s, transform 0.1s;
+    }
+    .typo-btn:active {
+      transform: scale(0.95);
+    }
+    .typo-btn.active {
+      color: var(--ink);
+    }
+    
+    /* Top Right Tools */
+    #top-right {
+      position: fixed; top: 30px; right: 30px; z-index: 100;
+      pointer-events: auto;
+      font-size: 11px; font-weight: 600; letter-spacing: 2px; color: var(--mut);
+      cursor: pointer;
+    }
+    #top-right:active { color: var(--ink); }
+
+    /* Crosshair for dead center */
+    #crosshair {
+      position: fixed; top: 50%; left: 50%; width: 2px; height: 2px;
+      background: var(--ink); opacity: 0.2; border-radius: 50%;
+      transform: translate(-50%, -50%); z-index: 10; pointer-events: none;
+    }
+  </style>
+</head>
+<body class="theme-light">
+
+  <canvas id="viewport-canvas"></canvas>
+  <div id="crosshair"></div>
+
+  <div id="top-right">INVERT</div>
+
+  <div id="lexical-hud">
+    <div class="typo-group" id="align-group">
+      <div class="typo-btn" data-action="cam-reset">CAMERA RESET</div>
+      <div style="width:20px;"></div> <!-- Spacer -->
+      <div class="typo-btn" data-axis="x">PLANE X</div>
+      <div class="typo-btn active" data-axis="y">PLANE Y</div>
+      <div class="typo-btn" data-axis="z">PLANE Z</div>
+      <div class="typo-btn" data-mode="axis-rotate" id="btn-axis-rotate">ROTATE ON AXIS</div>
+    </div>
+    <div class="typo-slider-row">
+      <div class="typo-slider" id="elev-slider" title="Drag left/right to slide height elevation, double-click to reset">
+        ELEVATION <span class="val" id="elev-val">0.0</span>
+      </div>
+      <div class="typo-slider" id="rot-slider" title="Drag left/right to rotate plane on its axis, double-click to reset">
+        ROTATION <span class="val" id="rot-val">0°</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- THREE.JS SCENE SETUP ---
+    const canvas = document.getElementById('viewport-canvas');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+
+    const scene = new THREE.Scene();
+    
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(15, 20, 25);
+    camera.lookAt(0, 0, 0);
+
+    // 1. Fixed World Ground Floor (Subtle Reference Grid at Y = 0)
+    const worldFloor = new THREE.GridHelper(60, 30, 0x000000, 0xcccccc);
+    worldFloor.position.y = -0.01;
+    worldFloor.material.opacity = 0.15;
+    worldFloor.material.transparent = true;
+    scene.add(worldFloor);
+
+    // 2. The Drawing Plane Model (planeGroup -> sheetGroup)
+    const planeGroup = new THREE.Group();
+    scene.add(planeGroup);
+
+    const sheetGroup = new THREE.Group();
+    planeGroup.add(sheetGroup);
+
+    const planeSize = 16;
+    const planeGeo = new THREE.PlaneGeometry(planeSize, planeSize);
+    // PlaneGeometry is on the XY plane (normal is +Z)
+
+    // Surface face: semi-transparent drafting canvas
+    const sheetMat = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.94,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    });
+    const sheetMesh = new THREE.Mesh(planeGeo, sheetMat);
+    sheetGroup.add(sheetMesh);
+
+    // Internal drafting grid lines on the drawing sheet (rotate to XY)
+    const sheetGrid = new THREE.GridHelper(planeSize, 16, 0x000000, 0x888888);
+    sheetGrid.rotation.x = Math.PI / 2;
+    sheetGrid.position.z = 0.005;
+    sheetGrid.material.transparent = true;
+    sheetGrid.material.opacity = 0.45;
+    sheetGroup.add(sheetGrid);
+
+    // Crisp outer border marking the boundaries of the drawing sheet
+    const borderGeo = new THREE.EdgesGeometry(planeGeo);
+    const borderMat = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 });
+    const sheetBorder = new THREE.LineSegments(borderGeo, borderMat);
+    sheetBorder.position.z = 0.006;
+    sheetGroup.add(sheetBorder);
+
+    // --- STATE ---
+    let elevation = 0.0;
+    let rotationDeg = 0.0;
+    let normalAxis = 'y'; // x, y, z
+    let isRotateMode = false;
+
+    // --- CAMERA & GESTURES (Orbit/Pan/Zoom/Axis Rotate) ---
+    // A simplified orbit control for this prototype
+    let isDragging = false;
+    let lastTouchX = 0, lastTouchY = 0;
+
+    canvas.addEventListener('pointerdown', (e) => {
+      isDragging = true;
+      lastTouchX = e.clientX;
+      lastTouchY = e.clientY;
+    });
+    
+    window.addEventListener('pointermove', (e) => {
+      if (!isDragging) return;
+      if (e.pointerType === 'touch' && !e.isPrimary) return; 
+      
+      const dx = e.clientX - lastTouchX;
+      const dy = e.clientY - lastTouchY;
+      
+      if (isRotateMode) {
+        // Rotate purely on its own normal axis
+        const sensitivity = 0.5;
+        rotationDeg += dx * sensitivity;
+        updatePlane();
+      } else {
+        const angleX = dx * 0.005;
+        const angleY = dy * 0.005;
+        const pos = camera.position;
+        const radius = pos.length();
+        
+        let theta = Math.atan2(pos.x, pos.z);
+        let phi = Math.acos(pos.y / radius);
+        
+        theta -= angleX;
+        phi -= angleY;
+        phi = Math.max(0.1, Math.min(Math.PI - 0.1, phi)); // clamp
+        
+        camera.position.x = radius * Math.sin(phi) * Math.sin(theta);
+        camera.position.y = radius * Math.cos(phi);
+        camera.position.z = radius * Math.sin(phi) * Math.cos(theta);
+        camera.lookAt(0, 0, 0);
+      }
+      
+      lastTouchX = e.clientX;
+      lastTouchY = e.clientY;
+    });
+
+    window.addEventListener('pointerup', () => { isDragging = false; });
+    window.addEventListener('pointercancel', () => { isDragging = false; });
+
+    // Wheel zoom
+    canvas.addEventListener('wheel', (e) => {
+      const zoomSpeed = 0.05;
+      const dist = camera.position.length();
+      const newDist = Math.max(5, Math.min(100, dist + e.deltaY * zoomSpeed));
+      camera.position.setLength(newDist);
+    });
+
+
+    // --- LEXICAL UI LOGIC ---
+
+    // 1. Elevation Typographic Slider
+    const elevSlider = document.getElementById('elev-slider');
+    const elevVal = document.getElementById('elev-val');
+    let isScrubbing = false;
+    let scrubStartX = 0;
+    let startElevation = 0;
+
+    elevSlider.addEventListener('pointerdown', (e) => {
+      e.preventDefault(); 
+      isScrubbing = true;
+      scrubStartX = e.clientX;
+      startElevation = elevation;
+      elevSlider.classList.add('scrubbing');
+      elevSlider.setPointerCapture(e.pointerId);
+    });
+
+    elevSlider.addEventListener('pointermove', (e) => {
+      if (!isScrubbing) return;
+      const dx = e.clientX - scrubStartX;
+      const sensitivity = 0.1; 
+      elevation = startElevation + (dx * sensitivity);
+      updatePlane();
+    });
+
+    elevSlider.addEventListener('pointerup', (e) => {
+      isScrubbing = false;
+      elevSlider.classList.remove('scrubbing');
+      try { elevSlider.releasePointerCapture(e.pointerId); } catch (_) {}
+    });
+
+    elevSlider.addEventListener('dblclick', () => {
+      elevation = 0.0;
+      updatePlane();
+    });
+
+    // 2. Rotation Typographic Slider (Rotate on Axis)
+    const rotSlider = document.getElementById('rot-slider');
+    const rotVal = document.getElementById('rot-val');
+    let isRotScrubbing = false;
+    let rotScrubStartX = 0;
+    let startRotation = 0;
+
+    rotSlider.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      isRotScrubbing = true;
+      rotScrubStartX = e.clientX;
+      startRotation = rotationDeg;
+      rotSlider.classList.add('scrubbing');
+      rotSlider.setPointerCapture(e.pointerId);
+    });
+
+    rotSlider.addEventListener('pointermove', (e) => {
+      if (!isRotScrubbing) return;
+      const dx = e.clientX - rotScrubStartX;
+      const sensitivity = 0.5;
+      rotationDeg = Math.round(startRotation + dx * sensitivity);
+      updatePlane();
+    });
+
+    rotSlider.addEventListener('pointerup', (e) => {
+      isRotScrubbing = false;
+      rotSlider.classList.remove('scrubbing');
+      try { rotSlider.releasePointerCapture(e.pointerId); } catch (_) {}
+    });
+
+    rotSlider.addEventListener('dblclick', () => {
+      rotationDeg = 0.0;
+      updatePlane();
+    });
+
+    // 3. Alignment Toggles & Axis Rotate Mode
+    const alignBtns = document.querySelectorAll('.typo-btn');
+    const btnAxisRotate = document.getElementById('btn-axis-rotate');
+
+    alignBtns.forEach(btn => {
+      btn.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+        const action = btn.getAttribute('data-action');
+        if (action === 'cam-reset') {
+          camera.position.set(15, 20, 25);
+          camera.lookAt(0, 0, 0);
+          return;
+        }
+
+        const mode = btn.getAttribute('data-mode');
+        if (mode === 'axis-rotate') {
+          isRotateMode = !isRotateMode;
+          btn.classList.toggle('active', isRotateMode);
+          return;
+        }
+
+        const axis = btn.getAttribute('data-axis');
+        if (axis) {
+          normalAxis = axis;
+          isRotateMode = false;
+          if (btnAxisRotate) btnAxisRotate.classList.remove('active');
+          alignBtns.forEach(b => b.hasAttribute('data-axis') && b.classList.remove('active'));
+          btn.classList.add('active');
+          updatePlane();
+        }
+      });
+    });
+
+    function updatePlane() {
+      // Snap text formatting
+      elevVal.innerText = elevation.toFixed(1);
+      rotVal.innerText = Math.round(rotationDeg) + '°';
+
+      // 1. Position & Orientation
+      planeGroup.position.set(0, 0, 0);
+      planeGroup.rotation.set(0, 0, 0);
+
+      if (normalAxis === 'y') {
+        planeGroup.rotation.x = -Math.PI / 2;
+        planeGroup.position.y = elevation;
+      } else if (normalAxis === 'x') {
+        planeGroup.rotation.y = Math.PI / 2;
+        planeGroup.position.x = elevation;
+      } else if (normalAxis === 'z') {
+        planeGroup.position.z = elevation;
+      }
+
+      // 2. Pure in-plane rotation on its own normal axis
+      sheetGroup.rotation.z = THREE.MathUtils.degToRad(rotationDeg);
+    }
+
+    // 3. Theme & Background Handling
+    function setBackgroundColor(hex, isLight) {
+      if (isLight === undefined) {
+        const c = new THREE.Color(hex);
+        const luma = 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
+        isLight = luma > 0.5;
+      }
+      document.body.classList.toggle('theme-light', isLight);
+      document.body.classList.toggle('theme-dark', !isLight);
+      scene.background = new THREE.Color(hex);
+
+      if (isLight) {
+        worldFloor.material.color.setHex(0x000000);
+        worldFloor.material.opacity = 0.12;
+        sheetMat.color.setHex(0xffffff);
+        sheetMat.opacity = 0.94;
+        sheetGrid.material.color.setHex(0x222222);
+        sheetGrid.material.opacity = 0.45;
+        borderMat.color.setHex(0x000000);
+      } else {
+        worldFloor.material.color.setHex(0xffffff);
+        worldFloor.material.opacity = 0.12;
+        sheetMat.color.setHex(0x161a22);
+        sheetMat.opacity = 0.88;
+        sheetGrid.material.color.setHex(0xffffff);
+        sheetGrid.material.opacity = 0.35;
+        borderMat.color.setHex(0xffffff);
+      }
+
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ theme: isLight ? 'light' : 'dark' }, '*');
+      }
+    }
+
+    const themeBtn = document.getElementById('top-right');
+    if (window.parent && window.parent !== window) {
+      if (themeBtn) themeBtn.style.display = 'none';
+    }
+    if (themeBtn) {
+      themeBtn.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+        const isCurrentlyLight = document.body.classList.contains('theme-light');
+        setBackgroundColor(isCurrentlyLight ? '#0a0a0a' : '#ffffff', !isCurrentlyLight);
+      });
+    }
+    
+    // Cross-window Message API
+    window.addEventListener('message', (e) => {
+      if (!e.data) return;
+      if (e.data.action === 'setColor' || e.data.color) {
+        setBackgroundColor(e.data.color, e.data.isLight);
+      }
+      if (e.data.action === 'setTheme' || e.data.theme) {
+        const isLight = e.data.theme === 'light';
+        setBackgroundColor(isLight ? '#ffffff' : '#0a0a0a', isLight);
+      }
+      if (e.data.action === 'toggleGrid') {
+        const vis = e.data.visible !== undefined ? e.data.visible : !worldFloor.visible;
+        worldFloor.visible = vis;
+      }
+      if (e.data.action === 'resetView') {
+        camera.position.set(15, 20, 25);
+        camera.lookAt(0, 0, 0);
+      }
+    });
+
+    // Init theme bg to white
+    setBackgroundColor('#ffffff', true);
+
+    // --- ANIMATION LOOP ---
+    function animate() {
+      requestAnimationFrame(animate);
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // --- RESIZE ---
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+  </script>
+</body>
+</html>
